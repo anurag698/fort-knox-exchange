@@ -6,9 +6,11 @@ class OneInchConfig {
   private readonly baseUrls: { [chainId: number]: string };
 
   constructor() {
-    this.apiKey = process.env.ONEINCH_API_KEY || 'n7vYfn4JWkisRdkbfycph7OLW36YWp4l';
+    this.apiKey = process.env.ONEINCH_API_KEY as string;
     if (!this.apiKey) {
-      console.warn('1inch API key not found. Please set ONEINCH_API_KEY in your .env file.');
+        // Fallback for demonstration purposes, but warn in a real app.
+        this.apiKey = 'n7vYfn4JWkisRdkbfycph7OLW36YWp4l'; 
+        console.warn('1inch API key not found. Using a default key. Please set ONEINCH_API_KEY in your .env file for production.');
     }
     
     this.baseUrls = {
@@ -38,8 +40,9 @@ class OneInchConfig {
         if (axios.isAxiosError(error) && error.response) {
             // Log the detailed error from 1inch
             console.error('1inch API Error:', error.response.data);
-            // Re-throw a more generic error to the service layer
-            return Promise.reject(new Error(error.response.data.description || '1inch API request failed'));
+            const errorMessage = error.response.data?.description || error.response.data?.error || '1inch API request failed';
+            // Re-throw a more specific error to the service layer
+            return Promise.reject(new Error(errorMessage));
         }
         return Promise.reject(error);
       }

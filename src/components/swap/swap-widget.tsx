@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -35,58 +35,9 @@ export function SwapWidget() {
   const [isFetchingQuote, setIsFetchingQuote] = useState(false);
   const [isSwapping, setIsSwapping] = useState(false);
   
-  useEffect(() => {
-    if (isMetamaskAvailable()) {
-      const browserProvider = new BrowserProvider(window.ethereum);
-      setProvider(browserProvider);
-
-      window.ethereum.on('accountsChanged', (accounts: string[]) => {
-        if (accounts.length > 0) {
-            setUserAddress(accounts[0]);
-            browserProvider.getSigner().then(setSigner);
-        } else {
-            setUserAddress('');
-            setSigner(null);
-        }
-      });
-      
-       window.ethereum.on('chainChanged', (newChainId: string) => {
-        setChainId(parseInt(newChainId, 16));
-        // Also re-initialize provider and signer for the new chain
-        const newProvider = new BrowserProvider(window.ethereum);
-        setProvider(newProvider);
-        if(userAddress){
-            newProvider.getSigner().then(setSigner);
-        }
-      });
-    }
-  }, [userAddress]);
-
-  const connectWallet = async () => {
-    if (!provider) {
-        toast({ variant: 'destructive', title: 'Wallet provider not found.' });
-        return;
-    }
-    setIsConnecting(true);
-    try {
-      const accounts = await provider.send('eth_requestAccounts', []);
-      if (accounts.length > 0) {
-        const connectedSigner = await provider.getSigner();
-        setUserAddress(accounts[0]);
-        setSigner(connectedSigner);
-        const network = await provider.getNetwork();
-        setChainId(Number(network.chainId));
-      }
-    } catch (error) {
-      toast({ variant: 'destructive', title: 'Failed to connect wallet.' });
-      console.error(error);
-    } finally {
-      setIsConnecting(false);
-    }
-  };
-  
-  const getQuote = async () => {
-    if (!fromToken || !toToken || !fromAmount || !userAddress) {
+   const getQuote = useCallback(async () => {
+    if (!fromToken || !toToken || !fromAmount || parseFloat(fromAmount) <= 0) {
+        setQuote(null);
         return;
     }
     setIsFetchingQuote(true);
@@ -113,17 +64,90 @@ export function SwapWidget() {
     } finally {
         setIsFetchingQuote(false);
     }
-  }
+  }, [fromToken, toToken, fromAmount, chainId, toast]);
+
+  useEffect(() => {
+    const debounceTimer = setTimeout(() => {
+        getQuote();
+    }, 500); // 500ms debounce
+
+    return () => clearTimeout(debounceTimer);
+  }, [fromAmount, fromToken, toToken, chainId, getQuote]);
+
+  useEffect(() => {
+    if (isMetamaskAvailable()) {
+      const browserProvider = new BrowserProvider(window.ethereum, 'any');
+      setProvider(browserProvider);
+
+      const handleAccountsChanged = (accounts: string[]) => {
+        if (accounts.length > 0) {
+            setUserAddress(accounts[0]);
+            browserProvider.getSigner().then(setSigner);
+        } else {
+            setUserAddress('');
+            setSigner(null);
+        }
+      };
+
+      const handleChainChanged = (newChainId: string) => {
+        setChainId(parseInt(newChainId, 16));
+        const newProvider = new BrowserProvider(window.ethereum, 'any');
+        setProvider(newProvider);
+        if(userAddress){
+            newProvider.getSigner().then(setSigner);
+        }
+        // Reset form on chain change
+        setFromToken(null);
+        setToToken(null);
+        setFromAmount('');
+        setQuote(null);
+      };
+
+      window.ethereum.on('accountsChanged', handleAccountsChanged);
+      window.ethereum.on('chainChanged', handleChainChanged);
+
+      // Initial check
+      browserProvider.send('eth_accounts', []).then(handleAccountsChanged);
+      browserProvider.getNetwork().then(network => setChainId(Number(network.chainId)));
+
+
+      return () => {
+          window.ethereum?.removeListener('accountsChanged', handleAccountsChanged);
+          window.ethereum?.removeListener('chainChanged', handleChainChanged);
+      }
+    }
+  }, [userAddress]);
+
+  const connectWallet = async () => {
+    if (!provider) {
+        toast({ variant: 'destructive', title: 'Wallet provider not found.', description: 'Please install a Web3 wallet like MetaMask.' });
+        return;
+    }
+    setIsConnecting(true);
+    try {
+      const accounts = await provider.send('eth_requestAccounts', []);
+      if (accounts.length > 0) {
+        const connectedSigner = await provider.getSigner();
+        setUserAddress(accounts[0]);
+        setSigner(connectedSigner);
+        const network = await provider.getNetwork();
+        setChainId(Number(network.chainId));
+      }
+    } catch (error) {
+      toast({ variant: 'destructive', title: 'Failed to connect wallet.', description: (error as Error).message });
+      console.error(error);
+    } finally {
+      setIsConnecting(false);
+    }
+  };
   
   const handleSwap = async () => {
-    if (!signer || !fromToken || !toToken || !fromAmount) {
+    if (!signer || !fromToken || !toToken || !fromAmount || !quote) {
         toast({ variant: 'destructive', title: 'Please fill all fields and connect wallet.' });
         return;
     }
     setIsSwapping(true);
     try {
-        const amountInWei = parseUnits(fromAmount, fromToken.decimals).toString();
-        
         // Step 1: Build the transaction via our backend
         const buildTxResponse = await fetch('/api/dex/build-tx', {
             method: 'POST',
@@ -132,7 +156,7 @@ export function SwapWidget() {
                 chainId,
                 fromTokenAddress: fromToken.address,
                 toTokenAddress: toToken.address,
-                amount: amountInWei,
+                amount: quote.fromTokenAmount,
                 userAddress: userAddress,
                 slippage: 1, // default 1%
             }),
@@ -158,7 +182,7 @@ export function SwapWidget() {
 
         const receipt = await txResponse.wait();
 
-        toast({ title: "Swap Successful!", description: `Transaction confirmed. Hash: ${receipt.transactionHash}` });
+        toast({ title: "Swap Successful!", description: `Transaction confirmed successfully.` });
 
     } catch (error) {
         toast({ variant: 'destructive', title: 'Swap Failed', description: (error as Error).message });
@@ -178,14 +202,13 @@ export function SwapWidget() {
         <div className="space-y-2">
             <Label>From</Label>
             <div className="flex gap-2">
-                <TokenSelector chainId={chainId} onSelectToken={setFromToken} />
+                <TokenSelector chainId={chainId} onSelectToken={setFromToken} selectedToken={fromToken} />
                 <Input 
                     type="number" 
                     placeholder="0.0" 
                     className="text-right" 
                     value={fromAmount}
                     onChange={(e) => setFromAmount(e.target.value)}
-                    onBlur={getQuote}
                 />
             </div>
         </div>
@@ -197,7 +220,7 @@ export function SwapWidget() {
         <div className="space-y-2">
             <Label>To</Label>
             <div className="flex gap-2">
-                <TokenSelector chainId={chainId} onSelectToken={setToToken} />
+                <TokenSelector chainId={chainId} onSelectToken={setToToken} selectedToken={toToken} />
                 <Input 
                     type="number" 
                     placeholder="0.0" 
@@ -208,11 +231,11 @@ export function SwapWidget() {
             </div>
         </div>
 
-        {isFetchingQuote && <div className="text-sm text-center text-muted-foreground">Fetching best rate...</div>}
+        {isFetchingQuote && <div className="text-sm text-center text-muted-foreground animate-pulse">Fetching best rate...</div>}
         
-        {quote && (
+        {quote && fromToken && toToken && (
             <div className="text-sm text-muted-foreground p-3 bg-muted rounded-md">
-                1 {fromToken?.symbol} = {formatUnits(BigInt(quote.toTokenAmount) * BigInt(10)**BigInt(fromToken?.decimals || 18) / BigInt(quote.fromTokenAmount), toToken?.decimals || 18)} {toToken?.symbol}
+                1 {fromToken?.symbol} ≈ {formatUnits(BigInt(quote.toTokenAmount) * BigInt(10)**BigInt(fromToken?.decimals || 18) / BigInt(quote.fromTokenAmount), toToken?.decimals || 18)} {toToken?.symbol}
             </div>
         )}
 
@@ -222,7 +245,7 @@ export function SwapWidget() {
             Connect Wallet
           </Button>
         ) : (
-          <Button onClick={handleSwap} className="w-full" disabled={!quote || isSwapping || isFetchingQuote}>
+          <Button onClick={handleSwap} className="w-full" disabled={!quote || isSwapping || isFetchingQuote || !fromAmount}>
             {(isSwapping || isFetchingQuote) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             {isSwapping ? 'Swapping...' : 'Swap'}
           </Button>

@@ -18,40 +18,44 @@ import type { TokenInfo } from '@/lib/dex/dex.types';
 
 interface TokenSelectorProps {
   chainId: number;
-  onSelectToken: (token: TokenInfo) => void;
+  onSelectToken: (token: TokenInfo | null) => void;
+  selectedToken: TokenInfo | null;
 }
 
-export function TokenSelector({ chainId, onSelectToken }: TokenSelectorProps) {
+export function TokenSelector({ chainId, onSelectToken, selectedToken }: TokenSelectorProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [tokens, setTokens] = useState<Record<string, TokenInfo>>({});
   const [isLoading, setIsLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedToken, setSelectedToken] = useState<TokenInfo | null>(null);
 
   useEffect(() => {
-    if (isOpen) {
+    if (isOpen && Object.keys(tokens).length === 0) {
       setIsLoading(true);
       fetch(`/api/dex/tokens?chainId=${chainId}`)
         .then(res => res.json())
         .then(data => {
-            setTokens(data);
+            if(data && typeof data === 'object') {
+              setTokens(data);
+            }
         })
         .catch(console.error)
         .finally(() => setIsLoading(false));
     }
-  }, [isOpen, chainId]);
+  }, [isOpen, chainId, tokens]);
 
   const filteredTokens = useMemo(() => {
+    if (!searchQuery) return Object.values(tokens);
     return Object.values(tokens).filter(token => 
       token.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      token.symbol.toLowerCase().includes(searchQuery.toLowerCase())
+      token.symbol.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      token.address.toLowerCase() === searchQuery.toLowerCase()
     );
   }, [tokens, searchQuery]);
 
   const handleSelect = (token: TokenInfo) => {
-    setSelectedToken(token);
     onSelectToken(token);
     setIsOpen(false);
+    setSearchQuery('');
   };
 
   return (

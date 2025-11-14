@@ -27,14 +27,16 @@ export async function GET(request: NextRequest) {
   }
 
   // Handle USDT to USDT case directly
-  if (validation.data.fromTokenAddress === validation.data.toTokenAddress) {
+  if (validation.data.fromTokenAddress.toLowerCase() === validation.data.toTokenAddress.toLowerCase()) {
     const amount = validation.data.amount;
+    // In a real app, you'd fetch token info, but for this case we can mock it
+    // assuming it's a known token like USDT.
     const tokenInfo = {
         address: validation.data.fromTokenAddress,
-        symbol: 'USDT', // Assuming, this should be fetched for correctness
+        symbol: 'USDT',
         name: 'Tether',
-        decimals: 6, // USDT usually has 6 decimals
-        logoURI: 'https://tokens.1inch.io/0xdac17f958d2ee523a2206206994597c13d831ec7.png'
+        decimals: 6,
+        logoURI: `https://tokens.1inch.io/${validation.data.fromTokenAddress.toLowerCase()}.png`
     };
     return NextResponse.json({
         fromToken: tokenInfo,
@@ -55,3 +57,4 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'Failed to get quote', message: e.message }, { status: 500 });
   }
 }
+

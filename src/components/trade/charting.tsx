@@ -1,5 +1,4 @@
 
-
 "use client"
 
 import { useMemo, useState, useEffect, useRef } from "react";
@@ -306,58 +305,48 @@ export function Charting({ marketId, setMarketId }: { marketId: string, setMarke
 
   // Effect to handle live price updates
   useEffect(() => {
-    if (livePrice === null || !candlestickSeriesRef.current || !volumeSeriesRef.current) {
-      return;
+    if (livePrice === null || !candlestickSeriesRef.current) {
+        return;
     }
 
-    if (lastPrice !== null && livePrice !== lastPrice) {
-      setPriceChangeDirection(livePrice > lastPrice ? 'up' : 'down');
+    if (lastPrice !== null) {
+        setPriceChangeDirection(livePrice > lastPrice ? 'up' : 'down');
     }
     setLastPrice(livePrice);
 
     const currentCandles = candlesRef.current;
     if (currentCandles.length === 0) return;
-    
+
     const lastCandle = currentCandles[currentCandles.length - 1];
-    if (!lastCandle) return;
-
     const currentTimestamp = Math.floor(Date.now() / 1000);
-    const candleTimestamp = (lastCandle.time as number);
-    const isNewCandle = currentTimestamp >= candleTimestamp + intervalSeconds;
+    const candleTimestamp = lastCandle.time as number;
 
-    let updatedCandle: Candle;
+    const isNewCandle = currentTimestamp >= candleTimestamp + intervalSeconds;
 
     if (isNewCandle) {
         // Start a new candle
-        updatedCandle = {
+        const newCandle: Candle = {
             time: (candleTimestamp + intervalSeconds) as Time,
             open: lastCandle.close,
             high: Math.max(lastCandle.close, livePrice),
             low: Math.min(lastCandle.close, livePrice),
             close: livePrice,
-            volume: 0, // Volume for new candle starts at 0
+            volume: 0, // Simplified: real volume would require another feed
         };
-        const newCandles = [...currentCandles, updatedCandle];
-        candlesRef.current = newCandles;
-        candlestickSeriesRef.current?.update(updatedCandle);
-
+        candlesRef.current = [...currentCandles, newCandle];
+        candlestickSeriesRef.current.update(newCandle);
     } else {
         // Update the current candle
-        updatedCandle = {
+        const updatedCandle: Candle = {
             ...lastCandle,
             high: Math.max(lastCandle.high, livePrice),
             low: Math.min(lastCandle.low, livePrice),
             close: livePrice,
-            // Volume would also be updated here if the stream provided it
         };
-        const newCandles = [...currentCandles];
-        newCandles[newCandles.length-1] = updatedCandle;
-        candlesRef.current = newCandles;
-        candlestickSeriesRef.current?.update(updatedCandle);
+        candlesRef.current = [...currentCandles.slice(0, -1), updatedCandle];
+        candlestickSeriesRef.current.update(updatedCandle);
     }
-    
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [livePrice, intervalSeconds, lastPrice]);
+}, [livePrice, lastPrice, intervalSeconds]);
 
 
   const renderContent = () => {
@@ -473,3 +462,5 @@ export function Charting({ marketId, setMarketId }: { marketId: string, setMarke
     </Card>
   )
 }
+
+    

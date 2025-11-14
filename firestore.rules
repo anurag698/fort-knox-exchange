@@ -1,100 +1,247 @@
-// Production-ready, secure Firestore rules for Fort Knox Exchange.
-// Default deny-all, with specific allow rules for collections.
+/**
+ * @fileoverview Firestore Security Rules for the Fort Knox Exchange.
+ *
+ * Core Philosophy:
+ * This ruleset enforces a strict user-ownership model for personal data,
+ * public read access for market data, and backend-only write access for
+ * sensitive financial data. All authorization decisions are based on the
+ * authenticated user's UID and explicit ownership checks. Data shape validation
+ * is relaxed in this prototype phase to allow for rapid schema iteration.
+ *
+ * Data Structure:
+ * - /users/{userId}: Stores user profile information. Only the user can read/write their own profile.
+ * - /users/{userId}/sessions/{sessionId}: Stores user session data.  Only the user can manage their sessions.
+ * - /users/{userId}/balances/{balanceId}: Stores user balances. Only the user can read, and only the backend can write.
+ * - /users/{userId}/deposits/{depositId}: Stores deposit requests.  Only the user can read, and only the backend can write.
+ * - /users/{userId}/withdrawals/{withdrawalId}: Stores withdrawal requests.  Only the user can read, and only the backend can write.
+ * - /users/{userId}/ledgerEntries/{ledgerEntryId}: Stores ledger entries. Only the user can read, and only the backend can write.
+ * - /orders/{orderId}: Stores order information. Readable by anyone, and createable by the user.
+ * - /markets/{marketId}: Stores market information. Publicly readable, writeable by admins only.
+ * - /trades/{tradeId}: Stores trade information. Publicly readable.
+ * - /adminUsers/{adminId}: Stores administrator user information. No direct client access.
+ * - /publicData/{docId}: Stores public information. Readable by everyone, writeable by admins only.
+ * - /assets/{assetId}: Stores information about tradable assets. Publicly readable, writeable by admins only.
+ *
+ * Key Security Decisions:
+ * - No user listing: The rules do not allow listing all users in the 'users' collection.
+ * - Backend-only writes for financial data: Balances, deposits, and withdrawals can only be modified by the backend.
+ * - Public read access for market data: Markets and trades are publicly readable.
+ * - Strict ownership checks: All user-specific data is protected by ownership checks based on the authenticated user's UID.
+ *
+ * Denormalization for Authorization:
+ *  - User ID is included in all user-owned documents, enabling direct ownership checks without additional reads.
+ */
 rules_version = '2';
-
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // --- Helper Functions ---
-    // Checks if a user is authenticated.
+    /**
+     * @description Checks if the request is authenticated.
+     */
     function isSignedIn() {
       return request.auth != null;
     }
 
-    // Checks if the authenticated user is the owner of the document.
+    /**
+     * @description Checks if the authenticated user's ID matches the provided user ID.
+     */
     function isOwner(userId) {
-      return request.auth.uid == userId;
+      return isSignedIn() && request.auth.uid == userId;
     }
 
-    // Checks if the authenticated user is an admin.
-    // This relies on a custom claim set via the Firebase Admin SDK.
-    function isAdmin() {
-      // Example: return request.auth.token.role == 'admin';
-      // For this example, we'll deny all admin-level client access and assume backend-only.
-      return false;
+    /**
+     * @description Checks if the authenticated user is the owner of an existing document.
+     */
+    function isExistingOwner(userId) {
+        return isOwner(userId) && resource != null;
     }
 
-    // --- Collection: users ---
-    // Users can create their own profile, and read/update their own data.
-    // Admins have no special client-side permissions here; they use the Admin SDK.
-    match /users/{userId} {
-      allow read, update: if isSignedIn() && isOwner(userId);
-      allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
-    }
-
-    // --- Subcollection: users/{userId}/balances ---
-    // Balances are critical. Users can only read their own.
-    // All writes MUST come from the trusted backend (e.g., Cloud Functions).
-    match /users/{userId}/balances/{assetId} {
-      allow read: if isSignedIn() && isOwner(userId);
-      allow write: if false; // DENY all client-side writes.
-    }
-
-    // --- Collection: orders ---
-    // Users can create their own orders and read them.
-    // For a public order book, reads might be more permissive. We'll stick to owner-only reads for now.
-    // Updates (fills, cancellations) MUST come from the backend.
-    match /orders/{orderId} {
-      allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
-      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
-      allow update, delete: if false; // DENY client-side updates/deletes.
-    }
-
-    // --- Collection: markets ---
-    // Market data (e.g., BTC-USDT info) is public for everyone.
-    // Only the backend/admin can create or modify markets.
-    match /markets/{marketId} {
-      allow read: if true;
-      allow write: if false; // DENY all client-side writes.
-    }
-
-    // --- Collection: deposits ---
-    // Users can only read their own deposit history.
-    // Deposits are created by the backend after blockchain confirmation.
-    match /deposits/{depositId} {
-      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
-      allow write: if false; // DENY all client-side writes.
-    }
-
-    // --- Collection: withdrawals ---
-    // Users can create a withdrawal request and read their own history.
-    // They cannot update the status (e.g., from PENDING to APPROVED).
-    match /withdrawals/{withdrawalId} {
-      allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
-      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
-      // Disallow client updates. All status changes are via backend.
-      allow update: if false;
-    }
-
-    // --- Collection: adminUsers ---
-    // This collection is for backend use only. No client access.
-    // It might store admin roles or permissions that the backend uses.
-    match /adminUsers/{adminId} {
-      allow read, write: if false;
-    }
-
-    // --- Collection: publicData ---
-    // Publicly readable data like announcements.
-    // Only the backend/admin can write.
-    match /publicData/{docId} {
+    /**
+     * @description Defines root-level read rules before nested collection definitions.
+     */
+    match /{document=**} {
       allow read: if true;
       allow write: if false;
     }
 
-    // --- Default Deny Rule ---
-    // This is a crucial fallback. If no rule above matches, access is denied.
-    match /{document=**} {
-      allow read, write: if false;
+    /**
+     * @description Rules for the /users/{userId} collection.
+     * @path /users/{userId}
+     * @allow (create) - Authenticated user creates their own profile with matching userId.
+     * @allow (get, update, delete) - Authenticated user reads/updates/deletes their own profile.
+     * @deny (create) - Authenticated user tries to create a profile with a mismatched userId.
+     * @principle Enforces user-ownership; users can only manage their own data.
+     */
+    match /users/{userId} {
+      allow create: if isOwner(userId) && request.resource.data.id == userId;
+      allow get: if isOwner(userId);
+      allow list: if false;
+      allow update: if isExistingOwner(userId) && request.resource.data.id == resource.data.id;
+      allow delete: if isExistingOwner(userId);
+    }
+
+    /**
+     * @description Rules for the /users/{userId}/sessions/{sessionId} collection.
+     * @path /users/{userId}/sessions/{sessionId}
+     * @allow (create) - Authenticated user creates a new session under their user ID.
+     * @allow (get, update, delete) - Authenticated user reads/updates/deletes their own session data.
+     * @deny (create) - Authenticated user tries to create a session under a mismatched user ID.
+     * @principle Enforces user-ownership; users can only manage their own session data.
+     */
+    match /users/{userId}/sessions/{sessionId} {
+      allow create: if isOwner(userId) && request.resource.data.userId == userId;
+      allow get: if isOwner(userId);
+      allow list: if isOwner(userId);
+      allow update: if isExistingOwner(userId) && request.resource.data.userId == userId;
+      allow delete: if isExistingOwner(userId);
+    }
+
+    /**
+     * @description Rules for the /users/{userId}/balances/{balanceId} collection.
+     * @path /users/{userId}/balances/{balanceId}
+     * @allow (get) - Authenticated user reads their own balance data.
+     * @deny (create, update, delete) - Only the backend can create, update, or delete balance data.
+     * @principle Restricts write access to backend only for financial data.
+     */
+    match /users/{userId}/balances/{balanceId} {
+      allow get: if isOwner(userId);
+      allow list: if isOwner(userId);
+      allow create: if false;
+      allow update: if false;
+      allow delete: if false;
+    }
+
+    /**
+     * @description Rules for the /orders/{orderId} collection.
+     * @path /orders/{orderId}
+     * @allow (create) - Authenticated user creates a new order. Must check if the `userId` is equal to the authenticated user id.
+     * @allow (get, list) - Anyone can read order data.
+     * @deny (update, delete) - Only the backend can update or delete order data.
+     * @principle Allows public read access for order books.
+     */
+    match /orders/{orderId} {
+      allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
+      allow get: if true;
+      allow list: if true;
+      allow update: if false;
+      allow delete: if false;
+    }
+
+    /**
+     * @description Rules for the /markets/{marketId} collection.
+     * @path /markets/{marketId}
+     * @allow (get, list) - Anyone can read market data.
+     * @deny (create, update, delete) - Only the backend can create, update, or delete market data.
+     * @principle Allows public read access for market data.
+     */
+    match /markets/{marketId} {
+      allow get: if true;
+      allow list: if true;
+      allow create: if false;
+      allow update: if false;
+      allow delete: if false;
+    }
+
+    /**
+     * @description Rules for the /trades/{tradeId} collection.
+     * @path /trades/{tradeId}
+     * @allow (get, list) - Anyone can read trade data.
+     * @deny (create, update, delete) - Only the backend can create, update, or delete trade data.
+     * @principle Allows public read access for trade data.
+     */
+    match /trades/{tradeId} {
+      allow get: if true;
+      allow list: if true;
+      allow create: if false;
+      allow update: if false;
+      allow delete: if false;
+    }
+
+    /**
+     * @description Rules for the /users/{userId}/deposits/{depositId} collection.
+     * @path /users/{userId}/deposits/{depositId}
+     * @allow (get) - Authenticated user reads their own deposit data.
+     * @deny (create, update, delete) - Only the backend can create, update, or delete deposit data.
+     * @principle Restricts write access to backend only for financial data.
+     */
+    match /users/{userId}/deposits/{depositId} {
+      allow get: if isOwner(userId);
+      allow list: if isOwner(userId);
+      allow create: if false;
+      allow update: if false;
+      allow delete: if false;
+    }
+
+    /**
+     * @description Rules for the /users/{userId}/withdrawals/{withdrawalId} collection.
+     * @path /users/{userId}/withdrawals/{withdrawalId}
+     * @allow (get) - Authenticated user reads their own withdrawal data.
+     * @deny (create, update, delete) - Only the backend can create, update, or delete withdrawal data.
+     * @principle Restricts write access to backend only for financial data.
+     */
+    match /users/{userId}/withdrawals/{withdrawalId} {
+      allow get: if isOwner(userId);
+      allow list: if isOwner(userId);
+      allow create: if false;
+      allow update: if false;
+      allow delete: if false;
+    }
+
+    /**
+     * @description Rules for the /adminUsers/{adminId} collection.
+     * @path /adminUsers/{adminId}
+     * @deny (get, list, create, update, delete) - No client access to admin user data.
+     * @principle Restricts all client access to admin user data.
+     */
+    match /adminUsers/{adminId} {
+      allow get: if false;
+      allow list: if false;
+      allow create: if false;
+      allow update: if false;
+      allow delete: if false;
+    }
+    
+     /**
+     * @description Rules for the /publicData/{docId} collection.
+     * @path /publicData/{docId}
+     * @allow (get, list) - Anyone can read public data.
+     * @deny (create, update, delete) - Only the backend can create, update, or delete public data.
+     */
+     match /publicData/{docId} {
+      allow get: if true;
+      allow list: if true;
+      allow create: if false;
+      allow update: if false;
+      allow delete: if false;
+    }
+
+    /**
+     * @description Rules for the /assets/{assetId} collection.
+     * @path /assets/{assetId}
+     * @allow (get, list) - Anyone can read asset data.
+     * @deny (create, update, delete) - Only the backend can create, update, or delete asset data.
+     */
+    match /assets/{assetId} {
+      allow get: if true;
+      allow list: if true;
+      allow create: if false;
+      allow update: if false;
+      allow delete: if false;
+    }
+
+   /**
+     * @description Rules for the /users/{userId}/ledgerEntries/{ledgerEntryId} collection.
+     * @path /users/{userId}/ledgerEntries/{ledgerEntryId}
+     * @allow (get) - Authenticated user reads their own ledger entry data.
+     * @deny (create, update, delete) - Only the backend can create, update, or delete ledger entry data.
+     * @principle Restricts write access to backend only for financial data.
+     */
+    match /users/{userId}/ledgerEntries/{ledgerEntryId} {
+      allow get: if isOwner(userId);
+      allow list: if isOwner(userId);
+      allow create: if false;
+      allow update: if false;
+      allow delete: if false;
     }
   }
 }

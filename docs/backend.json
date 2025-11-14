@@ -1,0 +1,764 @@
+{
+  "entities": {
+    "User": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "User",
+      "type": "object",
+      "description": "Represents a user account on the Fort Knox Exchange.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the user. (Primary Key)"
+        },
+        "email": {
+          "type": "string",
+          "description": "User's email address.",
+          "format": "email"
+        },
+        "username": {
+          "type": "string",
+          "description": "User's chosen username."
+        },
+        "kycStatus": {
+          "type": "string",
+          "description": "KYC (Know Your Customer) status of the user (PENDING, VERIFIED, REJECTED).",
+          "format": "string"
+        },
+        "referralCode": {
+          "type": "string",
+          "description": "Unique referral code for the user."
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "Timestamp of when the user account was created.",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "description": "Timestamp of when the user account was last updated.",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "email",
+        "username",
+        "kycStatus",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "UserSession": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "UserSession",
+      "type": "object",
+      "description": "Represents a user's active session.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the session. (Primary Key)"
+        },
+        "userId": {
+          "type": "string",
+          "description": "Reference to User. (Relationship: User 1:N UserSession)"
+        },
+        "jwtToken": {
+          "type": "string",
+          "description": "The JWT token for the session."
+        },
+        "refreshToken": {
+          "type": "string",
+          "description": "The refresh token for the session."
+        },
+        "expiresAt": {
+          "type": "string",
+          "description": "Timestamp when the session expires.",
+          "format": "date-time"
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "Timestamp of when the session was created.",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "userId",
+        "jwtToken",
+        "refreshToken",
+        "expiresAt",
+        "createdAt"
+      ]
+    },
+    "Asset": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Asset",
+      "type": "object",
+      "description": "Represents a tradable asset on the exchange (e.g., BTC, ETH, USDT).",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the asset. (Primary Key)"
+        },
+        "symbol": {
+          "type": "string",
+          "description": "Symbol of the asset (e.g., BTC, ETH, USDT)."
+        },
+        "name": {
+          "type": "string",
+          "description": "Full name of the asset (e.g., Bitcoin, Ethereum, Tether)."
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "Timestamp of when the asset was added.",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "symbol",
+        "name",
+        "createdAt"
+      ]
+    },
+    "Market": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Market",
+      "type": "object",
+      "description": "Represents a trading market (e.g., BTC-USDT, ETH-BTC).",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the market. (Primary Key)"
+        },
+        "baseAssetId": {
+          "type": "string",
+          "description": "Reference to Asset (base asset). (Relationship: Asset 1:N Market)"
+        },
+        "quoteAssetId": {
+          "type": "string",
+          "description": "Reference to Asset (quote asset). (Relationship: Asset 1:N Market)"
+        },
+        "minOrderSize": {
+          "type": "number",
+          "description": "Minimum order size allowed for this market."
+        },
+        "pricePrecision": {
+          "type": "number",
+          "description": "Precision of the price for this market."
+        },
+        "quantityPrecision": {
+          "type": "number",
+          "description": "Precision of the quantity for this market."
+        },
+        "makerFee": {
+          "type": "number",
+          "description": "Maker fee for this market."
+        },
+        "takerFee": {
+          "type": "number",
+          "description": "Taker fee for this market."
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "Timestamp of when the market was created.",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "baseAssetId",
+        "quoteAssetId",
+        "minOrderSize",
+        "pricePrecision",
+        "quantityPrecision",
+        "makerFee",
+        "takerFee",
+        "createdAt"
+      ]
+    },
+    "Order": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Order",
+      "type": "object",
+      "description": "Represents a user's order on a specific market.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the order. (Primary Key)"
+        },
+        "userId": {
+          "type": "string",
+          "description": "Reference to User. (Relationship: User 1:N Order)"
+        },
+        "marketId": {
+          "type": "string",
+          "description": "Reference to Market. (Relationship: Market 1:N Order)"
+        },
+        "side": {
+          "type": "string",
+          "description": "Side of the order (BUY or SELL)."
+        },
+        "type": {
+          "type": "string",
+          "description": "Type of the order (LIMIT or MARKET)."
+        },
+        "price": {
+          "type": "number",
+          "description": "Price at which the order is placed (for LIMIT orders)."
+        },
+        "quantity": {
+          "type": "number",
+          "description": "Quantity of the asset to be traded."
+        },
+        "status": {
+          "type": "string",
+          "description": "Status of the order (OPEN, PARTIAL, FILLED, CANCELED)."
+        },
+        "filledAmount": {
+          "type": "number",
+          "description": "The amount of the order that has been filled."
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "Timestamp of when the order was created.",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "description": "Timestamp of when the order was last updated.",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "userId",
+        "marketId",
+        "side",
+        "type",
+        "quantity",
+        "status",
+        "filledAmount",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "Trade": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Trade",
+      "type": "object",
+      "description": "Represents a trade that occurred between two orders.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the trade. (Primary Key)"
+        },
+        "marketId": {
+          "type": "string",
+          "description": "Reference to Market. (Relationship: Market 1:N Trade)"
+        },
+        "buyOrderId": {
+          "type": "string",
+          "description": "Reference to Order (buying order). (Relationship: Order 1:N Trade)"
+        },
+        "sellOrderId": {
+          "type": "string",
+          "description": "Reference to Order (selling order). (Relationship: Order 1:N Trade)"
+        },
+        "price": {
+          "type": "number",
+          "description": "Price at which the trade occurred."
+        },
+        "quantity": {
+          "type": "number",
+          "description": "Quantity of the asset traded."
+        },
+        "takerSide": {
+          "type": "string",
+          "description": "The side of the taker order (BUY or SELL)."
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "Timestamp of when the trade occurred.",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "marketId",
+        "buyOrderId",
+        "sellOrderId",
+        "price",
+        "quantity",
+        "takerSide",
+        "createdAt"
+      ]
+    },
+    "Balance": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Balance",
+      "type": "object",
+      "description": "Represents a user's balance for a specific asset.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the balance. (Primary Key)"
+        },
+        "userId": {
+          "type": "string",
+          "description": "Reference to User. (Relationship: User 1:N Balance)"
+        },
+        "assetId": {
+          "type": "string",
+          "description": "Reference to Asset. (Relationship: Asset 1:N Balance)"
+        },
+        "available": {
+          "type": "number",
+          "description": "Available balance of the asset."
+        },
+        "locked": {
+          "type": "number",
+          "description": "Locked balance of the asset (used for open orders)."
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "Timestamp of when the balance record was created.",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "description": "Timestamp of when the balance record was last updated.",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "userId",
+        "assetId",
+        "available",
+        "locked",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "LedgerEntry": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "LedgerEntry",
+      "type": "object",
+      "description": "Represents a ledger entry for a balance transaction.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the ledger entry. (Primary Key)"
+        },
+        "userId": {
+          "type": "string",
+          "description": "Reference to User. (Relationship: User 1:N LedgerEntry)"
+        },
+        "assetId": {
+          "type": "string",
+          "description": "Reference to Asset. (Relationship: Asset 1:N LedgerEntry)"
+        },
+        "type": {
+          "type": "string",
+          "description": "Type of transaction (e.g., DEPOSIT, WITHDRAWAL, TRADE, FEE)."
+        },
+        "amount": {
+          "type": "number",
+          "description": "Amount of the asset involved in the transaction."
+        },
+        "orderId": {
+          "type": "string",
+          "description": "Reference to Order (if the transaction is related to a trade). (Relationship: Order 1:N LedgerEntry)"
+        },
+        "depositId": {
+          "type": "string",
+          "description": "Reference to Deposit (if the transaction is related to a deposit). (Relationship: Deposit 1:N LedgerEntry)"
+        },
+        "withdrawalId": {
+          "type": "string",
+          "description": "Reference to Withdrawal (if the transaction is related to a withdrawal). (Relationship: Withdrawal 1:N LedgerEntry)"
+        },
+        "description": {
+          "type": "string",
+          "description": "Description of the ledger entry."
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "Timestamp of when the ledger entry was created.",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "userId",
+        "assetId",
+        "type",
+        "amount",
+        "createdAt"
+      ]
+    },
+    "Deposit": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Deposit",
+      "type": "object",
+      "description": "Represents a user's deposit request.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the deposit. (Primary Key)"
+        },
+        "userId": {
+          "type": "string",
+          "description": "Reference to User. (Relationship: User 1:N Deposit)"
+        },
+        "assetId": {
+          "type": "string",
+          "description": "Reference to Asset. (Relationship: Asset 1:N Deposit)"
+        },
+        "amount": {
+          "type": "number",
+          "description": "Amount of the asset to be deposited."
+        },
+        "status": {
+          "type": "string",
+          "description": "Status of the deposit (REQUESTED, PENDING, COMPLETED, FAILED)."
+        },
+        "transactionHash": {
+          "type": "string",
+          "description": "Transaction hash of the deposit on the blockchain."
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "Timestamp of when the deposit request was created.",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "description": "Timestamp of when the deposit request was last updated.",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "userId",
+        "assetId",
+        "amount",
+        "status",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "Withdrawal": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Withdrawal",
+      "type": "object",
+      "description": "Represents a user's withdrawal request.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the withdrawal. (Primary Key)"
+        },
+        "userId": {
+          "type": "string",
+          "description": "Reference to User. (Relationship: User 1:N Withdrawal)"
+        },
+        "assetId": {
+          "type": "string",
+          "description": "Reference to Asset. (Relationship: Asset 1:N Withdrawal)"
+        },
+        "amount": {
+          "type": "number",
+          "description": "Amount of the asset to be withdrawn."
+        },
+        "status": {
+          "type": "string",
+          "description": "Status of the withdrawal (REQUESTED, PENDING, APPROVED, SENT, REJECTED)."
+        },
+        "transactionHash": {
+          "type": "string",
+          "description": "Transaction hash of the withdrawal on the blockchain."
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "Timestamp of when the withdrawal request was created.",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "description": "Timestamp of when the withdrawal request was last updated.",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "userId",
+        "assetId",
+        "amount",
+        "status",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "AdminUser": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "AdminUser",
+      "type": "object",
+      "description": "Represents an administrator user account.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the admin user. (Primary Key)"
+        },
+        "username": {
+          "type": "string",
+          "description": "Admin's username."
+        },
+        "email": {
+          "type": "string",
+          "description": "Admin's email address.",
+          "format": "email"
+        },
+        "role": {
+          "type": "string",
+          "description": "Role of the administrator (e.g., SUPER_ADMIN, MARKET_MANAGER)."
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "Timestamp of when the admin user was created.",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "username",
+        "email",
+        "role",
+        "createdAt"
+      ]
+    }
+  },
+  "auth": {
+    "providers": [
+      "password",
+      "anonymous"
+    ]
+  },
+  "firestore": {
+    "structure": [
+      {
+        "path": "users/{userId}",
+        "definition": {
+          "entityName": "User",
+          "schema": {
+            "$ref": "#/backend/entities/User"
+          },
+          "description": "Stores user account information.  Users can only read/write their own document. Includes 'id' field for authentication purposes.",
+          "params": [
+            {
+              "name": "userId",
+              "description": "The unique identifier for the user."
+            }
+          ]
+        }
+      },
+      {
+        "path": "users/{userId}/sessions/{sessionId}",
+        "definition": {
+          "entityName": "UserSession",
+          "schema": {
+            "$ref": "#/backend/entities/UserSession"
+          },
+          "description": "Stores user session information. Only the user can read/write their own session documents.",
+          "params": [
+            {
+              "name": "userId",
+              "description": "The unique identifier for the user."
+            },
+            {
+              "name": "sessionId",
+              "description": "The unique identifier for the session."
+            }
+          ]
+        }
+      },
+      {
+        "path": "users/{userId}/balances/{balanceId}",
+        "definition": {
+          "entityName": "Balance",
+          "schema": {
+            "$ref": "#/backend/entities/Balance"
+          },
+          "description": "Stores user balances for each asset.  Read access is restricted to the user. Write access is only allowed by the backend.",
+          "params": [
+            {
+              "name": "userId",
+              "description": "The unique identifier for the user."
+            },
+            {
+              "name": "balanceId",
+              "description": "The unique identifier for the balance record."
+            }
+          ]
+        }
+      },
+      {
+        "path": "orders/{orderId}",
+        "definition": {
+          "entityName": "Order",
+          "schema": {
+            "$ref": "#/backend/entities/Order"
+          },
+          "description": "Stores order information. Users can create orders, and read access can be configured for either public or private order books.  Write access is restricted to the backend after creation.",
+          "params": [
+            {
+              "name": "orderId",
+              "description": "The unique identifier for the order."
+            }
+          ]
+        }
+      },
+      {
+        "path": "markets/{marketId}",
+        "definition": {
+          "entityName": "Market",
+          "schema": {
+            "$ref": "#/backend/entities/Market"
+          },
+          "description": "Stores market information.  Publicly readable. Write access restricted to the backend/admin.",
+          "params": [
+            {
+              "name": "marketId",
+              "description": "The unique identifier for the market."
+            }
+          ]
+        }
+      },
+      {
+        "path": "trades/{tradeId}",
+        "definition": {
+          "entityName": "Trade",
+          "schema": {
+            "$ref": "#/backend/entities/Trade"
+          },
+          "description": "Stores trade information. Publicly readable, as trades are considered public information after execution.",
+          "params": [
+            {
+              "name": "tradeId",
+              "description": "The unique identifier for the trade."
+            }
+          ]
+        }
+      },
+      {
+        "path": "users/{userId}/deposits/{depositId}",
+        "definition": {
+          "entityName": "Deposit",
+          "schema": {
+            "$ref": "#/backend/entities/Deposit"
+          },
+          "description": "Stores deposit request information. Read access is restricted to the user.  Write access restricted to the backend.",
+          "params": [
+            {
+              "name": "userId",
+              "description": "The unique identifier for the user."
+            },
+            {
+              "name": "depositId",
+              "description": "The unique identifier for the deposit."
+            }
+          ]
+        }
+      },
+      {
+        "path": "users/{userId}/withdrawals/{withdrawalId}",
+        "definition": {
+          "entityName": "Withdrawal",
+          "schema": {
+            "$ref": "#/backend/entities/Withdrawal"
+          },
+          "description": "Stores withdrawal request information. Read access is restricted to the user.  Write access restricted to the backend.",
+          "params": [
+            {
+              "name": "userId",
+              "description": "The unique identifier for the user."
+            },
+            {
+              "name": "withdrawalId",
+              "description": "The unique identifier for the withdrawal."
+            }
+          ]
+        }
+      },
+      {
+        "path": "adminUsers/{adminId}",
+        "definition": {
+          "entityName": "AdminUser",
+          "schema": {
+            "$ref": "#/backend/entities/AdminUser"
+          },
+          "description": "Stores admin user information. No direct client access.",
+          "params": [
+            {
+              "name": "adminId",
+              "description": "The unique identifier for the admin user."
+            }
+          ]
+        }
+      },
+      {
+        "path": "publicData/{docId}",
+        "definition": {
+          "entityName": "publicData",
+          "schema": {
+            "$ref": "#/backend/entities/AdminUser"
+          },
+          "description": "Stores public information. Readable by everyone, writeable by admins only.",
+          "params": [
+            {
+              "name": "docId",
+              "description": "The unique identifier for the public document."
+            }
+          ]
+        }
+      },
+      {
+        "path": "assets/{assetId}",
+        "definition": {
+          "entityName": "Asset",
+          "schema": {
+            "$ref": "#/backend/entities/Asset"
+          },
+          "description": "Stores information about tradable assets. Publicly readable, writeable by admins only.",
+          "params": [
+            {
+              "name": "assetId",
+              "description": "The unique identifier for the asset."
+            }
+          ]
+        }
+      },
+      {
+        "path": "users/{userId}/ledgerEntries/{ledgerEntryId}",
+        "definition": {
+          "entityName": "LedgerEntry",
+          "schema": {
+            "$ref": "#/backend/entities/LedgerEntry"
+          },
+          "description": "Stores ledger entries for a specific user. Only readable by the user, and only writable by the backend.",
+          "params": [
+            {
+              "name": "userId",
+              "description": "The unique identifier for the user."
+            },
+            {
+              "name": "ledgerEntryId",
+              "description": "The unique identifier for the ledger entry."
+            }
+          ]
+        }
+      }
+    ],
+    "reasoning": "The Firestore data structure is designed to support a centralized crypto exchange, prioritizing security, scalability, and ease of debugging. It leverages denormalization to ensure authorization independence, enabling atomic operations and simplifying security rules. Structural segregation is used to maintain a homogeneous security posture within each collection, and access modeling follows consistent patterns for private and collaborative data. The structure explicitly models the state of entities and uses semantic naming conventions for clarity.\n\nSpecifically, the structure achieves Authorization Independence (CRITICAL) by avoiding hierarchical authorization dependencies (`get()`). For example, the `orders` collection, while associated with a user, does not require fetching user data to determine access. Similarly, while balances belong to users, direct client-side writes are denied, and backend updates enforce balance consistency.  The `markets` and `publicData` collections are publicly readable, supporting the required QAPs (Rules are not Filters) without complex logic.\n\nThe membership model is not explicitly used here as roles are managed via dedicated collections (`adminUsers`) and path-based ownership is employed for user-specific data (e.g., `users/{userId}/balances/{balanceId}`). This approach simplifies rule creation and enforcement."
+  }
+}

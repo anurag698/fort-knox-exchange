@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { DependencyList, createContext, useContext, ReactNode, useMemo, useState, useEffect } from 'react';
@@ -91,6 +92,7 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
               email: firebaseUser.email,
               username: firebaseUser.email?.split('@')[0], // Default username
               kycStatus: 'PENDING',
+              referralCode: Math.random().toString(36).substring(2, 8).toUpperCase(),
               createdAt: serverTimestamp(),
               updatedAt: serverTimestamp(),
             };

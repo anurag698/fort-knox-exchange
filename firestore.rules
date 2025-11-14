@@ -60,8 +60,7 @@ service cloud.firestore {
      * @description Defines root-level read rules before nested collection definitions.
      */
     match /{document=**} {
-      allow read: if true;
-      allow write: if false;
+      allow read, write: if false;
     }
 
     /**
@@ -126,7 +125,9 @@ service cloud.firestore {
       allow list: if true;
       allow update: if isSignedIn() 
                       && request.auth.uid == resource.data.userId
-                      && request.resource.data.status == 'CANCELED';
+                      && request.resource.data.status == 'CANCELED'
+                      && resource.data.status != 'CANCELED'
+                      && resource.data.status != 'FILLED';
       allow delete: if false;
     }
 

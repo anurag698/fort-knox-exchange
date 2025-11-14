@@ -1,3 +1,4 @@
+
 'use server';
 
 /**
@@ -17,16 +18,16 @@ const ModerateWithdrawalRequestInputSchema = z.object({
   amount: z.number().describe('The amount of the withdrawal request.'),
   asset: z.string().describe('The asset being withdrawn.'),
   withdrawalAddress: z
-    .string() 
+    .string()
     .describe('The withdrawal address provided by the user.'),
   userKYCStatus: z
-    .string() 
+    .string()
     .describe(
-      'The KYC status of the user (e.g., PENDING, VERIFIED, REJECTED).' 
+      'The KYC status of the user (e.g., PENDING, VERIFIED, REJECTED).'
     ),
   userAccountCreationDate: z.string().describe('The date the user created their account'),
   userWithdrawalHistory: z
-    .string() 
+    .string()
     .describe('Summary of the user\'s past withdrawal history.'),
 });
 
@@ -40,10 +41,11 @@ const ModerateWithdrawalRequestOutputSchema = z.object({
     .describe(
       'Whether the withdrawal request is flagged as suspicious or non-compliant.'
     ),
+  riskLevel: z.enum(['Low', 'Medium', 'High', 'Critical']).describe('The calculated risk level of the request.'),
   reason: z
     .string()
     .describe(
-      'The reason why the withdrawal request is flagged as suspicious. If request is not suspicious, this field should be empty.'
+      'The reason why the withdrawal request is flagged as suspicious. If request is not suspicious, this should explain why the risk is low.'
     ),
   suggestedAction:
    z.string().optional().describe('Suggested action to be taken by the administrator (e.g., \'Request additional KYC information\', \'Manually verify transaction\').'),
@@ -63,7 +65,7 @@ const prompt = ai.definePrompt({
   name: 'moderateWithdrawalRequestPrompt',
   input: {schema: ModerateWithdrawalRequestInputSchema},
   output: {schema: ModerateWithdrawalRequestOutputSchema},
-  prompt: `You are an AI-powered tool for assisting administrators of a centralized crypto exchange in flagging suspicious or non-compliant withdrawal requests.
+  prompt: `You are an AI-powered tool for assisting administrators of a centralized crypto exchange in flagging suspicious or non-compliant withdrawal requests. Your primary goal is to assess risk and provide a clear, actionable analysis.
 
 You are provided with the following information about a withdrawal request:
 
@@ -76,14 +78,17 @@ You are provided with the following information about a withdrawal request:
 - User Account Creation Date: {{{userAccountCreationDate}}}
 - User Withdrawal History: {{{userWithdrawalHistory}}}
 
-Analyze this information and determine if the withdrawal request is suspicious or non-compliant based on common KYC/AML risks and patterns. Consider factors such as the user's KYC status, the size of the withdrawal, the withdrawal address, and the user's past withdrawal history.
+Analyze this information and determine if the withdrawal request is suspicious or non-compliant based on common KYC/AML risks and patterns. Consider factors such as the user's KYC status (unverified is higher risk), the size of the withdrawal (very large is higher risk), the age of the account (very new is higher risk), and the user's past withdrawal history (no history or many rejected requests is higher risk).
 
-Respond with a JSON object in the following format:
-{
-  "isSuspicious": true/false,
-  "reason": "A brief explanation of why the withdrawal request is flagged as suspicious. If request is not suspicious, this field should be empty.",
-  "suggestedAction": "Suggested action to be taken by the administrator (e.g., 'Request additional KYC information', 'Manually verify transaction'). This field is optional."
-}
+Based on your analysis, determine a risk level and set the 'isSuspicious' flag accordingly.
+- Low: Not suspicious.
+- Medium: Potentially suspicious, warrants a second look.
+- High: Very likely suspicious.
+- Critical: Almost certainly fraudulent or non-compliant.
+
+'isSuspicious' should be true if the risk level is Medium, High, or Critical.
+
+Respond with a JSON object in the specified format. The 'reason' field must always be populated, explaining either why the request is suspicious or why it is considered low risk.
 `,
 });
 

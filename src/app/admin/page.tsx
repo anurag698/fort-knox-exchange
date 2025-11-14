@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Users, CandlestickChart, ShieldAlert, ArrowRight, AlertCircle, Hourglass } from "lucide-react";
+import { Users, CandlestickChart, ShieldAlert, ArrowRight, AlertCircle, Hourglass, Shield, ShieldQuestion } from "lucide-react";
 import { useWithdrawals } from '@/hooks/use-withdrawals';
 import { useAssets } from '@/hooks/use-assets';
 import { useMemo } from 'react';
@@ -15,6 +15,8 @@ import Link from 'next/link';
 import { useUsersCount } from '@/hooks/use-users-count';
 import { useMarketsCount } from '@/hooks/use-markets-count';
 import { useWithdrawalsCount } from '@/hooks/use-withdrawals-count';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { cn } from '@/lib/utils';
 
 
 export default function AdminPage() {
@@ -34,6 +36,21 @@ export default function AdminPage() {
     if (!assets) return new Map();
     return new Map(assets.map(asset => [asset.id, asset]));
   }, [assets]);
+
+  const getRiskBadgeVariant = (riskLevel?: string) => {
+    switch (riskLevel) {
+      case 'Low':
+        return 'secondary';
+      case 'Medium':
+        return 'default';
+      case 'High':
+        return 'destructive';
+      case 'Critical':
+        return 'destructive';
+      default:
+        return 'outline';
+    }
+  };
 
   const renderWithdrawals = () => {
     if (isLoading || assetsLoading) {
@@ -93,8 +110,16 @@ export default function AdminPage() {
                 <TableCell className="font-mono text-xs">{withdrawal.userId}</TableCell>
                 <TableCell>{withdrawal.amount} {asset?.symbol ?? '...'}</TableCell>
                 <TableCell>
-                    {/* AI Risk assessment will be implemented later */}
-                    <Badge variant='secondary'>Unknown</Badge>
+                    <Tooltip>
+                        <TooltipTrigger asChild>
+                            <Badge variant={getRiskBadgeVariant(withdrawal.aiRiskLevel)}>
+                                {withdrawal.aiRiskLevel ?? '...'}
+                            </Badge>
+                        </TooltipTrigger>
+                        <TooltipContent className="max-w-xs">
+                            <p>{withdrawal.aiReason ?? 'AI analysis pending...'}</p>
+                        </TooltipContent>
+                    </Tooltip>
                 </TableCell>
                 <TableCell>{withdrawalDate.toLocaleDateString()}</TableCell>
                 <TableCell className="text-right">
@@ -107,7 +132,6 @@ export default function AdminPage() {
             </TableRow>
         )
     });
-
   }
 
   return (

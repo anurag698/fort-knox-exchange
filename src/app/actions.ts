@@ -8,54 +8,6 @@ import { redirect } from 'next/navigation';
 import { cookies } from "next/headers";
 import { getFirebaseAdmin, getUserIdFromSession } from "@/lib/firebase-admin";
 
-
-const withdrawalSchema = z.object({
-  userId: z.string().min(1, "User ID is required."),
-  withdrawalId: z.string().min(1, "Withdrawal ID is required."),
-  amount: z.coerce.number().positive("Amount must be positive."),
-  asset: z.string().min(1, "Asset is required."),
-  withdrawalAddress: z.string().min(1, "Withdrawal address is required."),
-  userKYCStatus: z.enum(['PENDING', 'VERIFIED', 'REJECTED']),
-  userAccountCreationDate: z.string().refine((val) => !isNaN(Date.parse(val)), {
-    message: "Invalid date format. Use YYYY-MM-DD.",
-  }),
-  userWithdrawalHistory: z.string(),
-});
-
-type FormState = {
-  status: 'success' | 'error' | 'idle';
-  message: string;
-  result: ModerateWithdrawalRequestOutput | null;
-}
-
-export async function checkWithdrawal(prevState: FormState, formData: FormData): Promise<FormState> {
-  const validatedFields = withdrawalSchema.safeParse(Object.fromEntries(formData.entries()));
-
-  if (!validatedFields.success) {
-    return {
-      status: 'error',
-      message: validatedFields.error.flatten().fieldErrors[Object.keys(validatedFields.error.flatten().fieldErrors)[0]][0],
-      result: null,
-    };
-  }
-
-  try {
-    const result = await moderateWithdrawalRequest(validatedFields.data as ModerateWithdrawalRequestInput);
-    return {
-      status: 'success',
-      message: 'Withdrawal request analyzed successfully.',
-      result,
-    };
-  } catch (e) {
-    const error = e as Error;
-    return {
-      status: 'error',
-      message: error.message || 'An unexpected error occurred.',
-      result: null,
-    };
-  }
-}
-
 const cancelOrderSchema = z.object({
   orderId: z.string(),
 });
@@ -73,14 +25,14 @@ export async function cancelOrder(formData: FormData) {
   if (!validatedFields.success) {
     return {
       status: 'error',
-message: 'Invalid order ID.',
+      message: 'Invalid order ID.',
     };
   }
   
   const { orderId } = validatedFields.data;
 
   try {
-    const { firestore, app } = getFirebaseAdmin();
+    const { firestore } = getFirebaseAdmin();
     const orderRef = firestore.collection('orders').doc(orderId);
     const orderDoc = await orderRef.get();
 
@@ -219,13 +171,13 @@ async function updateWithdrawalStatus(
   }
 }
 
-export async function approveWithdrawal(formData: FormData) {
+export async function approveWithdrawal(prevState: any, formData: FormData) {
   await updateWithdrawalStatus(formData, 'APPROVED');
   revalidatePath('/admin');
   redirect('/admin');
 }
 
-export async function rejectWithdrawal(formData: FormData) {
+export async function rejectWithdrawal(prevState: any, formData: FormData) {
   await updateWithdrawalStatus(formData, 'REJECTED');
   revalidatePath('/admin');
   redirect('/admin');

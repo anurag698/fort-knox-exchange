@@ -11,23 +11,11 @@ import { AlertCircle, ArrowLeft, ShieldAlert, ShieldCheck, Loader2 } from 'lucid
 import { Badge } from '@/components/ui/badge';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
-import { checkWithdrawal, approveWithdrawal, rejectWithdrawal } from '@/app/actions';
+import { approveWithdrawal, rejectWithdrawal } from '@/app/actions';
 import { useFormState, useFormStatus } from 'react-dom';
-import { useEffect, useMemo } from 'react';
-import { useToast } from '@/hooks/use-toast';
 import { useAssets } from '@/hooks/use-assets';
-import { useUserWithdrawals } from '@/hooks/use-user-withdrawals';
 import type { Withdrawal } from '@/lib/types';
 
-function AnalyzeButton() {
-  const { pending } = useFormStatus();
-  return (
-    <Button type="submit" disabled={pending} className="w-full" formAction={checkWithdrawal}>
-      {pending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <ShieldCheck className="mr-2 h-4 w-4" />}
-      Analyze Now
-    </Button>
-  );
-}
 
 function ModerationButtons({ disabled }: { disabled: boolean }) {
   const { pending: approvePending } = useFormStatus();
@@ -50,7 +38,6 @@ function ModerationButtons({ disabled }: { disabled: boolean }) {
 
 
 export default function ReviewWithdrawalPage({ params }: { params: { id: string } }) {
-  const { toast } = useToast();
   const { data: withdrawal, isLoading: isWithdrawalLoading, error: withdrawalError } = useWithdrawal(params.id);
   const firestore = useFirestore();
 
@@ -62,51 +49,11 @@ export default function ReviewWithdrawalPage({ params }: { params: { id: string 
   const { data: userProfile, isLoading: isProfileLoading, error: profileError } = useDoc(userDocRef);
   const { data: assets, isLoading: assetsLoading } = useAssets();
   const asset = assets?.find(a => a.id === withdrawal?.assetId);
-  const { data: withdrawalHistory, isLoading: isHistoryLoading } = useUserWithdrawals(withdrawal?.userId);
 
-  const [state, formAction] = useFormState(checkWithdrawal, {
-    status: 'idle',
-    message: '',
-    result: null,
-  });
-
-   const withdrawalHistorySummary = useMemo(() => {
-    if (isHistoryLoading) return "Loading withdrawal history...";
-    if (!withdrawalHistory || withdrawalHistory.length === 0) {
-      return "No prior withdrawal history found for this user.";
-    }
-
-    const completed = withdrawalHistory.filter(w => w.status === 'COMPLETED' || w.status === 'SENT');
-    const pending = withdrawalHistory.filter(w => w.status === 'PENDING');
-    const rejected = withdrawalHistory.filter(w => w.status === 'REJECTED');
-
-    let summary = `User has a history of ${withdrawalHistory.length} withdrawal(s).`;
-    if (completed.length > 0) {
-      const totalAmount = completed.reduce((sum, w) => sum + w.amount, 0);
-      summary += ` ${completed.length} completed (approx. total ${totalAmount.toFixed(2)}),`;
-    }
-    if (pending.length > 1) { // > 1 to exclude the current one
-      summary += ` ${pending.length -1 } other pending,`;
-    }
-     if (rejected.length > 0) {
-      summary += ` ${rejected.length} rejected.`;
-    }
-
-    return summary.trim().replace(/,$/, '.');
-  }, [withdrawalHistory, isHistoryLoading]);
-
-  useEffect(() => {
-    if (state.status === 'error') {
-      toast({
-        variant: 'destructive',
-        title: 'Analysis Failed',
-        description: state.message,
-      });
-    }
-  }, [state, toast]);
+  const [_, formAction] = useFormState(approveWithdrawal, { status: 'idle', message: '' });
 
 
-  const isLoading = isWithdrawalLoading || isProfileLoading || assetsLoading || isHistoryLoading;
+  const isLoading = isWithdrawalLoading || isProfileLoading || assetsLoading;
   const error = withdrawalError || profileError;
 
   const renderContent = () => {
@@ -168,33 +115,33 @@ export default function ReviewWithdrawalPage({ params }: { params: { id: string 
   }
 
   const renderAnalysis = () => {
-     if (state.status === 'success' && state.result) {
+    if (isLoading) {
+        return (
+             <div className="h-48 flex items-center justify-center text-muted-foreground text-center">
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                <p>Analyzing...</p>
+            </div>
+        )
+    }
+
+     if (withdrawal?.aiRiskLevel) {
+       const isSuspicious = withdrawal.aiRiskLevel !== 'Low';
        return (
          <div className="w-full space-y-4">
-              <Alert variant={state.result.isSuspicious ? "destructive" : "default"}>
-                {state.result.isSuspicious ? <ShieldAlert className="h-4 w-4" /> : <ShieldCheck className="h-4 w-4" />}
-                <AlertTitle>{state.result.isSuspicious ? "Suspicious Request" : "Request Appears Normal"}</AlertTitle>
+              <Alert variant={isSuspicious ? "destructive" : "default"}>
+                {isSuspicious ? <ShieldAlert className="h-4 w-4" /> : <ShieldCheck className="h-4 w-4" />}
+                <AlertTitle>{isSuspicious ? `${withdrawal.aiRiskLevel} Risk Detected` : "Low Risk"}</AlertTitle>
                 <AlertDescription>
-                  {state.result.isSuspicious ? state.result.reason : "No immediate compliance flags were raised."}
+                  {withdrawal.aiReason ?? 'No details provided.'}
                 </AlertDescription>
               </Alert>
-              {state.result.suggestedAction && (
-                <Card>
-                  <CardHeader className="p-4">
-                    <CardTitle className="text-base">Suggested Action</CardTitle>
-                  </CardHeader>
-                  <CardContent className="p-4 pt-0">
-                    <p className="text-sm text-muted-foreground">{state.result.suggestedAction}</p>
-                  </CardContent>
-                </Card>
-              )}
             </div>
        )
      }
 
      return (
         <div className="h-48 flex items-center justify-center text-muted-foreground text-center">
-            <p>Click "Analyze Now" to run AI risk assessment.</p>
+            <p>AI analysis could not be loaded.</p>
         </div>
      )
   }
@@ -243,18 +190,8 @@ export default function ReviewWithdrawalPage({ params }: { params: { id: string 
                       {renderAnalysis()}
                     </CardContent>
                     <CardFooter className="flex flex-col gap-2">
-                        {/* Hidden fields for all actions */}
-                        <input type="hidden" name="userId" value={withdrawal?.userId} />
                         <input type="hidden" name="withdrawalId" value={withdrawal?.id} />
-                        <input type="hidden" name="amount" value={withdrawal?.amount} />
-                        <input type="hidden" name="asset" value={asset?.symbol} />
-                        <input type="hidden" name="withdrawalAddress" value={withdrawal?.withdrawalAddress} />
-                        <input type="hidden" name="userKYCStatus" value={userProfile?.kycStatus} />
-                        <input type="hidden" name="userAccountCreationDate" value={userProfile?.createdAt?.toDate().toISOString().split('T')[0]} />
-                        <input type="hidden" name="userWithdrawalHistory" value={withdrawalHistorySummary} />
-
-                        <AnalyzeButton />
-                        <ModerationButtons disabled={state.status !== 'success'} />
+                        <ModerationButtons disabled={!withdrawal || withdrawal.status !== 'PENDING' } />
                     </CardFooter>
                 </Card>
             </form>

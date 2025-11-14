@@ -43,6 +43,8 @@ export type Withdrawal = {
     transactionHash?: string;
     createdAt: any;
     updatedAt: any;
+    aiRiskLevel?: 'Low' | 'Medium' | 'High' | 'Critical';
+    aiReason?: string;
 };
 
 export type UserProfile = {
@@ -76,5 +78,3 @@ export type Balance = {
   createdAt: any;
   updatedAt: any;
 };
-
-    

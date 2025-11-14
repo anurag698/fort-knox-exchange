@@ -6,7 +6,11 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { AlertCircle } from "lucide-react";
 
-export function OrderBook() {
+interface OrderBookProps {
+  onPriceSelect: (price: number) => void;
+}
+
+export function OrderBook({ onPriceSelect }: OrderBookProps) {
   const { bids, asks, isLoading, error } = useOrderBook('BTC-USDT');
 
   const renderOrderList = (orders: ProcessedOrder[], isBid: boolean) => {
@@ -21,7 +25,11 @@ export function OrderBook() {
     return (
       <div className="space-y-1">
         {orders.slice(0, 7).map((order, index) => (
-          <div key={index} className="flex justify-between text-xs font-mono relative">
+          <div 
+            key={index} 
+            className="flex justify-between text-xs font-mono relative cursor-pointer hover:bg-muted/50"
+            onClick={() => onPriceSelect(order.price)}
+          >
             <div 
               className={`absolute top-0 left-0 h-full ${isBid ? 'bg-green-500/10' : 'bg-red-500/10'}`} 
               style={{ width: `${Math.min(order.total / 100, 100)}%`}} // Example width logic

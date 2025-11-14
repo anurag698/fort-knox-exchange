@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useEffect } from "react";
@@ -24,7 +23,11 @@ const orderSchema = z.object({
 
 type OrderFormValues = z.infer<typeof orderSchema>;
 
-export function OrderForm() {
+interface OrderFormProps {
+  selectedPrice?: number;
+}
+
+export function OrderForm({ selectedPrice }: OrderFormProps) {
   const { user } = useUser();
   const { toast } = useToast();
 
@@ -40,11 +43,18 @@ export function OrderForm() {
     resolver: zodResolver(orderSchema),
     defaultValues: { price: undefined, quantity: undefined },
   });
+  
+  useEffect(() => {
+    if (selectedPrice) {
+      buyForm.setValue('price', selectedPrice);
+      sellForm.setValue('price', selectedPrice);
+    }
+  }, [selectedPrice, buyForm, sellForm]);
 
   useEffect(() => {
     if (buyState.status === 'success' && buyState.message) {
       toast({ title: "Success", description: buyState.message });
-      buyForm.reset();
+      buyForm.reset({ price: buyForm.getValues('price'), quantity: undefined });
     } else if (buyState.status === 'error' && buyState.message) {
       toast({ variant: "destructive", title: "Error", description: buyState.message });
     }
@@ -53,7 +63,7 @@ export function OrderForm() {
   useEffect(() => {
     if (sellState.status === 'success' && sellState.message) {
       toast({ title: "Success", description: sellState.message });
-      sellForm.reset();
+      sellForm.reset({ price: sellForm.getValues('price'), quantity: undefined });
     } else if (sellState.status === 'error' && sellState.message) {
       toast({ variant: "destructive", title: "Error", description: sellState.message });
     }

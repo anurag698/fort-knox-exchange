@@ -26,7 +26,7 @@ export function MarketsTable({ markets: initialMarkets }: MarketsTableProps) {
     const [pricesLoading, setPricesLoading] = useState(true);
 
     useEffect(() => {
-        const ws = new WebSocket('wss://stream.binance.com:9443/ws/btcusdt@trade/ethusdt@trade/solusdt@trade');
+        const ws = new WebSocket('wss://stream.binance.com:9443/ws/btcusdt@trade/ethusdt@trade/solusdt@trade/adausdt@trade');
         
         ws.onmessage = (event) => {
         const data = JSON.parse(event.data);

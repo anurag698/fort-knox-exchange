@@ -43,6 +43,29 @@ export async function seedInitialData(firestore: Firestore) {
         createdAt: new Date(),
       });
     }
+    
+    const solDoc = await assetsCol.doc('SOL').get();
+    if (!solDoc.exists) {
+        console.log("Seeding SOL asset...");
+      await assetsCol.doc('SOL').set({
+        id: 'SOL',
+        name: 'Solana',
+        symbol: 'SOL',
+        createdAt: new Date(),
+      });
+    }
+    
+    const adaDoc = await assetsCol.doc('ADA').get();
+    if (!adaDoc.exists) {
+        console.log("Seeding ADA asset...");
+      await assetsCol.doc('ADA').set({
+        id: 'ADA',
+        name: 'Cardano',
+        symbol: 'ADA',
+        createdAt: new Date(),
+      });
+    }
+
 
     const btcUsdtMarket = await marketsCol.doc('BTC-USDT').get();
     if (!btcUsdtMarket.exists) {
@@ -75,6 +98,39 @@ export async function seedInitialData(firestore: Firestore) {
         createdAt: new Date(),
       });
     }
+    
+    const solUsdtMarket = await marketsCol.doc('SOL-USDT').get();
+    if (!solUsdtMarket.exists) {
+        console.log("Seeding SOL-USDT market...");
+      await marketsCol.doc('SOL-USDT').set({
+        id: 'SOL-USDT',
+        baseAssetId: 'SOL',
+        quoteAssetId: 'USDT',
+        minOrderSize: 0.01,
+        pricePrecision: 2,
+        quantityPrecision: 2,
+        makerFee: 0.001,
+        takerFee: 0.001,
+        createdAt: new Date(),
+      });
+    }
+    
+    const adaUsdtMarket = await marketsCol.doc('ADA-USDT').get();
+    if (!adaUsdtMarket.exists) {
+        console.log("Seeding ADA-USDT market...");
+      await marketsCol.doc('ADA-USDT').set({
+        id: 'ADA-USDT',
+        baseAssetId: 'ADA',
+        quoteAssetId: 'USDT',
+        minOrderSize: 1,
+        pricePrecision: 4,
+        quantityPrecision: 0,
+        makerFee: 0.001,
+        takerFee: 0.001,
+        createdAt: new Date(),
+      });
+    }
+
 
   } catch (error) {
     console.error("Error during data seeding:", error);

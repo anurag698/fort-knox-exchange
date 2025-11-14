@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useWithdrawal } from '@/hooks/use-withdrawal';
@@ -225,5 +224,3 @@ export default function ReviewWithdrawalPage({ params }: { params: { id: string 
     </div>
   );
 }
-
-    

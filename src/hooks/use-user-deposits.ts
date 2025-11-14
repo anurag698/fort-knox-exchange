@@ -1,4 +1,3 @@
-
 'use client';
 
 import { collection, query, orderBy } from 'firebase/firestore';
@@ -30,5 +29,3 @@ export function useUserDeposits(userId?: string) {
 
   return useCollection<Deposit>(depositsQuery);
 }
-
-    

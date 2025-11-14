@@ -1,4 +1,3 @@
-
 'use client';
 
 import { collection, query, orderBy } from 'firebase/firestore';
@@ -30,5 +29,3 @@ export function useUserWithdrawals(userId?: string) {
 
   return useCollection<Withdrawal>(withdrawalsQuery);
 }
-
-    

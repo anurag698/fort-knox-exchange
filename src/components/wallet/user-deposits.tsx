@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useUserDeposits } from '@/hooks/use-user-deposits';
@@ -93,5 +92,3 @@ export function UserDeposits({ userId }: UserDepositsProps) {
     </Card>
   );
 }
-
-    

@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useBalances } from '@/hooks/use-balances';

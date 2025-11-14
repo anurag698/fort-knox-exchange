@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useUserWithdrawals } from '@/hooks/use-user-withdrawals';
@@ -94,5 +93,3 @@ export function UserWithdrawals({ userId }: UserWithdrawalsProps) {
     </Card>
   );
 }
-
-    

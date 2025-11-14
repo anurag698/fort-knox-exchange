@@ -329,12 +329,11 @@ export function Charting() {
             low: Math.min(lastCandle.low, btcPrice),
             close: btcPrice,
         };
+        // We need to update the ref here for the next tick calculation
+        const newCandles = [...currentCandles];
+        newCandles[newCandles.length-1] = updatedCandle;
+        candlesRef.current = newCandles;
         candlestickSeriesRef.current?.update(updatedCandle);
-        setCandles(prev => {
-            const newCandles = [...prev];
-            newCandles[newCandles.length - 1] = updatedCandle;
-            return newCandles;
-        });
 
     } else if (bucket > lastCandle.time) {
         updatedCandle = {
@@ -345,10 +344,12 @@ export function Charting() {
             close: btcPrice,
             volume: 0,
         };
+        // We need to update the ref here for the next tick calculation
+        candlesRef.current = [...currentCandles, updatedCandle];
         candlestickSeriesRef.current?.update(updatedCandle);
-        setCandles(prev => [...prev, updatedCandle]);
     }
     
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [btcPrice, intervalSeconds, lastPrice]);
 
 

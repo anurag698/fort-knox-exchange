@@ -8,6 +8,11 @@ import { redirect } from 'next/navigation';
 import { cookies } from "next/headers";
 import { getFirebaseAdmin, getUserIdFromSession } from "@/lib/firebase-admin";
 
+type FormState = {
+  status: 'success' | 'error' | 'idle';
+  message: string;
+}
+
 const updateUserProfileSchema = z.object({
   username: z.string().min(3, "Username must be at least 3 characters long."),
 });
@@ -58,7 +63,7 @@ const cancelOrderSchema = z.object({
   orderId: z.string(),
 });
 
-export async function cancelOrder(formData: FormData) {
+export async function cancelOrder(prevState: FormState, formData: FormData): Promise<FormState> {
   const validatedFields = cancelOrderSchema.safeParse({
     orderId: formData.get('orderId'),
   });
@@ -110,11 +115,6 @@ const createOrderSchema = z.object({
     quantity: z.coerce.number().positive("Amount must be positive."),
     side: z.enum(['BUY', 'SELL']),
 });
-
-type FormState = {
-  status: 'success' | 'error' | 'idle';
-  message: string;
-}
 
 export async function createOrder(prevState: FormState, formData: FormData): Promise<FormState> {
     const validatedFields = createOrderSchema.safeParse(Object.fromEntries(formData.entries()));
@@ -496,3 +496,5 @@ export async function submitKyc(prevState: any, formData: FormData): Promise<For
     };
   }
 }
+
+    

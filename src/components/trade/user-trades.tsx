@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useOrders } from "@/hooks/use-orders";
@@ -10,8 +11,33 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { AlertCircle, XCircle } from "lucide-react";
 import { useAssets } from "@/hooks/use-assets";
 import { useMarkets } from "@/hooks/use-markets";
-import { useMemo } from "react";
+import { useEffect, useMemo } from "react";
+import { useActionState } from "react";
 import { cancelOrder } from "@/app/actions";
+import { useToast } from "@/hooks/use-toast";
+
+
+function CancelOrderButton({ orderId }: { orderId: string }) {
+    const { toast } = useToast();
+    const [state, formAction] = useActionState(cancelOrder, { status: "idle", message: "" });
+
+    useEffect(() => {
+        if (state.status === 'success') {
+            toast({ title: "Success", description: state.message });
+        } else if (state.status === 'error') {
+            toast({ variant: "destructive", title: "Error", description: state.message });
+        }
+    }, [state, toast]);
+
+    return (
+        <form action={formAction}>
+            <input type="hidden" name="orderId" value={orderId} />
+            <Button variant="ghost" size="icon" type="submit" aria-label="Cancel order">
+                <XCircle className="h-4 w-4 text-muted-foreground hover:text-destructive" />
+            </Button>
+        </form>
+    );
+}
 
 export function UserTrades() {
     const { data: orders, isLoading, error } = useOrders();
@@ -91,12 +117,7 @@ export function UserTrades() {
                                     <Badge variant={order.status === 'OPEN' ? 'secondary' : 'default'}>{order.status}</Badge>
                                 </TableCell>
                                 <TableCell className="text-right">
-                                    <form action={cancelOrder}>
-                                        <input type="hidden" name="orderId" value={order.id} />
-                                        <Button variant="ghost" size="icon" type="submit" aria-label="Cancel order">
-                                            <XCircle className="h-4 w-4 text-muted-foreground hover:text-destructive" />
-                                        </Button>
-                                    </form>
+                                    <CancelOrderButton orderId={order.id} />
                                 </TableCell>
                             </TableRow>
                         )
@@ -118,3 +139,5 @@ export function UserTrades() {
     </Card>
   );
 }
+
+    

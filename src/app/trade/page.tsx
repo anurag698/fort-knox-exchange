@@ -1,25 +1,19 @@
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { ArrowRightLeft } from "lucide-react";
+import { Charting } from "@/components/trade/charting";
+import { OrderBook } from "@/components/trade/order-book";
+import { OrderForm } from "@/components/trade/order-form";
+import { UserTrades } from "@/components/trade/user-trades";
 
 export default function TradePage() {
   return (
-    <div className="flex justify-center items-center min-h-[50vh]">
-      <Card className="w-full max-w-md text-center">
-        <CardHeader>
-          <div className="mx-auto bg-primary/10 rounded-full p-3 w-fit">
-            <ArrowRightLeft className="h-10 w-10 text-primary" />
-          </div>
-          <CardTitle className="mt-4">Trading Interface</CardTitle>
-          <CardDescription>
-            A full-featured trading view with order books, charts, and order forms will be available here. Coming soon!
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <p className="text-sm text-muted-foreground">
-            The frontend trading components are under development.
-          </p>
-        </CardContent>
-      </Card>
+    <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
+      <div className="lg:col-span-4 flex flex-col gap-4">
+        <Charting />
+        <UserTrades />
+      </div>
+      <div className="lg:col-span-1 flex flex-col gap-4">
+        <OrderBook />
+        <OrderForm />
+      </div>
     </div>
   );
 }

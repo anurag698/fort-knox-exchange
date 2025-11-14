@@ -3,14 +3,13 @@
 
 import { useBalances } from '@/hooks/use-balances';
 import { useAssets } from '@/hooks/use-assets';
-import { usePrices } from '@/hooks/use-prices';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { AlertCircle, Wallet } from 'lucide-react';
 import { PortfolioTable } from '@/components/portfolio/portfolio-table';
 import { PortfolioOverview } from '@/components/portfolio/portfolio-overview';
-import { useMemo } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { DepositForm } from '@/components/wallet/deposit-form';
 import { WithdrawalForm } from '@/components/wallet/withdrawal-form';
@@ -21,7 +20,30 @@ import { UserWithdrawals } from '@/components/wallet/user-withdrawals';
 export default function WalletPage() {
   const { data: balances, isLoading: balancesLoading, error: balancesError } = useBalances();
   const { data: assets, isLoading: assetsLoading, error: assetsError } = useAssets();
-  const { data: prices, isLoading: pricesLoading } = usePrices();
+  const [prices, setPrices] = useState<Record<string, number>>({});
+  const [pricesLoading, setPricesLoading] = useState(true);
+
+  useEffect(() => {
+    const ws = new WebSocket('wss://stream.binance.com:9443/ws/btcusdt@trade/ethusdt@trade/solusdt@trade');
+    
+    ws.onmessage = (event) => {
+      const data = JSON.parse(event.data);
+      if (data && data.s && data.p) {
+        setPrices(prevPrices => ({
+          ...prevPrices,
+          [data.s.replace('USDT', '')]: parseFloat(data.p),
+        }));
+      }
+    };
+
+    ws.onopen = () => {
+        setPricesLoading(false);
+    }
+
+    return () => {
+      ws.close();
+    };
+  }, []);
 
   const isLoading = balancesLoading || assetsLoading || pricesLoading;
   const error = balancesError || assetsError;

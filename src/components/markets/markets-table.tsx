@@ -11,9 +11,8 @@ import {
 } from '@/components/ui/table';
 import type { Market } from '@/lib/types';
 import { useAssets } from '@/hooks/use-assets';
-import { useMemo } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { Skeleton } from '@/components/ui/skeleton';
-import { usePrices } from '@/hooks/use-prices';
 import { cn } from '@/lib/utils';
 import { ArrowUp, ArrowDown } from 'lucide-react';
 
@@ -23,7 +22,30 @@ type MarketsTableProps = {
 
 export function MarketsTable({ markets: initialMarkets }: MarketsTableProps) {
     const { data: assets, isLoading: assetsLoading } = useAssets();
-    const { data: prices, isLoading: pricesLoading } = usePrices();
+    const [prices, setPrices] = useState<Record<string, number>>({});
+    const [pricesLoading, setPricesLoading] = useState(true);
+
+    useEffect(() => {
+        const ws = new WebSocket('wss://stream.binance.com:9443/ws/btcusdt@trade/ethusdt@trade/solusdt@trade');
+        
+        ws.onmessage = (event) => {
+        const data = JSON.parse(event.data);
+        if (data && data.s && data.p) {
+            setPrices(prevPrices => ({
+            ...prevPrices,
+            [data.s.replace('USDT', '')]: parseFloat(data.p),
+            }));
+        }
+        };
+
+        ws.onopen = () => {
+            setPricesLoading(false);
+        }
+
+        return () => {
+        ws.close();
+        };
+  }, []);
 
     const assetsMap = useMemo(() => {
         if (!assets) return new Map();
@@ -35,9 +57,8 @@ export function MarketsTable({ markets: initialMarkets }: MarketsTableProps) {
         if (!initialMarkets) return [];
         return initialMarkets.map(market => ({
             ...market,
-            // Add some mock data that is deterministic based on market ID
-            change: (market.id.charCodeAt(0) % 11) - 5 + Math.random() * 2 - 1, // pseudo-random % change between -5% and +5%
-            volume: (market.id.charCodeAt(1) % 100) * 100000 + Math.random() * 50000, // pseudo-random volume
+            change: (market.id.charCodeAt(0) % 11) - 5 + Math.random() * 2 - 1, 
+            volume: (market.id.charCodeAt(1) % 100) * 100000 + Math.random() * 50000,
         }));
     }, [initialMarkets]);
 

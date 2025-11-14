@@ -1,8 +1,6 @@
-
 "use client"
 
 import { useMemo, useState, useEffect, useRef } from "react";
-import { usePrices } from "@/hooks/use-prices";
 import {
   Card,
   CardContent,
@@ -20,14 +18,12 @@ import { getThemeColor, cn } from "@/lib/utils";
 
 type Candle = CandlestickData<Time>;
 
-// Mock function to generate historical data
+// Generates mock historical data. In a real app, this would be fetched from an API.
 const generateMockCandles = (count: number, intervalSeconds: number): Candle[] => {
     const data: Candle[] = [];
     let lastClose = 70000 + (Math.random() - 0.5) * 2000;
-    // Ensure the last candle is from the past, not the future
     let currentTime = Math.floor(Date.now() / 1000) - count * intervalSeconds;
     currentTime = Math.floor(currentTime / intervalSeconds) * intervalSeconds;
-
 
     for (let i = 0; i < count; i++) {
         const open = lastClose + (Math.random() - 0.5) * 200;
@@ -41,13 +37,50 @@ const generateMockCandles = (count: number, intervalSeconds: number): Candle[] =
     return data;
 };
 
+// A simplified WebSocket hook to get live prices
+const useLivePrice = (symbol: string) => {
+    const [price, setPrice] = useState<number | null>(null);
+    const [error, setError] = useState<Error | null>(null);
+
+    useEffect(() => {
+        const ws = new WebSocket(`wss://stream.binance.com:9443/ws/${symbol.toLowerCase()}@trade`);
+        
+        ws.onopen = () => {
+            console.log(`Connected to ${symbol} price stream.`);
+            setError(null);
+        };
+
+        ws.onmessage = (event) => {
+            const data = JSON.parse(event.data);
+            if (data && data.p) {
+                setPrice(parseFloat(data.p));
+            }
+        };
+
+        ws.onerror = (err) => {
+            console.error("WebSocket error:", err);
+            setError(new Error("WebSocket connection failed."));
+        };
+
+        ws.onclose = () => {
+            console.log("WebSocket connection closed.");
+        };
+
+        return () => {
+            ws.close();
+        };
+
+    }, [symbol]);
+
+    return { price, error };
+};
+
 
 export function Charting() {
-  const { data: prices, isLoading: pricesLoading, error: pricesError } = usePrices();
+  const { price: btcPrice, error: pricesError } = useLivePrice('btcusdt');
   const [candles, setCandles] = useState<Candle[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [interval, setInterval] = useState<string>("1m");
-  const btcPrice = prices?.['BTC'];
   
   const chartRef = useRef<IChartApi>(null);
   const candlestickSeriesRef = useRef<ISeriesApi<'Candlestick'>>(null);
@@ -61,7 +94,6 @@ export function Charting() {
   const [priceChangeDirection, setPriceChangeDirection] = useState<'up' | 'down' | 'neutral'>('neutral');
 
   useEffect(() => {
-    // We must wait for the component to mount to access computed styles.
     setChartOptions({
       layout: {
         background: { color: 'transparent' },
@@ -92,11 +124,8 @@ export function Charting() {
     }
   }, [interval]);
 
-  // Fetch initial historical data
   useEffect(() => {
     setIsLoading(true);
-    // In a real app, this would be a fetch call to /api/markets/BTC-USDT/candles?interval=...
-    // We simulate it with mock data for now.
     setTimeout(() => {
       const mockCandles = generateMockCandles(100, intervalSeconds);
       setCandles(mockCandles);
@@ -110,75 +139,48 @@ export function Charting() {
     }, 500);
   }, [interval, intervalSeconds]);
 
-  // Update candles with live prices
   useEffect(() => {
-    if (btcPrice === undefined || !candlestickSeriesRef.current || candles.length === 0) {
+    if (btcPrice === null || !candlestickSeriesRef.current) {
       return;
     }
-
-    if (lastPrice !== btcPrice) {
+    
+    if (lastPrice !== null && btcPrice !== lastPrice) {
       setPrevPrice(lastPrice);
-      setLastPrice(btcPrice);
-      setPriceChangeDirection(btcPrice > (lastPrice ?? 0) ? 'up' : 'down');
+      setPriceChangeDirection(btcPrice > lastPrice ? 'up' : 'down');
     }
-    
-    const newPrice = btcPrice;
+    setLastPrice(btcPrice);
+
     const lastCandle = candles[candles.length - 1];
-    
+    if (!lastCandle) return;
+
     const currentTimestamp = Math.floor(Date.now() / 1000);
     const bucket = Math.floor(currentTimestamp / intervalSeconds) * intervalSeconds;
 
     let updatedCandle: Candle;
 
     if (bucket === lastCandle.time) {
-        // Update the current candle
         updatedCandle = {
             ...lastCandle,
-            high: Math.max(lastCandle.high, newPrice),
-            low: Math.min(lastCandle.low, newPrice),
-            close: newPrice,
+            high: Math.max(lastCandle.high, btcPrice),
+            low: Math.min(lastCandle.low, btcPrice),
+            close: btcPrice,
         };
         candlestickSeriesRef.current?.update(updatedCandle);
         setCandles(prev => [...prev.slice(0, -1), updatedCandle]);
 
     } else if (bucket > lastCandle.time) {
-        // Create a new candle
         updatedCandle = {
             time: bucket as Time,
             open: lastCandle.close,
-            high: newPrice,
-            low: newPrice,
-            close: newPrice,
+            high: btcPrice,
+            low: btcPrice,
+            close: btcPrice,
         };
         candlestickSeriesRef.current?.update(updatedCandle);
         setCandles(prev => [...prev, updatedCandle]);
-    } else {
-        // The tick is for a past candle, update it without creating a new one
-        // This case might be rare with live data but good to handle
-        const candleToUpdate = candles.find(c => c.time === bucket);
-        if(candleToUpdate) {
-             updatedCandle = {
-                ...candleToUpdate,
-                high: Math.max(candleToUpdate.high, newPrice),
-                low: Math.min(candleToUpdate.low, newPrice),
-                close: newPrice,
-            };
-            candlestickSeriesRef.current?.update(updatedCandle);
-            setCandles(prev => prev.map(c => c.time === bucket ? updatedCandle : c));
-        }
-        return; // Don't update the live price line for past ticks
     }
     
-    // Update the live price line
-    if (priceLineRef.current) {
-        priceLineRef.current.applyOptions({
-            price: newPrice,
-            color: newPrice > lastCandle.open ? getThemeColor('success') : getThemeColor('destructive'),
-        });
-    }
-    
-
-  }, [btcPrice, intervalSeconds, candles, lastPrice]);
+  }, [btcPrice, intervalSeconds, lastPrice]);
 
 
   const renderContent = () => {
@@ -258,7 +260,7 @@ export function Charting() {
                 </div>
                 <div>
                      <p className="text-sm text-muted-foreground">Last Price</p>
-                    {(pricesLoading && !lastPrice) ? <Skeleton className="h-6 w-32 mt-1" /> : (
+                    {(!lastPrice) ? <Skeleton className="h-6 w-32 mt-1" /> : (
                         <p className={cn("text-2xl font-semibold transition-colors duration-200", priceColor)}>
                             {lastPrice?.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                         </p>

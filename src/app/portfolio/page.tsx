@@ -24,7 +24,22 @@ export default function WalletPage() {
   const [pricesLoading, setPricesLoading] = useState(true);
 
   useEffect(() => {
-    const ws = new WebSocket('wss://stream.binance.com:9443/ws/btcusdt@trade/ethusdt@trade/solusdt@trade/adausdt@trade/maticusdt@trade/dogeusdt@trade');
+    if (!assets || assets.length === 0) {
+      setPricesLoading(false);
+      return;
+    }
+
+    const streams = assets
+      .filter(a => a.symbol !== 'USDT') // Exclude USDT from price feed
+      .map(a => `${a.symbol.toLowerCase()}usdt@trade`)
+      .join('/');
+      
+    if (!streams) {
+        setPricesLoading(false);
+        return;
+    }
+
+    const ws = new WebSocket(`wss://stream.binance.com:9443/ws/${streams}`);
     
     ws.onmessage = (event) => {
       const data = JSON.parse(event.data);
@@ -44,21 +59,21 @@ export default function WalletPage() {
       console.log('Price stream closed.');
     }
 
-    ws.onerror = (error) => {
-        console.error('Price stream error:', error);
+    ws.onerror = (event) => {
+        console.error('Price stream error:', event);
         setPricesLoading(false);
     }
 
     return () => {
       ws.close();
     };
-  }, []);
+  }, [assets]);
 
   const isLoading = balancesLoading || assetsLoading || pricesLoading;
   const error = balancesError || assetsError;
 
   const portfolioData = useMemo(() => {
-    if (isLoading || !balances || !assets || Object.keys(prices).length === 0) {
+    if (isLoading || !balances || !assets) {
       return [];
     }
 
@@ -66,7 +81,7 @@ export default function WalletPage() {
     
     return balances.map(balance => {
       const asset = assetsMap.get(balance.assetId);
-      const price = prices[asset?.symbol || ''] || 0;
+      const price = asset?.symbol === 'USDT' ? 1 : (prices[asset?.symbol || ''] || 0);
       const value = balance.available * price;
       return {
         ...balance,

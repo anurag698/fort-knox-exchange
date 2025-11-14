@@ -111,12 +111,12 @@ const createOrderSchema = z.object({
     side: z.enum(['BUY', 'SELL']),
 });
 
-type CreateOrderFormState = {
+type FormState = {
   status: 'success' | 'error' | 'idle';
   message: string;
 }
 
-export async function createOrder(prevState: CreateOrderFormState, formData: FormData): Promise<CreateOrderFormState> {
+export async function createOrder(prevState: FormState, formData: FormData): Promise<FormState> {
     const validatedFields = createOrderSchema.safeParse(Object.fromEntries(formData.entries()));
     const userId = await getUserIdFromSession();
 
@@ -262,3 +262,110 @@ export async function clearSession() {
     return { status: 'error', message: 'Failed to clear session.' };
   }
 }
+
+
+const requestDepositSchema = z.object({
+  assetId: z.string(),
+});
+
+export async function requestDeposit(prevState: FormState, formData: FormData): Promise<FormState> {
+    const validatedFields = requestDepositSchema.safeParse(Object.fromEntries(formData.entries()));
+    const userId = await getUserIdFromSession();
+
+    if (!userId) {
+       return { status: 'error', message: 'You must be logged in to request a deposit.' };
+    }
+
+    if (!validatedFields.success) {
+        return { status: 'error', message: "Invalid asset selected." };
+    }
+    
+    const { assetId } = validatedFields.data;
+
+    try {
+        const { firestore } = getFirebaseAdmin();
+        const newDepositRef = firestore.collection('users').doc(userId).collection('deposits').doc();
+
+        const newDeposit = {
+            id: newDepositRef.id,
+            userId,
+            assetId,
+            amount: 0, // Amount will be updated by a backend process upon actual crypto receipt
+            status: 'PENDING',
+            createdAt: new Date(),
+            updatedAt: new Date(),
+        };
+
+        await newDepositRef.set(newDeposit);
+
+        revalidatePath('/portfolio'); // revalidate the wallet page
+        return {
+            status: 'success',
+            message: `Deposit address generated for asset.`,
+        };
+
+    } catch (e) {
+        const error = e as Error;
+        console.error("Request Deposit Error:", error);
+        return {
+            status: 'error',
+            message: error.message || 'Failed to request deposit.',
+        };
+    }
+}
+
+
+const requestWithdrawalSchema = z.object({
+    assetId: z.string(),
+    amount: z.coerce.number().positive("Amount must be positive."),
+    withdrawalAddress: z.string().min(10, "Withdrawal address is too short."),
+});
+
+export async function requestWithdrawal(prevState: FormState, formData: FormData): Promise<FormState> {
+    const validatedFields = requestWithdrawalSchema.safeParse(Object.fromEntries(formData.entries()));
+    const userId = await getUserIdFromSession();
+
+    if (!userId) {
+       return { status: 'error', message: 'You must be logged in to request a withdrawal.' };
+    }
+
+    if (!validatedFields.success) {
+        const firstError = Object.values(validatedFields.error.flatten().fieldErrors)[0][0];
+        return { status: 'error', message: firstError };
+    }
+    
+    const { assetId, amount, withdrawalAddress } = validatedFields.data;
+
+    try {
+        const { firestore } = getFirebaseAdmin();
+        const newWithdrawalRef = firestore.collection('users').doc(userId).collection('withdrawals').doc();
+
+        const newWithdrawal = {
+            id: newWithdrawalRef.id,
+            userId,
+            assetId,
+            amount,
+            withdrawalAddress,
+            status: 'PENDING',
+            createdAt: new Date(),
+            updatedAt: new Date(),
+        };
+
+        await newWithdrawalRef.set(newWithdrawal);
+
+        revalidatePath('/portfolio'); // revalidate the wallet page
+        return {
+            status: 'success',
+            message: `Withdrawal request submitted successfully.`,
+        };
+
+    } catch (e) {
+        const error = e as Error;
+        console.error("Request Withdrawal Error:", error);
+        return {
+            status: 'error',
+            message: error.message || 'Failed to request withdrawal.',
+        };
+    }
+}
+

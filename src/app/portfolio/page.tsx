@@ -11,8 +11,14 @@ import { AlertCircle, Wallet } from 'lucide-react';
 import { PortfolioTable } from '@/components/portfolio/portfolio-table';
 import { PortfolioOverview } from '@/components/portfolio/portfolio-overview';
 import { useMemo } from 'react';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { DepositForm } from '@/components/wallet/deposit-form';
+import { WithdrawalForm } from '@/components/wallet/withdrawal-form';
+import { UserDeposits } from '@/components/wallet/user-deposits';
+import { UserWithdrawals } from '@/components/wallet/user-withdrawals';
 
-export default function PortfolioPage() {
+
+export default function WalletPage() {
   const { data: balances, isLoading: balancesLoading, error: balancesError } = useBalances();
   const { data: assets, isLoading: assetsLoading, error: assetsError } = useAssets();
   const { data: prices, isLoading: pricesLoading } = usePrices();
@@ -56,7 +62,7 @@ export default function PortfolioPage() {
           <AlertCircle className="h-4 w-4" />
           <AlertTitle>Error</AlertTitle>
           <AlertDescription>
-            Failed to load portfolio data. Please try again later.
+            Failed to load wallet data. Please try again later.
           </AlertDescription>
         </Alert>
       );
@@ -92,13 +98,37 @@ export default function PortfolioPage() {
     <div className="flex flex-col gap-8">
        <div className="flex flex-col gap-2">
         <h1 className="font-headline text-3xl font-bold tracking-tight">
-          My Portfolio
+          My Wallet
         </h1>
         <p className="max-w-3xl text-muted-foreground">
-          An overview of your asset holdings and their current value.
+          View your balances and manage your deposits and withdrawals.
         </p>
       </div>
-      {renderContent()}
+
+      <Tabs defaultValue="overview" className="w-full">
+        <TabsList className="grid w-full grid-cols-4">
+          <TabsTrigger value="overview">Overview</TabsTrigger>
+          <TabsTrigger value="deposit">Deposit</TabsTrigger>
+          <TabsTrigger value="withdraw">Withdraw</TabsTrigger>
+          <TabsTrigger value="history">History</TabsTrigger>
+        </TabsList>
+        <TabsContent value="overview" className="mt-6">
+            {renderContent()}
+        </TabsContent>
+        <TabsContent value="deposit" className="mt-6">
+            <DepositForm assets={assets || []} />
+        </TabsContent>
+        <TabsContent value="withdraw" className="mt-6">
+            <WithdrawalForm assets={assets || []} balances={balances || []} />
+        </TabsContent>
+        <TabsContent value="history" className="mt-6">
+          <div className="grid gap-8">
+            <UserDeposits />
+            <UserWithdrawals />
+          </div>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
+

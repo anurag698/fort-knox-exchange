@@ -19,7 +19,7 @@ import {
   Settings,
   UserCog,
   BookText,
-  PieChart
+  Wallet
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -27,7 +27,7 @@ const mainLinks = [
   { href: "/", label: "Firestore Setup", icon: Database },
   { href: "/markets", label: "Markets", icon: CandlestickChart },
   { href: "/trade", label: "Trade", icon: ArrowRightLeft },
-  { href: "/portfolio", label: "Portfolio", icon: PieChart },
+  { href: "/portfolio", label: "Wallet", icon: Wallet },
   { href: "/ledger", label: "Ledger", icon: BookText },
 ];
 
@@ -75,3 +75,4 @@ export default function SidebarNav() {
     </>
   );
 }
+

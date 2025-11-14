@@ -1,0 +1,90 @@
+
+'use client';
+
+import { useUserDeposits } from '@/hooks/use-user-deposits';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { AlertCircle, History } from "lucide-react";
+import { useAssets } from '@/hooks/use-assets';
+import { useMemo } from 'react';
+import { Badge } from '@/components/ui/badge';
+
+export function UserDeposits() {
+    const { data: deposits, isLoading, error } = useUserDeposits();
+    const { data: assets, isLoading: assetsLoading } = useAssets();
+    const assetsMap = useMemo(() => new Map(assets?.map(a => [a.id, a])), [assets]);
+
+    const renderContent = () => {
+        if (isLoading || assetsLoading) {
+            return (
+                <div className="space-y-2">
+                    <Skeleton className="h-10 w-full" />
+                    <Skeleton className="h-10 w-full" />
+                </div>
+            );
+        }
+
+        if (error) {
+            return (
+                <Alert variant="destructive">
+                    <AlertCircle className="h-4 w-4" />
+                    <AlertTitle>Error Loading Deposits</AlertTitle>
+                    <AlertDescription>
+                        There was a problem fetching your deposit history.
+                    </AlertDescription>
+                </Alert>
+            );
+        }
+
+        if (!deposits || deposits.length === 0) {
+            return (
+                <div className="text-center py-8 text-muted-foreground">
+                    <p>You have no deposit history.</p>
+                </div>
+            );
+        }
+
+        return (
+             <Table>
+                <TableHeader>
+                    <TableRow>
+                        <TableHead>Date</TableHead>
+                        <TableHead>Asset</TableHead>
+                        <TableHead>Amount</TableHead>
+                        <TableHead>Status</TableHead>
+                        <TableHead className="text-right">Tx Hash</TableHead>
+                    </TableRow>
+                </TableHeader>
+                <TableBody>
+                    {deposits.map(deposit => {
+                        const asset = assetsMap.get(deposit.assetId);
+                        return (
+                            <TableRow key={deposit.id}>
+                                <TableCell>{deposit.createdAt.toDate().toLocaleDateString()}</TableCell>
+                                <TableCell>{asset?.symbol ?? 'N/A'}</TableCell>
+                                <TableCell>{deposit.amount}</TableCell>
+                                <TableCell><Badge variant="secondary">{deposit.status}</Badge></TableCell>
+                                <TableCell className="text-right font-mono text-xs">{deposit.transactionHash ?? 'N/A'}</TableCell>
+                            </TableRow>
+                        )
+                    })}
+                </TableBody>
+            </Table>
+        )
+    }
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2"><History className="h-5 w-5" /> Deposit History</CardTitle>
+        <CardDescription>A record of your past deposit requests.</CardDescription>
+      </CardHeader>
+      <CardContent>
+         {renderContent()}
+      </CardContent>
+    </Card>
+  );
+}
+

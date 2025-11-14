@@ -1,3 +1,4 @@
+
 /**
  * @fileoverview Firestore Security Rules for the Fort Knox Exchange.
  *
@@ -11,8 +12,8 @@
  * - /users/{userId}: Stores user profile information. Only the user can read/write their own profile.
  * - /users/{userId}/sessions/{sessionId}: Stores user session data.  Only the user can manage their sessions.
  * - /users/{userId}/balances/{balanceId}: Stores user balances. Only the user can read, and only the backend can write.
- * - /users/{userId}/deposits/{depositId}: Stores deposit requests.  Only the user can read, and only the backend can write.
- * - /users/{userId}/withdrawals/{withdrawalId}: Stores withdrawal requests.  Only the user can read, and only the backend can write.
+ * - /users/{userId}/deposits/{depositId}: Stores deposit requests.  User can create, user can read, and only the backend can update/delete.
+ * - /users/{userId}/withdrawals/{withdrawalId}: Stores withdrawal requests.  User can create, user can read, and only the backend can update/delete.
  * - /users/{userId}/ledgerEntries/{ledgerEntryId}: Stores ledger entries. Only the user can read, and only the backend can write.
  * - /orders/{orderId}: Stores order information. Readable by anyone, and createable by the user.
  * - /markets/{marketId}: Stores market information. Publicly readable, writeable by admins only.
@@ -168,13 +169,14 @@ service cloud.firestore {
      * @description Rules for the /users/{userId}/deposits/{depositId} collection.
      * @path /users/{userId}/deposits/{depositId}
      * @allow (get, list) - Authenticated user reads their own deposit data.
-     * @deny (create, update, delete) - Only the backend can create, update, or delete deposit data.
+     * @allow (create) - Authenticated user can create their own deposit request.
+     * @deny (update, delete) - Only the backend can update, or delete deposit data.
      * @principle Restricts write access to backend only for financial data.
      */
     match /users/{userId}/deposits/{depositId} {
       allow get: if isOwner(userId);
       allow list: if isOwner(userId);
-      allow create: if false;
+      allow create: if isOwner(userId) && request.resource.data.userId == userId;
       allow update: if false;
       allow delete: if false;
     }
@@ -183,13 +185,14 @@ service cloud.firestore {
      * @description Rules for the /users/{userId}/withdrawals/{withdrawalId} collection.
      * @path /users/{userId}/withdrawals/{withdrawalId}
      * @allow (get, list) - Authenticated user reads their own withdrawal data.
-     * @deny (create, update, delete) - Only the backend can create, update, or delete withdrawal data.
+     * @allow (create) - Authenticated user can create their own withdrawal request.
+     * @deny (update, delete) - Only the backend can update, or delete withdrawal data.
      * @principle Restricts write access to backend only for financial data.
      */
     match /users/{userId}/withdrawals/{withdrawalId} {
       allow get: if isOwner(userId);
       allow list: if isOwner(userId);
-      allow create: if false;
+      allow create: if isOwner(userId) && request.resource.data.userId == userId;
       allow update: if false;
       allow delete: if false;
     }

@@ -35,6 +35,17 @@ export type Order = {
   updatedAt: any;
 };
 
+export type Deposit = {
+    id: string;
+    userId: string;
+    assetId: string;
+    amount: number;
+    status: 'REQUESTED' | 'PENDING' | 'COMPLETED' | 'FAILED';
+    transactionHash?: string;
+    createdAt: any;
+    updatedAt: any;
+};
+
 export type Withdrawal = {
     id: string;
     userId: string;

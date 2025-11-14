@@ -1,86 +1,69 @@
 
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { CheckCircle, LogIn, Wallet, ArrowRightLeft, AreaChart, BookText } from "lucide-react";
+'use client';
+
 import Link from 'next/link';
 import { Button } from "@/components/ui/button";
-
-const steps = [
-  {
-    icon: LogIn,
-    title: "Create an Account or Sign In",
-    description: "Start by creating a new account or signing in to access the exchange.",
-    link: "/auth",
-    linkText: "Go to Auth"
-  },
-  {
-    icon: Wallet,
-    title: "Fund Your Account",
-    description: "Navigate to the Wallet page to generate a deposit address and fund your account.",
-    link: "/portfolio",
-    linkText: "Go to Wallet"
-  },
-  {
-    icon: ArrowRightLeft,
-    title: "Start Trading",
-    description: "Explore the available markets and place your first trade on the Trade page.",
-    link: "/trade",
-    linkText: "Go to Trade"
-  },
-  {
-    icon: AreaChart,
-    title: "Track Your Portfolio",
-    description: "View your asset allocation and total portfolio value in the Wallet.",
-    link: "/portfolio",
-    linkText: "View Portfolio"
-  },
-    {
-    icon: BookText,
-    title: "Review Your History",
-    description: "Check the Ledger for a complete history of all your transactions.",
-    link: "/ledger",
-    linkText: "View Ledger"
-  },
-];
+import { PopularCoins } from '@/components/home/popular-coins';
+import { NewsFeed } from '@/components/home/news-feed';
+import { ArrowRight, BookOpen } from 'lucide-react';
+import { useUser, useFirestore, useDoc, useMemoFirebase } from '@/firebase';
+import { doc } from 'firebase/firestore';
+import type { UserProfile } from '@/lib/types';
+import { useBalances } from '@/hooks/use-balances';
+import { useMemo } from 'react';
 
 export default function Home() {
-  return (
-    <div className="flex flex-col gap-8">
-      <div className="flex flex-col gap-2 text-center items-center">
-        <h1 className="font-headline text-4xl font-bold tracking-tight">
-          Welcome to Fort Knox Exchange
-        </h1>
-        <p className="max-w-2xl text-muted-foreground">
-          Your secure and modern platform for trading digital assets. Follow the steps below to get started.
-        </p>
-      </div>
-      
-      <Card className="max-w-4xl mx-auto w-full">
-        <CardHeader>
-            <CardTitle>Getting Started</CardTitle>
-            <CardDescription>A quick guide to using the exchange.</CardDescription>
-        </CardHeader>
-        <CardContent>
-            <ul className="space-y-6">
-                {steps.map((step, index) => (
-                    <li key={index} className="flex items-start gap-4">
-                        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 text-primary shrink-0">
-                            <step.icon className="h-6 w-6" />
-                        </div>
-                        <div className="flex-grow">
-                            <h3 className="font-semibold text-lg">{step.title}</h3>
-                            <p className="text-muted-foreground">{step.description}</p>
-                             <Button variant="link" asChild className="p-0 h-auto mt-1">
-                                <Link href={step.link}>
-                                    {step.linkText}
-                                </Link>
-                            </Button>
-                        </div>
-                    </li>
-                ))}
-            </ul>
-        </CardContent>
-      </Card>
+  const { user } = useUser();
+  const firestore = useFirestore();
+  const { data: balances } = useBalances();
 
+  const userDocRef = useMemoFirebase(
+    () => (firestore && user ? doc(firestore, 'users', user.uid) : null),
+    [firestore, user]
+  );
+  const { data: userProfile } = useDoc<UserProfile>(userDocRef);
+
+  const estimatedBalance = useMemo(() => {
+    // A real implementation would fetch live prices and calculate total value
+    if (!balances || balances.length === 0) return 0;
+    const btcBalance = balances.find(b => b.assetId === 'BTC');
+    return btcBalance?.available ?? 0;
+  }, [balances]);
+
+  return (
+    <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+      <div className="lg:col-span-2 flex flex-col justify-center gap-8">
+        <div className="flex flex-col gap-4">
+          <h1 className="text-5xl md:text-7xl font-bold tracking-tighter">
+            Get Verified and
+            <br />
+            Start Your Crypto
+            <br />
+            Journey
+          </h1>
+          <div className="mt-6">
+            <p className="text-sm text-muted-foreground">Your Estimated Balance</p>
+            <p className="text-3xl font-bold">{estimatedBalance.toFixed(2)} BTC <span className="text-xl text-muted-foreground">≈ $0.00</span></p>
+            <p className="text-sm text-muted-foreground mt-1">Today's PnL $0.00 (0.00%)</p>
+          </div>
+        </div>
+        <div className="flex items-center gap-4">
+          <Button size="lg" className="bg-yellow-500 hover:bg-yellow-600 text-black font-bold" asChild>
+            <Link href={userProfile?.kycStatus === 'VERIFIED' ? "/trade" : "/settings"}>
+              {userProfile?.kycStatus === 'VERIFIED' ? 'Start Trading' : 'Verify Now'}
+            </Link>
+          </Button>
+          <Button size="lg" variant="ghost">
+            <BookOpen className="mr-2 h-4 w-4" />
+            Read Tutorial
+          </Button>
+        </div>
+      </div>
+
+      <div className="lg:col-span-1 flex flex-col gap-8">
+        <PopularCoins />
+        <NewsFeed />
+      </div>
     </div>
   );
 }

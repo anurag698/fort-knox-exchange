@@ -35,6 +35,9 @@ export function getFirebaseAdmin() {
         };
 
         const adminApp = initializeApp({ credential }, appName);
+        
+        // Seed data on initial app initialization
+        seedInitialData(getFirestore(adminApp)).catch(console.error);
 
         return { 
             firestore: getFirestore(adminApp), 

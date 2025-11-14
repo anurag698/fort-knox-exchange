@@ -20,7 +20,7 @@ import {
   UserCog,
   BookText,
   Wallet,
-  Users
+  Repeat,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -28,6 +28,7 @@ const mainLinks = [
   { href: "/", label: "Home", icon: Home },
   { href: "/markets", label: "Markets", icon: CandlestickChart },
   { href: "/trade", label: "Trade", icon: ArrowRightLeft },
+  { href: "/swap", label: "Swap", icon: Repeat },
   { href: "/portfolio", label: "Wallet", icon: Wallet },
   { href: "/ledger", label: "Ledger", icon: BookText },
 ];

@@ -16,6 +16,7 @@ import { AlertCircle } from "lucide-react";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { LightweightChart } from "@/components/ui/lightweight-chart";
 import { type CandlestickData, type IChartApi, type ISeriesApi, type Time } from "lightweight-charts";
+import { getThemeColor } from "@/lib/utils";
 
 type Candle = CandlestickData<Time>;
 
@@ -47,6 +48,27 @@ export function Charting() {
   
   const chartRef = useRef<IChartApi>(null);
   const candlestickSeriesRef = useRef<ISeriesApi<'Candlestick'>>(null);
+
+  const [chartOptions, setChartOptions] = useState<any>(null);
+
+  useEffect(() => {
+    // We must wait for the component to mount to access computed styles.
+    setChartOptions({
+      layout: {
+        background: { color: 'transparent' },
+        textColor: getThemeColor('--muted-foreground'),
+      },
+      grid: {
+        vertLines: { color: getThemeColor('--border') },
+        horzLines: { color: getThemeColor('--border') },
+      },
+      timeScale: {
+        timeVisible: true,
+        secondsVisible: false,
+      },
+    });
+  }, []);
+
 
   const intervalSeconds = useMemo(() => {
     switch (interval) {
@@ -116,23 +138,8 @@ export function Charting() {
   }, [btcPrice, candles, intervalSeconds]);
 
 
-  const chartOptions = {
-    layout: {
-      background: { color: 'transparent' },
-      textColor: 'hsl(var(--muted-foreground))',
-    },
-    grid: {
-      vertLines: { color: 'hsl(var(--border))' },
-      horzLines: { color: 'hsl(var(--border))' },
-    },
-    timeScale: {
-      timeVisible: true,
-      secondsVisible: false,
-    },
-  };
-
   const renderContent = () => {
-    if (isLoading) {
+    if (isLoading || !chartOptions) {
       return <Skeleton className="h-96 w-full" />;
     }
 

@@ -67,6 +67,7 @@ export type UserProfile = {
     kycStatus: 'PENDING' | 'VERIFIED' | 'REJECTED';
     createdAt: any;
     updatedAt: any;
+    referralCode?: string;
 };
 
 export type LedgerEntry = {

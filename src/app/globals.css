@@ -8,73 +8,73 @@ body {
 
 @layer base {
   :root {
-    --background: 222.2 84% 4.9%;
+    --background: 240 10% 3.9%; /* Deep Blue - adjusted for dark theme */
     --foreground: 210 40% 98%;
-    --card: 222.2 84% 4.9%;
+    --card: 240 10% 3.9%;
     --card-foreground: 210 40% 98%;
-    --popover: 222.2 84% 4.9%;
+    --popover: 240 10% 3.9%;
     --popover-foreground: 210 40% 98%;
-    --primary: 45 93% 47%;
-    --primary-foreground: 222.2 47.4% 11.2%;
+    --primary: 180 100% 25%; /* Vibrant Teal */
+    --primary-foreground: 180 100% 95%;
     --secondary: 217.2 32.6% 17.5%;
     --secondary-foreground: 210 40% 98%;
     --muted: 217.2 32.6% 17.5%;
     --muted-foreground: 215 20.2% 65.1%;
-    --accent: 217.2 32.6% 17.5%;
-    --accent-foreground: 210 40% 98%;
+    --accent: 180 100% 25%; /* Vibrant Teal */
+    --accent-foreground: 180 100% 95%;
     --destructive: 0 62.8% 30.6%;
     --destructive-foreground: 210 40% 98%;
     --border: 217.2 32.6% 17.5%;
     --input: 217.2 32.6% 17.5%;
-    --ring: 45 93% 47%;
-    --chart-1: 45 80% 55%;
-    --chart-2: 180 70% 40%;
+    --ring: 180 100% 30%; /* Vibrant Teal */
+    --chart-1: 180 70% 40%;
+    --chart-2: 45 80% 55%;
     --chart-3: 30 80% 55%;
     --chart-4: 280 65% 60%;
     --chart-5: 340 75% 55%;
     --radius: 0.5rem;
 
-    /* Sidebar Dark Theme (same as root dark) */
-    --sidebar-background: 222.2 84% 4.9%;
+    /* Sidebar Dark Theme */
+    --sidebar-background: 240 10% 3.9%;
     --sidebar-foreground: 210 40% 98%;
-    --sidebar-primary: 45 93% 55%;
-    --sidebar-primary-foreground: 222.2 47.4% 11.2%;
+    --sidebar-primary: 180 100% 30%; /* Vibrant Teal */
+    --sidebar-primary-foreground: 180 100% 95%;
     --sidebar-accent: 217.2 32.6% 22.5%;
     --sidebar-accent-foreground: 210 40% 98%;
     --sidebar-border: 217.2 32.6% 17.5%;
-    --sidebar-ring: 45 93% 47%;
+    --sidebar-ring: 180 100% 30%; /* Vibrant Teal */
   }
 
   .dark {
-    --background: 222.2 84% 4.9%;
+    --background: 240 10% 3.9%; /* Deep Blue - adjusted for dark theme */
     --foreground: 210 40% 98%;
-    --card: 222.2 84% 4.9%;
+    --card: 240 10% 3.9%;
     --card-foreground: 210 40% 98%;
-    --popover: 222.2 84% 4.9%;
+    --popover: 240 10% 3.9%;
     --popover-foreground: 210 40% 98%;
-    --primary: 45 93% 47%;
-    --primary-foreground: 222.2 47.4% 11.2%;
+    --primary: 180 100% 25%; /* Vibrant Teal */
+    --primary-foreground: 180 100% 95%;
     --secondary: 217.2 32.6% 17.5%;
     --secondary-foreground: 210 40% 98%;
     --muted: 217.2 32.6% 17.5%;
     --muted-foreground: 215 20.2% 65.1%;
-    --accent: 217.2 32.6% 17.5%;
-    --accent-foreground: 210 40% 98%;
+    --accent: 180 100% 25%; /* Vibrant Teal */
+    --accent-foreground: 180 100% 95%;
     --destructive: 0 62.8% 30.6%;
     --destructive-foreground: 210 40% 98%;
     --border: 217.2 32.6% 17.5%;
     --input: 217.2 32.6% 17.5%;
-    --ring: 45 93% 47%;
+    --ring: 180 100% 30%; /* Vibrant Teal */
     
-    /* Sidebar Dark Theme (same as root dark) */
-    --sidebar-background: 222.2 84% 4.9%;
+    /* Sidebar Dark Theme */
+    --sidebar-background: 240 10% 3.9%;
     --sidebar-foreground: 210 40% 98%;
-    --sidebar-primary: 45 93% 55%;
-    --sidebar-primary-foreground: 222.2 47.4% 11.2%;
+    --sidebar-primary: 180 100% 30%; /* Vibrant Teal */
+    --sidebar-primary-foreground: 180 100% 95%;
     --sidebar-accent: 217.2 32.6% 22.5%;
     --sidebar-accent-foreground: 210 40% 98%;
     --sidebar-border: 217.2 32.6% 17.5%;
-    --sidebar-ring: 45 93% 47%;
+    --sidebar-ring: 180 100% 30%; /* Vibrant Teal */
   }
 }
 

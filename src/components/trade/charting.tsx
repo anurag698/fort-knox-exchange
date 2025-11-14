@@ -276,6 +276,7 @@ export function Charting() {
         setCandles(prev => [...prev, updatedCandle]);
     }
     
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [btcPrice, intervalSeconds, lastPrice]);
 
 
@@ -321,24 +322,36 @@ export function Charting() {
     <Card className="flex-grow">
       <CardHeader>
         <div className="flex justify-between items-start">
-            <div className="flex items-center gap-6">
-                <div>
-                    <CardTitle>BTC/USDT</CardTitle>
-                    <CardDescription>Bitcoin / Tether</CardDescription>
-                </div>
-                <div>
-                     <p className="text-sm text-muted-foreground">Last Price</p>
-                    {(!lastPrice && isLoading) ? <Skeleton className="h-6 w-32 mt-1" /> : (
-                        <p className={cn("text-2xl font-semibold transition-colors duration-200", priceColor)}>
-                            {lastPrice?.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            <div>
+                <div className="flex items-center gap-6">
+                    <div>
+                        <CardTitle>BTC/USDT</CardTitle>
+                        <CardDescription>Bitcoin / Tether</CardDescription>
+                    </div>
+                    <div>
+                        <p className="text-sm text-muted-foreground">Last Price</p>
+                        {(!lastPrice && isLoading) ? <Skeleton className="h-6 w-32 mt-1" /> : (
+                            <p className={cn("text-2xl font-semibold transition-colors duration-200", priceColor)}>
+                                {lastPrice?.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </p>
+                        )}
+                    </div>
+                    <div>
+                        <p className="text-sm text-muted-foreground">24h Change</p>
+                        <p className={cn("text-lg font-medium mt-1", changeColor)}>
+                            {change24h.toFixed(2)}%
                         </p>
-                    )}
+                    </div>
                 </div>
-                <div>
-                     <p className="text-sm text-muted-foreground">24h Change</p>
-                     <p className={cn("text-lg font-medium mt-1", changeColor)}>
-                         {change24h.toFixed(2)}%
-                    </p>
+                <div className="flex items-center gap-4 mt-2 border-t pt-2">
+                    <div className="flex items-center space-x-2">
+                        <Checkbox id="sma-toggle" checked={showSma} onCheckedChange={(checked) => setShowSma(Boolean(checked))} />
+                        <Label htmlFor="sma-toggle" className="text-xs font-medium flex items-center gap-1"><LineChart className="h-3 w-3" /> SMA</Label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                        <Checkbox id="volume-toggle" checked={showVolume} onCheckedChange={(checked) => setShowVolume(Boolean(checked))} />
+                        <Label htmlFor="volume-toggle" className="text-xs font-medium flex items-center gap-1"><BarChart className="h-3 w-3" /> Vol</Label>
+                    </div>
                 </div>
             </div>
              <div className="flex items-center gap-4">
@@ -347,14 +360,6 @@ export function Charting() {
                     <ToggleGroupItem value="5m">5m</ToggleGroupItem>
                     <ToggleGroupItem value="1h">1H</ToggleGroupItem>
                 </ToggleGroup>
-                <div className="flex items-center space-x-2">
-                    <Checkbox id="sma-toggle" checked={showSma} onCheckedChange={(checked) => setShowSma(Boolean(checked))} />
-                    <Label htmlFor="sma-toggle" className="text-sm font-medium flex items-center gap-1"><LineChart className="h-4 w-4" /> SMA</Label>
-                </div>
-                <div className="flex items-center space-x-2">
-                    <Checkbox id="volume-toggle" checked={showVolume} onCheckedChange={(checked) => setShowVolume(Boolean(checked))} />
-                    <Label htmlFor="volume-toggle" className="text-sm font-medium flex items-center gap-1"><BarChart className="h-4 w-4" /> Vol</Label>
-                </div>
              </div>
         </div>
       </CardHeader>
@@ -364,3 +369,5 @@ export function Charting() {
     </Card>
   )
 }
+
+    

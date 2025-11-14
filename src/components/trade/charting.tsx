@@ -12,11 +12,13 @@ import {
 } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { AlertCircle, LineChart, BarChart } from "lucide-react";
+import { AlertCircle } from "lucide-react";
 import { createChart, type CandlestickData, type IChartApi, type ISeriesApi, type Time, type LineData, type HistogramData } from "lightweight-charts";
 import { getThemeColor, cn } from "@/lib/utils";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+
 
 type Candle = CandlestickData<Time> & { volume: number };
 
@@ -63,7 +65,7 @@ export function Charting() {
   const { price: btcPrice, error: pricesError } = useLivePrice('btcusdt');
   const [candles, setCandles] = useState<Candle[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [interval, setInterval] = useState<string>("1m");
+  const [interval, setInterval] = useState<string>("15m");
 
   const [showVolume, setShowVolume] = useState(true);
   const [showSma, setShowSma] = useState(true);
@@ -87,13 +89,16 @@ export function Charting() {
   const [lastPrice, setLastPrice] = useState<number | null>(null);
   const [priceChangeDirection, setPriceChangeDirection] = useState<'up' | 'down' | 'neutral'>('neutral');
 
-  const intervalSeconds = useMemo(() => {
-    switch (interval) {
-      case "5m": return 300;
-      case "1h": return 3600;
-      default: return 60;
-    }
-  }, [interval]);
+  const intervalMapping: { [key: string]: number } = {
+    "1m": 60,
+    "5m": 300,
+    "15m": 900,
+    "30m": 1800,
+    "1h": 3600,
+    "4h": 14400,
+    "1d": 86400,
+  };
+  const intervalSeconds = intervalMapping[interval] || 900; // Default to 15m
 
   const calculateSMA = (data: Candle[], period: number): LineData[] => {
     const sma: LineData[] = [];
@@ -196,7 +201,7 @@ export function Charting() {
     volumeSeriesRef.current = volumeSeries;
     
     const rsiSeries = chart.addLineSeries({ priceScaleId: 'rsi', lastValueVisible: false, priceLineVisible: false });
-    chart.priceScale('rsi').applyOptions({ scaleMargins: { top: 0.8, bottom: 0 }});
+    chart.priceScale('rsi').applyOptions({ scaleMargins: { top: 0.8, bottom: 0.2 }});
     rsiSeriesRef.current = rsiSeries;
 
     const smaSeries = chart.addLineSeries({ color: 'rgba(255, 215, 0, 0.7)', lineWidth: 2, lastValueVisible: false, priceLineVisible: false });
@@ -225,7 +230,7 @@ export function Charting() {
     setIsLoading(true);
     // Binance API requires interval in format '1m', '5m', '1h' etc.
     const binanceInterval = interval.toLowerCase();
-    fetch(`https://api.binance.com/api/v3/klines?symbol=BTCUSDT&interval=${binanceInterval}&limit=200`)
+    fetch(`https://api.binance.com/api/v3/klines?symbol=BTCUSDT&interval=${binanceInterval}&limit=1000`)
         .then(res => res.json())
         .then(data => {
             const formattedCandles: Candle[] = data.map((d: any) => ({
@@ -344,8 +349,7 @@ export function Charting() {
         setCandles(prev => [...prev, updatedCandle]);
     }
     
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [btcPrice, intervalSeconds]);
+  }, [btcPrice, intervalSeconds, lastPrice]);
 
 
   const renderContent = () => {
@@ -364,7 +368,7 @@ export function Charting() {
     }
     return (
       <div className="relative">
-          {isLoading && <Skeleton className="absolute inset-0 h-96 w-full" />}
+          {isLoading && <Skeleton className="absolute inset-0 h-[500px] w-full" />}
           <div ref={chartContainerRef} className={cn(isLoading && "opacity-0")} />
       </div>
     );
@@ -384,15 +388,23 @@ export function Charting() {
   const priceColor = priceChangeDirection === 'up' ? 'text-green-500' : priceChangeDirection === 'down' ? 'text-red-500' : 'text-foreground';
   const changeColor = change24h >= 0 ? 'text-green-500' : 'text-red-500';
 
+  const timeIntervals = ["1m", "5m", "15m", "30m", "1h", "4h", "1d"];
+
   return (
     <Card className="flex-grow">
       <CardHeader>
-        <div className="flex justify-between items-start">
-            <div>
-                <div className="flex items-baseline gap-6">
-                    <div>
-                        <CardTitle>BTC/USDT</CardTitle>
-                        <CardDescription>Bitcoin / Tether</CardDescription>
+        <div className="flex flex-col gap-4">
+            <div className="flex justify-between items-start">
+                <div>
+                    <CardTitle>BTC/USDT</CardTitle>
+                    <CardDescription>Bitcoin / Tether</CardDescription>
+                </div>
+                <div className="flex items-baseline gap-6 text-right">
+                     <div>
+                        <p className="text-sm text-muted-foreground">24h Change</p>
+                        <p className={cn("text-lg font-medium mt-1", changeColor)}>
+                            {change24h.toFixed(2)}%
+                        </p>
                     </div>
                     <div>
                         <p className="text-sm text-muted-foreground">Last Price</p>
@@ -402,14 +414,17 @@ export function Charting() {
                             </p>
                         )}
                     </div>
-                    <div>
-                        <p className="text-sm text-muted-foreground">24h Change</p>
-                        <p className={cn("text-lg font-medium mt-1", changeColor)}>
-                            {change24h.toFixed(2)}%
-                        </p>
-                    </div>
                 </div>
-                 <div className="flex items-center gap-4 mt-2 border-t pt-2">
+            </div>
+             <div className="flex items-center justify-between border-t pt-4">
+                <ToggleGroup type="single" value={interval} onValueChange={(value) => value && setInterval(value)} size="sm">
+                    {timeIntervals.map((item) => (
+                        <ToggleGroupItem key={item} value={item} aria-label={`Select ${item} interval`}>
+                           {item.toUpperCase()}
+                        </ToggleGroupItem>
+                    ))}
+                </ToggleGroup>
+                <div className="flex items-center gap-4">
                     <div className="flex items-center space-x-2">
                         <Checkbox id="sma-toggle" checked={showSma} onCheckedChange={(checked) => setShowSma(Boolean(checked))} />
                         <Label htmlFor="sma-toggle" className="text-xs font-medium flex items-center gap-1">SMA</Label>
@@ -428,9 +443,9 @@ export function Charting() {
                     </div>
                 </div>
             </div>
-         </div>
+        </div>
       </CardHeader>
-      <CardContent>
+      <CardContent className="p-0">
         {renderContent()}
       </CardContent>
     </Card>

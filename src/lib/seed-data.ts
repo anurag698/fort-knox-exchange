@@ -314,6 +314,22 @@ export async function seedInitialData(firestore: Firestore) {
       });
     }
 
+    const dogeEthMarket = await marketsCol.doc('DOGE-ETH').get();
+    if (!dogeEthMarket.exists) {
+        console.log("Seeding DOGE-ETH market...");
+      await marketsCol.doc('DOGE-ETH').set({
+        id: 'DOGE-ETH',
+        baseAssetId: 'DOGE',
+        quoteAssetId: 'ETH',
+        minOrderSize: 100,
+        pricePrecision: 8,
+        quantityPrecision: 0,
+        makerFee: 0.001,
+        takerFee: 0.001,
+        createdAt: new Date(),
+      });
+    }
+
     const adaSolMarket = await marketsCol.doc('ADA-SOL').get();
     if (!adaSolMarket.exists) {
         console.log("Seeding ADA-SOL market...");

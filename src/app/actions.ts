@@ -7,7 +7,7 @@ import { revalidatePath } from "next/cache";
 import { FieldValue } from 'firebase-admin/firestore';
 import { redirect } from 'next/navigation';
 import { cookies } from "next/headers";
-import { getFirebaseAdmin } from "@/lib/firebase-admin";
+import { getFirebaseAdmin, getUserIdFromSession } from "@/lib/firebase-admin";
 
 
 const withdrawalSchema = z.object({
@@ -54,20 +54,6 @@ export async function checkWithdrawal(prevState: FormState, formData: FormData):
       message: error.message || 'An unexpected error occurred.',
       result: null,
     };
-  }
-}
-
-async function getUserIdFromSession() {
-  const sessionCookie = cookies().get('__session')?.value;
-  if (!sessionCookie) {
-    return null;
-  }
-  try {
-    const { auth } = getFirebaseAdmin();
-    const decodedToken = await auth.verifySessionCookie(sessionCookie, true);
-    return decodedToken.uid;
-  } catch (error) {
-    return null;
   }
 }
 

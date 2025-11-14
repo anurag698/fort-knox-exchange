@@ -2,6 +2,7 @@
 import { initializeApp, getApps, getApp, App } from 'firebase-admin/app';
 import { getAuth } from 'firebase-admin/auth';
 import { getFirestore } from 'firebase-admin/firestore';
+import { cookies } from 'next/headers';
 
 const appName = 'firebase-admin-app-singleton';
 
@@ -44,4 +45,20 @@ export function getFirebaseAdmin() {
         console.error("Firebase Admin Initialization Error:", error);
         throw new Error(`Failed to initialize Firebase Admin SDK. Please check your FIREBASE_SERVICE_ACCOUNT environment variable. Original error: ${error.message}`);
     }
+}
+
+
+export async function getUserIdFromSession() {
+  const sessionCookie = cookies().get('__session')?.value;
+  if (!sessionCookie) {
+    return null;
+  }
+  try {
+    const { auth } = getFirebaseAdmin();
+    const decodedToken = await auth.verifySessionCookie(sessionCookie, true);
+    return decodedToken.uid;
+  } catch (error) {
+    console.error("Session verification failed:", error);
+    return null;
+  }
 }

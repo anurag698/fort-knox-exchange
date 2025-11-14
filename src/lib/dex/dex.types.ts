@@ -36,26 +36,33 @@ export interface DexBuildTxResponse {
   chainId: number;
 }
 
-// 1inch Specific API response types (simplified)
+// 1inch Specific API response types (simplified for v6)
 
-export interface OneInchToken {
+export interface TokenInfo {
   address: string;
   symbol: string;
   name: string;
   decimals: number;
   logoURI: string;
+  domainVersion?: string;
+  eip2612?: boolean;
+  isFoT?: boolean;
+  tags: string[];
 }
 
-export interface OneInchQuote {
-  fromToken: OneInchToken;
-  toToken: OneInchToken;
-  toTokenAmount: string;
+
+export interface OneInchQuoteResponse {
+  fromToken: TokenInfo;
+  toToken: TokenInfo;
   fromTokenAmount: string;
+  toTokenAmount: string;
+  route: any[]; // contains the route parts
   estimatedGas: string;
-  protocols: any[];
 }
+
 
 export interface OneInchSwapTransaction {
+  from: string;
   to: string;
   data: string;
   value: string;
@@ -64,19 +71,9 @@ export interface OneInchSwapTransaction {
 }
 
 export interface OneInchSwapResponse {
-  fromToken: OneInchToken;
-  toToken: OneInchToken;
-  toTokenAmount: string;
+  fromToken: TokenInfo;
+  toToken: TokenInfo;
   fromTokenAmount: string;
+  toTokenAmount: string;
   tx: OneInchSwapTransaction;
-}
-
-// General Token Info type for frontend use
-export interface TokenInfo {
-  address: string;
-  symbol: string;
-  name: string;
-  decimals: number;
-  logoURI: string;
-  chainId: number;
 }

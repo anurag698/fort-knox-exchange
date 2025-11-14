@@ -26,11 +26,32 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'Invalid input', details: validation.error.flatten() }, { status: 400 });
   }
 
+  // Handle USDT to USDT case directly
+  if (validation.data.fromTokenAddress === validation.data.toTokenAddress) {
+    const amount = validation.data.amount;
+    const tokenInfo = {
+        address: validation.data.fromTokenAddress,
+        symbol: 'USDT', // Assuming, this should be fetched for correctness
+        name: 'Tether',
+        decimals: 6, // USDT usually has 6 decimals
+        logoURI: 'https://tokens.1inch.io/0xdac17f958d2ee523a2206206994597c13d831ec7.png'
+    };
+    return NextResponse.json({
+        fromToken: tokenInfo,
+        toToken: tokenInfo,
+        fromTokenAmount: amount,
+        toTokenAmount: amount,
+        estimatedGas: "0"
+    });
+  }
+
+
   try {
     const quote = await dexService.getQuote(validation.data);
     return NextResponse.json(quote);
   } catch (error) {
     const e = error as Error;
+    console.error(`Quote API Error for ${searchParams.toString()}:`, e.message);
     return NextResponse.json({ error: 'Failed to get quote', message: e.message }, { status: 500 });
   }
 }

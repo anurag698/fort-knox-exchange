@@ -5,7 +5,7 @@ import type {
   DexQuoteResponse, 
   DexBuildTxRequest,
   DexBuildTxResponse,
-  OneInchQuote,
+  OneInchQuoteResponse,
   OneInchSwapResponse
 } from './dex.types';
 
@@ -21,7 +21,7 @@ class DexService {
     }).toString();
 
     try {
-      const { data } = await client.get<OneInchQuote>(`/quote?${queryParams}`);
+      const { data } = await client.get<OneInchQuoteResponse>(`/quote?${queryParams}`);
       
       return {
         fromToken: data.fromToken,
@@ -29,7 +29,7 @@ class DexService {
         fromTokenAmount: data.fromTokenAmount,
         toTokenAmount: data.toTokenAmount,
         estimatedGas: data.estimatedGas,
-        route: data.protocols,
+        route: data.route,
       };
     } catch (error) {
       console.error('Error fetching quote from 1inch:', error);
@@ -46,7 +46,7 @@ class DexService {
       dst: toTokenAddress,
       amount: amount,
       from: userAddress,
-      destReceiver: userAddress, // Send swapped tokens back to the user
+      receiver: userAddress, // Send swapped tokens back to the user
       slippage: slippage.toString(),
       allowPartialFill: 'false',
     }).toString();

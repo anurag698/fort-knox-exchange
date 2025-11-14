@@ -102,19 +102,24 @@ export async function createNewUserDocument(firestore: Firestore, firebaseUser: 
     if (!firestore || !firebaseUser) return;
 
     const userRef = doc(firestore, 'users', firebaseUser.uid);
-    const userSnap = await getDoc(userRef);
+    try {
+        const userSnap = await getDoc(userRef);
 
-    if (!userSnap.exists()) {
-        const newUser = {
-            id: firebaseUser.uid,
-            email: firebaseUser.email,
-            username: firebaseUser.email?.split('@')[0] ?? `user_${Math.random().toString(36).substring(2, 8)}`,
-            kycStatus: 'PENDING',
-            referralCode: Math.random().toString(36).substring(2, 8).toUpperCase(),
-            createdAt: serverTimestamp(),
-            updatedAt: serverTimestamp(),
-        };
-        // Use a non-blocking write to avoid delaying the auth flow.
-        setDocumentNonBlocking(userRef, newUser, {});
+        if (!userSnap.exists()) {
+            const newUser = {
+                id: firebaseUser.uid,
+                email: firebaseUser.email,
+                username: firebaseUser.email?.split('@')[0] ?? `user_${Math.random().toString(36).substring(2, 8)}`,
+                kycStatus: 'PENDING',
+                referralCode: Math.random().toString(36).substring(2, 8).toUpperCase(),
+                createdAt: serverTimestamp(),
+                updatedAt: serverTimestamp(),
+            };
+            // Use a non-blocking write to avoid delaying the auth flow.
+            setDocumentNonBlocking(userRef, newUser, {});
+        }
+    } catch(e) {
+      // Intentionally ignore permission errors, as the security rules may prevent reads.
+      // The set operation will still be attempted.
     }
 }

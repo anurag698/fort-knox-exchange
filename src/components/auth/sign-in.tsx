@@ -17,8 +17,14 @@ import {
 import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useAuth } from '@/firebase';
-import { initiateEmailSignUp, initiateEmailSignIn } from '@/firebase/non-blocking-login';
+import {
+  createUserWithEmailAndPassword,
+  signInWithEmailAndPassword,
+} from 'firebase/auth';
 import { Loader2 } from 'lucide-react';
+import { createSession } from '@/app/actions';
+import { useToast } from '@/hooks/use-toast';
+import { useRouter } from 'next/navigation';
 
 const signInSchema = z.object({
   email: z.string().email({ message: 'Invalid email address.' }),
@@ -36,6 +42,8 @@ const signUpSchema = z.object({
 
 export function SignIn() {
   const auth = useAuth();
+  const { toast } = useToast();
+  const router = useRouter();
   const [loading, setLoading] = useState(false);
 
   const signInForm = useForm<z.infer<typeof signInSchema>>({
@@ -48,14 +56,68 @@ export function SignIn() {
     defaultValues: { email: '', password: '', confirmPassword: '' },
   });
 
-  const onSignInSubmit = (values: z.infer<typeof signInSchema>) => {
-    setLoading(true);
-    initiateEmailSignIn(auth, values.email, values.password);
+  const handleAuthSuccess = async (user: any) => {
+    const token = await user.getIdToken();
+    const result = await createSession(token);
+    if (result.status === 'success') {
+      router.push('/trade');
+    } else {
+      toast({
+        variant: 'destructive',
+        title: 'Sign In Failed',
+        description: result.message,
+      });
+      setLoading(false);
+    }
   };
 
-  const onSignUpSubmit = (values: z.infer<typeof signUpSchema>) => {
+  const handleAuthError = (error: any) => {
+    let message = 'An unknown error occurred.';
+    if (error.code) {
+      switch (error.code) {
+        case 'auth/user-not-found':
+          message = 'No account found with this email.';
+          break;
+        case 'auth/wrong-password':
+          message = 'Incorrect password. Please try again.';
+          break;
+        case 'auth/email-already-in-use':
+          message = 'An account with this email already exists.';
+          break;
+        case 'auth/invalid-email':
+          message = 'The email address is not valid.';
+          break;
+        default:
+          message = error.message;
+      }
+    }
+    toast({
+      variant: 'destructive',
+      title: 'Authentication Error',
+      description: message,
+    });
+    setLoading(false);
+  };
+
+
+  const onSignInSubmit = async (values: z.infer<typeof signInSchema>) => {
     setLoading(true);
-    initiateEmailSignUp(auth, values.email, values.password);
+    try {
+      const userCredential = await signInWithEmailAndPassword(auth, values.email, values.password);
+      await handleAuthSuccess(userCredential.user);
+    } catch (error) {
+      handleAuthError(error);
+    }
+  };
+
+  const onSignUpSubmit = async (values: z.infer<typeof signUpSchema>) => {
+    setLoading(true);
+    try {
+      const userCredential = await createUserWithEmailAndPassword(auth, values.email, values.password);
+      await handleAuthSuccess(userCredential.user);
+    } catch (error) {
+      handleAuthError(error);
+    }
   };
 
   return (

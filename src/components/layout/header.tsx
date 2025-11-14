@@ -1,3 +1,4 @@
+
 "use client";
 
 import { SidebarTrigger, useSidebar } from "@/components/ui/sidebar";
@@ -18,6 +19,7 @@ import Link from 'next/link';
 import { useUser, useAuth } from '@/firebase';
 import { signOut } from 'firebase/auth';
 import { useRouter } from "next/navigation";
+import { clearSession } from "@/app/actions";
 
 export default function Header() {
   const isMobile = useIsMobile();
@@ -29,6 +31,7 @@ export default function Header() {
   const handleSignOut = async () => {
     if (auth) {
       await signOut(auth);
+      await clearSession();
       router.push('/auth');
     }
   };

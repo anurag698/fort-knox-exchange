@@ -4,7 +4,6 @@
 import { moderateWithdrawalRequest, type ModerateWithdrawalRequestInput, type ModerateWithdrawalRequestOutput } from "@/ai/flows/moderate-withdrawal-requests";
 import { z } from "zod";
 import { revalidatePath } from "next/cache";
-import { FieldValue } from 'firebase-admin/firestore';
 import { redirect } from 'next/navigation';
 import { cookies } from "next/headers";
 import { getFirebaseAdmin, getUserIdFromSession } from "@/lib/firebase-admin";
@@ -81,7 +80,7 @@ message: 'Invalid order ID.',
   const { orderId } = validatedFields.data;
 
   try {
-    const { firestore } = getFirebaseAdmin();
+    const { firestore, app } = getFirebaseAdmin();
     const orderRef = firestore.collection('orders').doc(orderId);
     const orderDoc = await orderRef.get();
 
@@ -91,7 +90,7 @@ message: 'Invalid order ID.',
     
     await orderRef.update({
         status: 'CANCELED',
-        updatedAt: FieldValue.serverTimestamp(),
+        updatedAt: new Date(),
     });
 
     revalidatePath('/trade');
@@ -154,8 +153,8 @@ export async function createOrder(prevState: CreateOrderFormState, formData: For
             type: 'LIMIT', // Hardcoded for simplicity
             status: 'OPEN',
             filledAmount: 0,
-            createdAt: FieldValue.serverTimestamp(),
-            updatedAt: FieldValue.serverTimestamp(),
+            createdAt: new Date(),
+            updatedAt: new Date(),
         };
 
         await newOrderRef.set(newOrder);
@@ -210,7 +209,7 @@ async function updateWithdrawalStatus(
     
     await withdrawalDoc.ref.update({
       status: status,
-      updatedAt: FieldValue.serverTimestamp(),
+      updatedAt: new Date(),
     });
 
   } catch (error) {
@@ -234,23 +233,34 @@ export async function rejectWithdrawal(formData: FormData) {
 
 export async function createSession(token: string) {
   if (!token) {
-    throw new Error('Token is required for session creation.');
+    return { status: 'error', message: 'Token is required for session creation.' };
   }
 
-  const { auth } = getFirebaseAdmin();
-  const expiresIn = 60 * 60 * 24 * 5 * 1000; // 5 days
-  const sessionCookie = await auth.createSessionCookie(token, { expiresIn });
+  try {
+    const { auth } = getFirebaseAdmin();
+    const expiresIn = 60 * 60 * 24 * 5 * 1000; // 5 days
+    const sessionCookie = await auth.createSessionCookie(token, { expiresIn });
 
-  cookies().set('__session', sessionCookie, {
-    maxAge: expiresIn,
-    httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-  });
-  
-  return { status: 'success' };
+    cookies().set('__session', sessionCookie, {
+      maxAge: expiresIn,
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      path: '/',
+    });
+    
+    return { status: 'success' };
+  } catch (error) {
+    console.error('Failed to create session:', error);
+    return { status: 'error', message: 'Failed to create session.' };
+  }
 }
 
 export async function clearSession() {
-  cookies().delete('__session');
-  return { status: 'success' };
+  try {
+    cookies().delete('__session');
+    return { status: 'success' };
+  } catch (error) {
+    console.error('Failed to clear session:', error);
+    return { status: 'error', message: 'Failed to clear session.' };
+  }
 }

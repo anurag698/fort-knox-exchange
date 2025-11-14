@@ -7,7 +7,6 @@ import { Firestore } from 'firebase/firestore';
 import { Auth, User, onAuthStateChanged } from 'firebase/auth';
 import { FirebaseErrorListener } from '@/components/FirebaseErrorListener'
 import { createNewUserDocument } from './non-blocking-updates';
-import { createSession, clearSession } from '@/app/actions';
 
 interface FirebaseProviderProps {
   children: ReactNode;
@@ -85,18 +84,6 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
         if (firebaseUser) {
           // User is signed in, check for user document
           await createNewUserDocument(firestore, firebaseUser);
-          
-          // Set session cookie by calling the server action
-          try {
-            const token = await firebaseUser.getIdToken();
-            await createSession(token);
-          } catch(e) {
-            console.error("Failed to create session:", e);
-          }
-
-        } else {
-            // User signed out, clear cookie via server action
-            await clearSession();
         }
         setUserAuthState({ user: firebaseUser, isUserLoading: false, userError: null });
       },

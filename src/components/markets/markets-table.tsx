@@ -25,8 +25,17 @@ export function MarketsTable({ markets: initialMarkets }: MarketsTableProps) {
     const [prices, setPrices] = useState<Record<string, number>>({});
     const [pricesLoading, setPricesLoading] = useState(true);
 
+    const marketSymbols = useMemo(() => {
+        if (!initialMarkets) return [];
+        return initialMarkets.map(m => `${m.baseAssetId}${m.quoteAssetId}`);
+    }, [initialMarkets]);
+
     useEffect(() => {
-        const ws = new WebSocket('wss://stream.binance.com:9443/ws/btcusdt@trade/ethusdt@trade/solusdt@trade/adausdt@trade/maticusdt@trade/dogeusdt@trade');
+        if (marketSymbols.length === 0) {
+            setPricesLoading(false);
+            return;
+        }
+        const ws = new WebSocket(`wss://stream.binance.com:9443/ws/${marketSymbols.map(s => `${s.toLowerCase()}@trade`).join('/')}`);
         
         ws.onmessage = (event) => {
         const data = JSON.parse(event.data);
@@ -45,7 +54,7 @@ export function MarketsTable({ markets: initialMarkets }: MarketsTableProps) {
         return () => {
         ws.close();
         };
-  }, []);
+  }, [marketSymbols]);
 
     const assetsMap = useMemo(() => {
         if (!assets) return new Map();

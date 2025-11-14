@@ -16,8 +16,8 @@ type FormState = {
 
 export async function seedDatabase(prevState: any, formData: FormData) {
   try {
-    const { firestore } = getFirebaseAdmin();
-    await seedInitialData(firestore);
+    const { firestore, FieldValue } = getFirebaseAdmin();
+    await seedInitialData(firestore, FieldValue);
     return { status: 'success', message: 'Database seeded successfully!' };
   } catch (error) {
     console.error("Database Seeding Error:", error);
@@ -49,12 +49,12 @@ export async function updateUserProfile(prevState: any, formData: FormData) {
   const { username } = validatedFields.data;
 
   try {
-    const { firestore } = getFirebaseAdmin();
+    const { firestore, FieldValue } = getFirebaseAdmin();
     const userRef = firestore.collection('users').doc(userId);
     
     await userRef.update({
         username,
-        updatedAt: new Date(),
+        updatedAt: FieldValue.serverTimestamp(),
     });
 
     revalidatePath('/settings');
@@ -95,7 +95,7 @@ export async function cancelOrder(prevState: FormState, formData: FormData): Pro
   const { orderId } = validatedFields.data;
 
   try {
-    const { firestore } = getFirebaseAdmin();
+    const { firestore, FieldValue } = getFirebaseAdmin();
     const orderRef = firestore.collection('orders').doc(orderId);
     const orderDoc = await orderRef.get();
 
@@ -105,7 +105,7 @@ export async function cancelOrder(prevState: FormState, formData: FormData): Pro
     
     await orderRef.update({
         status: 'CANCELED',
-        updatedAt: new Date(),
+        updatedAt: FieldValue.serverTimestamp(),
     });
 
     revalidatePath('/trade');
@@ -148,7 +148,7 @@ export async function createOrder(prevState: FormState, formData: FormData): Pro
     const { price, quantity, side, marketId } = validatedFields.data;
 
     try {
-        const { firestore } = getFirebaseAdmin();
+        const { firestore, FieldValue } = getFirebaseAdmin();
         const batch = firestore.batch();
         
         const [baseAssetId, quoteAssetId] = marketId.split('-');
@@ -164,8 +164,8 @@ export async function createOrder(prevState: FormState, formData: FormData): Pro
             type: 'LIMIT', // Hardcoded for simplicity
             status: 'OPEN',
             filledAmount: 0,
-            createdAt: new Date(),
-            updatedAt: new Date(),
+            createdAt: FieldValue.serverTimestamp(),
+            updatedAt: FieldValue.serverTimestamp(),
         };
         batch.set(newOrderRef, newOrder);
 
@@ -180,7 +180,7 @@ export async function createOrder(prevState: FormState, formData: FormData): Pro
             amount: amount,
             orderId: newOrderRef.id,
             description: `${side} order for ${quantity} ${baseAssetId} at ${price} ${quoteAssetId}.`,
-            createdAt: new Date(),
+            createdAt: FieldValue.serverTimestamp(),
         });
         
         // Simulate a fee
@@ -194,7 +194,7 @@ export async function createOrder(prevState: FormState, formData: FormData): Pro
             amount: feeAmount,
             orderId: newOrderRef.id,
             description: `Trading fee for order ${newOrderRef.id}`,
-            createdAt: new Date(),
+            createdAt: FieldValue.serverTimestamp(),
         });
 
 
@@ -237,7 +237,7 @@ async function updateWithdrawalStatus(
   const { withdrawalId } = validatedFields.data;
 
   try {
-    const { firestore } = getFirebaseAdmin();
+    const { firestore, FieldValue } = getFirebaseAdmin();
 
     const withdrawalsRef = firestore.collectionGroup('withdrawals');
     const q = withdrawalsRef.where('id', '==', withdrawalId).limit(1);
@@ -251,7 +251,7 @@ async function updateWithdrawalStatus(
     
     await withdrawalDoc.ref.update({
       status: status,
-      updatedAt: new Date(),
+      updatedAt: FieldValue.serverTimestamp(),
     });
 
   } catch (error) {
@@ -279,7 +279,7 @@ export async function createSession(token: string) {
   }
 
   try {
-    const { auth, firestore } = getFirebaseAdmin();
+    const { auth, firestore, FieldValue } = getFirebaseAdmin();
     const expiresIn = 60 * 60 * 24 * 5 * 1000; // 5 days
     const sessionCookie = await auth.createSessionCookie(token, { expiresIn });
 
@@ -303,8 +303,8 @@ export async function createSession(token: string) {
         username: decodedToken.email?.split('@')[0] ?? `user_${Math.random().toString(36).substring(2, 8)}`,
         kycStatus: 'PENDING',
         referralCode: Math.random().toString(36).substring(2, 8).toUpperCase(),
-        createdAt: new Date(),
-        updatedAt: new Date(),
+        createdAt: FieldValue.serverTimestamp(),
+        updatedAt: FieldValue.serverTimestamp(),
         isAdmin: decodedToken.email === 'admin@fortknox.exchange'
       };
       batch.set(userRef, newUser);
@@ -318,8 +318,8 @@ export async function createSession(token: string) {
         assetId: 'USDT',
         available: 100000,
         locked: 0,
-        createdAt: new Date(),
-        updatedAt: new Date(),
+        createdAt: FieldValue.serverTimestamp(),
+        updatedAt: FieldValue.serverTimestamp(),
       });
       const btcBalanceRef = balancesRef.doc('BTC');
       batch.set(btcBalanceRef, {
@@ -328,8 +328,8 @@ export async function createSession(token: string) {
         assetId: 'BTC',
         available: 1,
         locked: 0,
-        createdAt: new Date(),
-        updatedAt: new Date(),
+        createdAt: FieldValue.serverTimestamp(),
+        updatedAt: FieldValue.serverTimestamp(),
       });
       const ethBalanceRef = balancesRef.doc('ETH');
       batch.set(ethBalanceRef, {
@@ -338,8 +338,8 @@ export async function createSession(token: string) {
         assetId: 'ETH',
         available: 10,
         locked: 0,
-        createdAt: new Date(),
-        updatedAt: new Date(),
+        createdAt: FieldValue.serverTimestamp(),
+        updatedAt: FieldValue.serverTimestamp(),
       });
       const dogeBalanceRef = balancesRef.doc('DOGE');
       batch.set(dogeBalanceRef, {
@@ -348,8 +348,8 @@ export async function createSession(token: string) {
         assetId: 'DOGE',
         available: 50000,
         locked: 0,
-        createdAt: new Date(),
-        updatedAt: new Date(),
+        createdAt: FieldValue.serverTimestamp(),
+        updatedAt: FieldValue.serverTimestamp(),
       });
       const maticBalanceRef = balancesRef.doc('MATIC');
       batch.set(maticBalanceRef, {
@@ -358,8 +358,8 @@ export async function createSession(token: string) {
         assetId: 'MATIC',
         available: 2000,
         locked: 0,
-        createdAt: new Date(),
-        updatedAt: new Date(),
+        createdAt: FieldValue.serverTimestamp(),
+        updatedAt: FieldValue.serverTimestamp(),
       });
 
       await batch.commit();
@@ -402,7 +402,7 @@ export async function requestDeposit(prevState: FormState, formData: FormData): 
     const { assetId } = validatedFields.data;
 
     try {
-        const { firestore } = getFirebaseAdmin();
+        const { firestore, FieldValue } = getFirebaseAdmin();
         const batch = firestore.batch();
         const newDepositRef = firestore.collection('users').doc(userId).collection('deposits').doc();
 
@@ -412,8 +412,8 @@ export async function requestDeposit(prevState: FormState, formData: FormData): 
             assetId,
             amount: 0, // Amount will be updated by a backend process upon actual crypto receipt
             status: 'PENDING',
-            createdAt: new Date(),
-            updatedAt: new Date(),
+            createdAt: FieldValue.serverTimestamp(),
+            updatedAt: FieldValue.serverTimestamp(),
         };
         batch.set(newDepositRef, newDeposit);
 
@@ -426,7 +426,7 @@ export async function requestDeposit(prevState: FormState, formData: FormData): 
             amount: 0,
             depositId: newDepositRef.id,
             description: `Deposit request for ${assetId}`,
-            createdAt: new Date(),
+            createdAt: FieldValue.serverTimestamp(),
         });
         
         await batch.commit();
@@ -471,7 +471,7 @@ export async function requestWithdrawal(prevState: FormState, formData: FormData
     const { assetId, amount, withdrawalAddress } = validatedFields.data;
 
     try {
-        const { firestore } = getFirebaseAdmin();
+        const { firestore, FieldValue } = getFirebaseAdmin();
         const batch = firestore.batch();
 
         // Fetch user and asset data required for AI analysis
@@ -495,8 +495,8 @@ export async function requestWithdrawal(prevState: FormState, formData: FormData
             amount,
             withdrawalAddress,
             status: 'PENDING',
-            createdAt: new Date(),
-            updatedAt: new Date(),
+            createdAt: FieldValue.serverTimestamp(),
+            updatedAt: FieldValue.serverTimestamp(),
             aiRiskLevel: 'Medium', // Default while processing
             aiReason: 'Analysis in progress...',
         };
@@ -511,7 +511,7 @@ export async function requestWithdrawal(prevState: FormState, formData: FormData
             amount,
             withdrawalId: newWithdrawalRef.id,
             description: `Withdrawal request for ${amount} ${asset.symbol}`,
-            createdAt: new Date(),
+            createdAt: FieldValue.serverTimestamp(),
         });
 
         await batch.commit();
@@ -586,12 +586,12 @@ async function updateUserKycStatus(formData: FormData, status: 'VERIFIED' | 'REJ
 
   try {
     // In a real app, you would also verify that the calling user is an admin here.
-    const { firestore } = getFirebaseAdmin();
+    const { firestore, FieldValue } = getFirebaseAdmin();
     const userRef = firestore.collection('users').doc(userId);
     
     await userRef.update({
         kycStatus: status,
-        updatedAt: new Date(),
+        updatedAt: FieldValue.serverTimestamp(),
     });
 
   } catch (error) {
@@ -621,12 +621,12 @@ export async function submitKyc(prevState: any, formData: FormData): Promise<For
   }
 
   try {
-    const { firestore } = getFirebaseAdmin();
+    const { firestore, FieldValue } = getFirebaseAdmin();
     const userRef = firestore.collection('users').doc(userId);
     
     await userRef.update({
       kycStatus: 'PENDING',
-      updatedAt: new Date(),
+      updatedAt: FieldValue.serverTimestamp(),
     });
     
     revalidatePath('/settings');

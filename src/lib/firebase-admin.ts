@@ -1,7 +1,7 @@
 
 import { initializeApp, getApps, getApp, App } from 'firebase-admin/app';
 import { getAuth } from 'firebase-admin/auth';
-import { getFirestore } from 'firebase-admin/firestore';
+import { getFirestore, FieldValue } from 'firebase-admin/firestore';
 import { cookies } from 'next/headers';
 
 const appName = 'firebase-admin-app-singleton';
@@ -17,7 +17,8 @@ export function getFirebaseAdmin() {
         return { 
             firestore: getFirestore(adminApp), 
             auth: getAuth(adminApp), 
-            app: adminApp 
+            app: adminApp,
+            FieldValue,
         };
     }
 
@@ -38,7 +39,8 @@ export function getFirebaseAdmin() {
         return { 
             firestore: getFirestore(adminApp), 
             auth: getAuth(adminApp), 
-            app: adminApp 
+            app: adminApp,
+            FieldValue,
         };
 
     } catch (error: any) {

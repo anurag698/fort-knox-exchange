@@ -1,13 +1,14 @@
 
 
-import type { Firestore } from 'firebase-admin/firestore';
+import type { Firestore, FieldValue } from 'firebase-admin/firestore';
 
 /**
  * Seeds the Firestore database with initial public data like assets and markets.
  * This function is idempotent and will not overwrite existing data.
  * @param firestore The Firestore admin instance.
+ * @param FieldValue The Firestore FieldValue class.
  */
-export async function seedInitialData(firestore: Firestore) {
+export async function seedInitialData(firestore: Firestore, FieldValue: any) {
   try {
     const assetsCol = firestore.collection('assets');
     const marketsCol = firestore.collection('markets');
@@ -19,7 +20,7 @@ export async function seedInitialData(firestore: Firestore) {
         id: 'USDT',
         name: 'Tether',
         symbol: 'USDT',
-        createdAt: new Date(),
+        createdAt: FieldValue.serverTimestamp(),
       });
     }
 
@@ -30,7 +31,7 @@ export async function seedInitialData(firestore: Firestore) {
         id: 'BTC',
         name: 'Bitcoin',
         symbol: 'BTC',
-        createdAt: new Date(),
+        createdAt: FieldValue.serverTimestamp(),
       });
     }
 
@@ -41,7 +42,7 @@ export async function seedInitialData(firestore: Firestore) {
         id: 'ETH',
         name: 'Ethereum',
         symbol: 'ETH',
-        createdAt: new Date(),
+        createdAt: FieldValue.serverTimestamp(),
       });
     }
     
@@ -52,7 +53,7 @@ export async function seedInitialData(firestore: Firestore) {
         id: 'SOL',
         name: 'Solana',
         symbol: 'SOL',
-        createdAt: new Date(),
+        createdAt: FieldValue.serverTimestamp(),
       });
     }
     
@@ -63,7 +64,7 @@ export async function seedInitialData(firestore: Firestore) {
         id: 'ADA',
         name: 'Cardano',
         symbol: 'ADA',
-        createdAt: new Date(),
+        createdAt: FieldValue.serverTimestamp(),
       });
     }
 
@@ -74,7 +75,7 @@ export async function seedInitialData(firestore: Firestore) {
         id: 'MATIC',
         name: 'Polygon',
         symbol: 'MATIC',
-        createdAt: new Date(),
+        createdAt: FieldValue.serverTimestamp(),
       });
     }
 
@@ -85,7 +86,7 @@ export async function seedInitialData(firestore: Firestore) {
         id: 'DOGE',
         name: 'Dogecoin',
         symbol: 'DOGE',
-        createdAt: new Date(),
+        createdAt: FieldValue.serverTimestamp(),
       });
     }
 
@@ -102,7 +103,7 @@ export async function seedInitialData(firestore: Firestore) {
         quantityPrecision: 6,
         makerFee: 0.001,
         takerFee: 0.001,
-        createdAt: new Date(),
+        createdAt: FieldValue.serverTimestamp(),
       });
     }
     
@@ -118,7 +119,7 @@ export async function seedInitialData(firestore: Firestore) {
         quantityPrecision: 4,
         makerFee: 0.001,
         takerFee: 0.001,
-        createdAt: new Date(),
+        createdAt: FieldValue.serverTimestamp(),
       });
     }
     
@@ -134,7 +135,7 @@ export async function seedInitialData(firestore: Firestore) {
         quantityPrecision: 2,
         makerFee: 0.001,
         takerFee: 0.001,
-        createdAt: new Date(),
+        createdAt: FieldValue.serverTimestamp(),
       });
     }
     
@@ -150,7 +151,7 @@ export async function seedInitialData(firestore: Firestore) {
         quantityPrecision: 0,
         makerFee: 0.001,
         takerFee: 0.001,
-        createdAt: new Date(),
+        createdAt: FieldValue.serverTimestamp(),
       });
     }
 
@@ -166,7 +167,7 @@ export async function seedInitialData(firestore: Firestore) {
         quantityPrecision: 2,
         makerFee: 0.001,
         takerFee: 0.001,
-        createdAt: new Date(),
+        createdAt: FieldValue.serverTimestamp(),
       });
     }
 
@@ -182,7 +183,7 @@ export async function seedInitialData(firestore: Firestore) {
         quantityPrecision: 0,
         makerFee: 0.001,
         takerFee: 0.001,
-        createdAt: new Date(),
+        createdAt: FieldValue.serverTimestamp(),
       });
     }
 
@@ -198,7 +199,7 @@ export async function seedInitialData(firestore: Firestore) {
         quantityPrecision: 4,
         makerFee: 0.001,
         takerFee: 0.001,
-        createdAt: new Date(),
+        createdAt: FieldValue.serverTimestamp(),
       });
     }
 
@@ -214,7 +215,7 @@ export async function seedInitialData(firestore: Firestore) {
         quantityPrecision: 2,
         makerFee: 0.001,
         takerFee: 0.001,
-        createdAt: new Date(),
+        createdAt: FieldValue.serverTimestamp(),
       });
     }
 
@@ -230,7 +231,7 @@ export async function seedInitialData(firestore: Firestore) {
         quantityPrecision: 0,
         makerFee: 0.001,
         takerFee: 0.001,
-        createdAt: new Date(),
+        createdAt: FieldValue.serverTimestamp(),
       });
     }
 
@@ -246,7 +247,7 @@ export async function seedInitialData(firestore: Firestore) {
         quantityPrecision: 2,
         makerFee: 0.001,
         takerFee: 0.001,
-        createdAt: new Date(),
+        createdAt: FieldValue.serverTimestamp(),
       });
     }
 
@@ -262,7 +263,7 @@ export async function seedInitialData(firestore: Firestore) {
         quantityPrecision: 0,
         makerFee: 0.001,
         takerFee: 0.001,
-        createdAt: new Date(),
+        createdAt: FieldValue.serverTimestamp(),
       });
     }
 
@@ -278,7 +279,7 @@ export async function seedInitialData(firestore: Firestore) {
         quantityPrecision: 2,
         makerFee: 0.001,
         takerFee: 0.001,
-        createdAt: new Date(),
+        createdAt: FieldValue.serverTimestamp(),
       });
     }
 
@@ -294,7 +295,7 @@ export async function seedInitialData(firestore: Firestore) {
         quantityPrecision: 0,
         makerFee: 0.001,
         takerFee: 0.001,
-        createdAt: new Date(),
+        createdAt: FieldValue.serverTimestamp(),
       });
     }
 
@@ -310,7 +311,7 @@ export async function seedInitialData(firestore: Firestore) {
         quantityPrecision: 2,
         makerFee: 0.001,
         takerFee: 0.001,
-        createdAt: new Date(),
+        createdAt: FieldValue.serverTimestamp(),
       });
     }
 
@@ -326,7 +327,7 @@ export async function seedInitialData(firestore: Firestore) {
         quantityPrecision: 0,
         makerFee: 0.001,
         takerFee: 0.001,
-        createdAt: new Date(),
+        createdAt: FieldValue.serverTimestamp(),
       });
     }
 
@@ -342,7 +343,7 @@ export async function seedInitialData(firestore: Firestore) {
         quantityPrecision: 0,
         makerFee: 0.001,
         takerFee: 0.001,
-        createdAt: new Date(),
+        createdAt: FieldValue.serverTimestamp(),
       });
     }
 
@@ -358,7 +359,7 @@ export async function seedInitialData(firestore: Firestore) {
         quantityPrecision: 2,
         makerFee: 0.001,
         takerFee: 0.001,
-        createdAt: new Date(),
+        createdAt: FieldValue.serverTimestamp(),
       });
     }
 
@@ -374,7 +375,7 @@ export async function seedInitialData(firestore: Firestore) {
         quantityPrecision: 0,
         makerFee: 0.001,
         takerFee: 0.001,
-        createdAt: new Date(),
+        createdAt: FieldValue.serverTimestamp(),
       });
     }
 

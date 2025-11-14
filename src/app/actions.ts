@@ -338,6 +338,21 @@ export async function requestWithdrawal(prevState: FormState, formData: FormData
 
     try {
         const { firestore } = getFirebaseAdmin();
+
+        // Fetch user and asset data required for AI analysis
+        const userRef = firestore.collection('users').doc(userId);
+        const userSnap = await userRef.get();
+        const userProfile = userSnap.data();
+
+        const assetRef = firestore.collection('assets').doc(assetId);
+        const assetSnap = await assetRef.get();
+        const asset = assetSnap.data();
+        
+        if (!userProfile || !asset) {
+            return { status: 'error', message: 'Could not retrieve user or asset data for analysis.' };
+        }
+
+        // Create the withdrawal document first
         const newWithdrawalRef = firestore.collection('users').doc(userId).collection('withdrawals').doc();
 
         const newWithdrawal = {
@@ -349,14 +364,51 @@ export async function requestWithdrawal(prevState: FormState, formData: FormData
             status: 'PENDING',
             createdAt: new Date(),
             updatedAt: new Date(),
+            aiRiskLevel: 'Medium', // Default while processing
+            aiReason: 'Analysis in progress...',
         };
 
         await newWithdrawalRef.set(newWithdrawal);
+        revalidatePath('/portfolio'); // revalidate the wallet page immediately
 
-        revalidatePath('/portfolio'); // revalidate the wallet page
+        // Now, asynchronously perform AI analysis and update the doc
+        (async () => {
+            try {
+                // Simplified withdrawal history for the flow
+                const historySnapshot = await firestore.collection('users').doc(userId).collection('withdrawals').get();
+                const historySummary = `${historySnapshot.size} past withdrawals.`;
+
+                const moderationInput: ModerateWithdrawalRequestInput = {
+                    userId,
+                    withdrawalId: newWithdrawalRef.id,
+                    amount,
+                    asset: asset.symbol,
+                    withdrawalAddress,
+                    userKYCStatus: userProfile.kycStatus,
+                    userAccountCreationDate: userProfile.createdAt.toDate().toISOString(),
+                    userWithdrawalHistory: historySummary,
+                };
+                
+                const result = await moderateWithdrawalRequest(moderationInput);
+
+                // Update the withdrawal document with the AI analysis results
+                await newWithdrawalRef.update({
+                    aiRiskLevel: result.riskLevel,
+                    aiReason: result.reason,
+                });
+            } catch (aiError) {
+                console.error("AI Analysis background task failed:", aiError);
+                // Optionally update the doc to reflect the failure
+                await newWithdrawalRef.update({
+                    aiRiskLevel: 'Medium',
+                    aiReason: 'AI analysis failed to run.',
+                });
+            }
+        })();
+
         return {
             status: 'success',
-            message: `Withdrawal request submitted successfully.`,
+            message: `Withdrawal request submitted successfully. AI analysis is in progress.`,
         };
 
     } catch (e) {
@@ -449,3 +501,5 @@ export async function submitKyc(prevState: any, formData: FormData): Promise<For
     };
   }
 }
+
+    

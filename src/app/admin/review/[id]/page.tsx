@@ -8,13 +8,30 @@ import { doc } from 'firebase/firestore';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { AlertCircle, ArrowLeft } from 'lucide-react';
+import { AlertCircle, ArrowLeft, ShieldAlert, ShieldCheck, Loader2 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
+import { checkWithdrawal } from '@/app/actions';
+import { useFormState, useFormStatus } from 'react-dom';
+import { useEffect } from 'react';
+import { useToast } from '@/hooks/use-toast';
+import { useAssets } from '@/hooks/use-assets';
+
+function AnalyzeButton() {
+  const { pending } = useFormStatus();
+  return (
+    <Button type="submit" disabled={pending} className="w-full">
+      {pending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <ShieldCheck className="mr-2 h-4 w-4" />}
+      Analyze Now
+    </Button>
+  );
+}
+
 
 export default function ReviewWithdrawalPage({ params }: { params: { id: string } }) {
   useAuthGate();
+  const { toast } = useToast();
   const { data: withdrawal, isLoading: isWithdrawalLoading, error: withdrawalError } = useWithdrawal(params.id);
   const firestore = useFirestore();
 
@@ -24,8 +41,27 @@ export default function ReviewWithdrawalPage({ params }: { params: { id: string 
   );
   
   const { data: userProfile, isLoading: isProfileLoading, error: profileError } = useDoc(userDocRef);
+  const { data: assets, isLoading: assetsLoading } = useAssets();
+  const asset = assets?.find(a => a.id === withdrawal?.assetId);
 
-  const isLoading = isWithdrawalLoading || isProfileLoading;
+  const [state, formAction] = useFormState(checkWithdrawal, {
+    status: 'idle',
+    message: '',
+    result: null,
+  });
+
+  useEffect(() => {
+    if (state.status === 'error') {
+      toast({
+        variant: 'destructive',
+        title: 'Analysis Failed',
+        description: state.message,
+      });
+    }
+  }, [state, toast]);
+
+
+  const isLoading = isWithdrawalLoading || isProfileLoading || assetsLoading;
   const error = withdrawalError || profileError;
 
   const renderContent = () => {
@@ -77,13 +113,45 @@ export default function ReviewWithdrawalPage({ params }: { params: { id: string 
         </div>
         <div>
             <h3 className="text-lg font-medium">Withdrawal Details</h3>
-            <p className="text-sm text-muted-foreground">Amount: {withdrawal.amount}</p>
+            <p className="text-sm text-muted-foreground">Amount: {withdrawal.amount} {asset?.symbol}</p>
             <p className="text-sm text-muted-foreground">Asset ID: {withdrawal.assetId}</p>
             <p className="text-sm text-muted-foreground">Status: <Badge variant={withdrawal.status === 'PENDING' ? 'secondary' : 'default'}>{withdrawal.status}</Badge></p>
             <p className="text-sm text-muted-foreground font-mono">Address: {withdrawal.transactionHash || 'N/A'}</p>
         </div>
       </div>
     );
+  }
+
+  const renderAnalysis = () => {
+     if (state.status === 'success' && state.result) {
+       return (
+         <div className="w-full space-y-4">
+              <Alert variant={state.result.isSuspicious ? "destructive" : "default"}>
+                {state.result.isSuspicious ? <ShieldAlert className="h-4 w-4" /> : <ShieldCheck className="h-4 w-4" />}
+                <AlertTitle>{state.result.isSuspicious ? "Suspicious Request" : "Request Appears Normal"}</AlertTitle>
+                <AlertDescription>
+                  {state.result.isSuspicious ? state.result.reason : "No immediate compliance flags were raised."}
+                </AlertDescription>
+              </Alert>
+              {state.result.suggestedAction && (
+                <Card>
+                  <CardHeader className="p-4">
+                    <CardTitle className="text-base">Suggested Action</CardTitle>
+                  </CardHeader>
+                  <CardContent className="p-4 pt-0">
+                    <p className="text-sm text-muted-foreground">{state.result.suggestedAction}</p>
+                  </CardContent>
+                </Card>
+              )}
+            </div>
+       )
+     }
+
+     return (
+        <div className="h-48 flex items-center justify-center text-muted-foreground text-center">
+            <p>Click "Analyze Now" to run AI risk assessment.</p>
+        </div>
+     )
   }
 
   return (
@@ -126,13 +194,24 @@ export default function ReviewWithdrawalPage({ params }: { params: { id: string 
                     <CardDescription>AI-powered assessment of this request.</CardDescription>
                 </CardHeader>
                 <CardContent>
-                   <div className="h-48 flex items-center justify-center text-muted-foreground text-center">
-                       <p>AI analysis will be shown here.</p>
-                   </div>
+                   {renderAnalysis()}
                 </CardContent>
-                <CardFooter className="flex gap-2">
-                   <Button className="w-full">Approve</Button>
-                   <Button variant="destructive" className="w-full">Reject</Button>
+                <CardFooter className="flex flex-col gap-2">
+                    <form action={formAction} className="w-full">
+                        <input type="hidden" name="userId" value={withdrawal?.userId} />
+                        <input type="hidden" name="withdrawalId" value={withdrawal?.id} />
+                        <input type="hidden" name="amount" value={withdrawal?.amount} />
+                        <input type="hidden" name="asset" value={asset?.symbol} />
+                        <input type="hidden" name="withdrawalAddress" value={withdrawal?.transactionHash} />
+                        <input type="hidden" name="userKYCStatus" value={userProfile?.kycStatus} />
+                        <input type="hidden" name="userAccountCreationDate" value={userProfile?.createdAt?.toDate().toISOString().split('T')[0]} />
+                        <input type="hidden" name="userWithdrawalHistory" value="User has made 2 small withdrawals in the past 6 months, both to verified addresses." />
+                        <AnalyzeButton />
+                    </form>
+                   <div className="flex gap-2 w-full">
+                    <Button className="w-full" disabled={state.status !== 'success'}>Approve</Button>
+                    <Button variant="destructive" className="w-full" disabled={state.status !== 'success'}>Reject</Button>
+                   </div>
                 </CardFooter>
             </Card>
         </div>
@@ -141,3 +220,5 @@ export default function ReviewWithdrawalPage({ params }: { params: { id: string 
     </div>
   );
 }
+
+    

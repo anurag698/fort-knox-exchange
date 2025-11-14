@@ -1,4 +1,5 @@
 
+
 "use client"
 
 import { useMemo, useState, useEffect, useRef } from "react";
@@ -12,35 +13,12 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { AlertCircle, LineChart, BarChart } from "lucide-react";
-import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { createChart, type CandlestickData, type IChartApi, type ISeriesApi, type Time, type LineData, type HistogramData } from "lightweight-charts";
 import { getThemeColor, cn } from "@/lib/utils";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 
 type Candle = CandlestickData<Time> & { volume: number };
-
-// Generates mock historical data. In a real app, this would be fetched from an API.
-const generateMockCandles = (count: number, intervalSeconds: number): Candle[] => {
-    const data: Candle[] = [];
-    let lastClose = 70000 + (Math.random() - 0.5) * 2000;
-    let currentTime = Math.floor(Date.now() / 1000) - count * intervalSeconds;
-    currentTime = Math.floor(currentTime / intervalSeconds) * intervalSeconds;
-    let lastVolume = 5 + Math.random() * 10;
-
-    for (let i = 0; i < count; i++) {
-        const open = lastClose + (Math.random() - 0.5) * 200;
-        const high = Math.max(open, lastClose) + Math.random() * 300;
-        const low = Math.min(open, lastClose) - Math.random() * 300;
-        const close = low + Math.random() * (high - low);
-        const volume = lastVolume * (1 + (Math.random() - 0.45)); // Fluctuate volume
-        data.push({ time: currentTime as Time, open, high, low, close, volume });
-        lastClose = close;
-        lastVolume = volume;
-        currentTime += intervalSeconds;
-    }
-    return data;
-};
 
 // A simplified WebSocket hook to get live prices
 const useLivePrice = (symbol: string) => {
@@ -89,26 +67,28 @@ export function Charting() {
 
   const [showVolume, setShowVolume] = useState(true);
   const [showSma, setShowSma] = useState(true);
+  const [showBbands, setShowBbands] = useState(false);
+  const [showRsi, setShowRsi] = useState(false);
   
   const chartContainerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
   const candlestickSeriesRef = useRef<ISeriesApi<'Candlestick'> | null>(null);
   const volumeSeriesRef = useRef<ISeriesApi<'Histogram'> | null>(null);
   const smaSeriesRef = useRef<ISeriesApi<'Line'> | null>(null);
+  const rsiSeriesRef = useRef<ISeriesApi<'Line'> | null>(null);
+  const bbandUpperSeriesRef = useRef<ISeriesApi<'Line'> | null>(null);
+  const bbandLowerSeriesRef = useRef<ISeriesApi<'Line'> | null>(null);
   
   const candlesRef = useRef(candles);
   useEffect(() => {
     candlesRef.current = candles;
   }, [candles]);
 
-
-  // State for live price display
   const [lastPrice, setLastPrice] = useState<number | null>(null);
   const [priceChangeDirection, setPriceChangeDirection] = useState<'up' | 'down' | 'neutral'>('neutral');
 
   const intervalSeconds = useMemo(() => {
     switch (interval) {
-      case "1m": return 60;
       case "5m": return 300;
       case "1h": return 3600;
       default: return 60;
@@ -123,6 +103,57 @@ export function Charting() {
     }
     return sma;
   };
+  
+  const calculateRSI = (data: Candle[], period: number = 14): LineData[] => {
+    const rsi: LineData[] = [];
+    if (data.length < period) return [];
+
+    let gains = 0;
+    let losses = 0;
+
+    for (let i = 1; i <= period; i++) {
+        const change = data[i].close - data[i-1].close;
+        if(change > 0) gains += change;
+        else losses -= change;
+    }
+
+    let avgGain = gains / period;
+    let avgLoss = losses / period;
+
+    for(let i = period; i < data.length; i++) {
+        const change = data[i].close - data[i-1].close;
+        let gain = change > 0 ? change : 0;
+        let loss = change < 0 ? -change : 0;
+
+        avgGain = (avgGain * (period - 1) + gain) / period;
+        avgLoss = (avgLoss * (period - 1) + loss) / period;
+
+        if (avgLoss === 0) {
+            rsi.push({ time: data[i].time, value: 100 });
+        } else {
+            const rs = avgGain / avgLoss;
+            rsi.push({ time: data[i].time, value: 100 - (100 / (1 + rs)) });
+        }
+    }
+    return rsi;
+  }
+  
+  const calculateBollingerBands = (data: Candle[], period: number = 20, stdDev: number = 2): { upper: LineData[], lower: LineData[] } => {
+    const upper: LineData[] = [];
+    const lower: LineData[] = [];
+    
+    for (let i = period - 1; i < data.length; i++) {
+        const slice = data.slice(i - period + 1, i + 1);
+        const sma = slice.reduce((acc, d) => acc + d.close, 0) / period;
+        const variance = slice.reduce((acc, d) => acc + Math.pow(d.close - sma, 2), 0) / period;
+        const sd = Math.sqrt(variance);
+        
+        upper.push({ time: data[i].time, value: sma + (sd * stdDev) });
+        lower.push({ time: data[i].time, value: sma - (sd * stdDev) });
+    }
+
+    return { upper, lower };
+  }
 
   // Effect to initialize and manage the chart
   useEffect(() => {
@@ -146,7 +177,7 @@ export function Charting() {
             borderColor: getThemeColor('border'),
         },
         width: chartContainerRef.current.clientWidth,
-        height: 400,
+        height: 500,
     });
     chartRef.current = chart;
 
@@ -160,26 +191,22 @@ export function Charting() {
     });
     candlestickSeriesRef.current = candlestickSeries;
 
-    const volumeSeries = chart.addHistogramSeries({
-        priceFormat: {
-            type: 'volume',
-        },
-        priceScaleId: '', // Attach to a separate y-axis scale
-        lastValueVisible: false,
-        priceLineVisible: false,
-    });
-    chart.priceScale('').applyOptions({
-        scaleMargins: { top: 0.7, bottom: 0 },
-    });
+    const volumeSeries = chart.addHistogramSeries({ priceScaleId: '' });
+    chart.priceScale('').applyOptions({ scaleMargins: { top: 0.7, bottom: 0 } });
     volumeSeriesRef.current = volumeSeries;
+    
+    const rsiSeries = chart.addLineSeries({ priceScaleId: 'rsi', lastValueVisible: false, priceLineVisible: false });
+    chart.priceScale('rsi').applyOptions({ scaleMargins: { top: 0.85, bottom: 0.7 }});
+    rsiSeriesRef.current = rsiSeries;
 
-    const smaSeries = chart.addLineSeries({
-        color: '#FFD700', // Gold color for SMA line
-        lineWidth: 2,
-        lastValueVisible: false,
-        priceLineVisible: false,
-    });
+    const smaSeries = chart.addLineSeries({ color: 'rgba(255, 215, 0, 0.7)', lineWidth: 2, lastValueVisible: false, priceLineVisible: false });
     smaSeriesRef.current = smaSeries;
+
+    const bbandUpper = chart.addLineSeries({ color: 'rgba(74, 222, 128, 0.5)', lineWidth: 1, lastValueVisible: false, priceLineVisible: false });
+    bbandUpperSeriesRef.current = bbandUpper;
+    const bbandLower = chart.addLineSeries({ color: 'rgba(74, 222, 128, 0.5)', lineWidth: 1, lastValueVisible: false, priceLineVisible: false });
+    bbandLowerSeriesRef.current = bbandLower;
+
 
     const handleResize = () => {
         chart.applyOptions({ width: chartContainerRef.current!.clientWidth });
@@ -191,24 +218,40 @@ export function Charting() {
         window.removeEventListener('resize', handleResize);
         chart.remove();
     };
-}, []);
+  }, []);
 
   // Effect to load initial data and handle interval changes
   useEffect(() => {
     setIsLoading(true);
-    setTimeout(() => {
-      const mockCandles = generateMockCandles(100, intervalSeconds);
-      setCandles(mockCandles);
-      if (mockCandles.length > 0) {
-          setLastPrice(mockCandles[mockCandles.length - 1].close);
-      }
-      setIsLoading(false);
-    }, 500);
-  }, [interval, intervalSeconds]);
+    // Binance API requires interval in format '1m', '5m', '1h' etc.
+    const binanceInterval = interval.toLowerCase();
+    fetch(`https://api.binance.com/api/v3/klines?symbol=BTCUSDT&interval=${binanceInterval}&limit=200`)
+        .then(res => res.json())
+        .then(data => {
+            const formattedCandles: Candle[] = data.map((d: any) => ({
+                time: d[0] / 1000,
+                open: parseFloat(d[1]),
+                high: parseFloat(d[2]),
+                low: parseFloat(d[3]),
+                close: parseFloat(d[4]),
+                volume: parseFloat(d[5]),
+            }));
+            setCandles(formattedCandles);
+            if (formattedCandles.length > 0) {
+                setLastPrice(formattedCandles[formattedCandles.length - 1].close);
+            }
+            setIsLoading(false);
+        })
+        .catch(err => {
+            console.error(err);
+            setIsLoading(false);
+        });
+
+  }, [interval]);
 
   // Effect to update chart series when data or visibility changes
   useEffect(() => {
-    if (isLoading) return;
+    if (isLoading || !candles.length) return;
     
     candlestickSeriesRef.current?.setData(candles);
 
@@ -229,22 +272,43 @@ export function Charting() {
     } else {
         smaSeriesRef.current?.setData([]);
     }
+    
+    if (showRsi) {
+        const rsiData = calculateRSI(candles, 14);
+        rsiSeriesRef.current?.setData(rsiData);
+        chartRef.current?.priceScale('rsi').applyOptions({ visible: true });
+    } else {
+        rsiSeriesRef.current?.setData([]);
+        chartRef.current?.priceScale('rsi').applyOptions({ visible: false });
+    }
 
-  }, [candles, isLoading, showVolume, showSma]);
+    if (showBbands) {
+        const { upper, lower } = calculateBollingerBands(candles, 20, 2);
+        bbandUpperSeriesRef.current?.setData(upper);
+        bbandLowerSeriesRef.current?.setData(lower);
+    } else {
+        bbandUpperSeriesRef.current?.setData([]);
+        bbandLowerSeriesRef.current?.setData([]);
+    }
+
+
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [candles, isLoading, showVolume, showSma, showRsi, showBbands]);
 
   // Effect to handle live price updates
   useEffect(() => {
     if (btcPrice === null || !candlestickSeriesRef.current) {
       return;
     }
-    const currentCandles = candlesRef.current;
-    if (currentCandles.length === 0) return;
-    
+
     if (lastPrice !== null && btcPrice !== lastPrice) {
       setPriceChangeDirection(btcPrice > lastPrice ? 'up' : 'down');
     }
     setLastPrice(btcPrice);
 
+    const currentCandles = candlesRef.current;
+    if (currentCandles.length === 0) return;
+    
     const lastCandle = currentCandles[currentCandles.length - 1];
     if (!lastCandle) return;
 
@@ -261,22 +325,25 @@ export function Charting() {
             close: btcPrice,
         };
         candlestickSeriesRef.current?.update(updatedCandle);
-        setCandles(prev => [...prev.slice(0, -1), updatedCandle]);
+        setCandles(prev => {
+            const newCandles = [...prev];
+            newCandles[newCandles.length - 1] = updatedCandle;
+            return newCandles;
+        });
 
     } else if (bucket > lastCandle.time) {
         updatedCandle = {
             time: bucket as Time,
             open: lastCandle.close,
-            high: btcPrice,
-            low: btcPrice,
+            high: Math.max(lastCandle.close, btcPrice),
+            low: Math.min(lastCandle.close, btcPrice),
             close: btcPrice,
-            volume: 0, // Reset volume for the new candle
+            volume: 0,
         };
         candlestickSeriesRef.current?.update(updatedCandle);
         setCandles(prev => [...prev, updatedCandle]);
     }
     
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [btcPrice, intervalSeconds, lastPrice]);
 
 
@@ -294,8 +361,6 @@ export function Charting() {
         </div>
       );
     }
-    // We render the container div, and the useEffect will populate it.
-    // Show skeleton only during initial full load.
     return (
       <div className="relative">
           {isLoading && <Skeleton className="absolute inset-0 h-96 w-full" />}
@@ -323,7 +388,7 @@ export function Charting() {
       <CardHeader>
         <div className="flex justify-between items-start">
             <div>
-                <div className="flex items-center gap-6">
+                <div className="flex items-baseline gap-6">
                     <div>
                         <CardTitle>BTC/USDT</CardTitle>
                         <CardDescription>Bitcoin / Tether</CardDescription>
@@ -346,22 +411,23 @@ export function Charting() {
                 <div className="flex items-center gap-4 mt-2 border-t pt-2">
                     <div className="flex items-center space-x-2">
                         <Checkbox id="sma-toggle" checked={showSma} onCheckedChange={(checked) => setShowSma(Boolean(checked))} />
-                        <Label htmlFor="sma-toggle" className="text-xs font-medium flex items-center gap-1"><LineChart className="h-3 w-3" /> SMA</Label>
+                        <Label htmlFor="sma-toggle" className="text-xs font-medium flex items-center gap-1">SMA</Label>
                     </div>
                     <div className="flex items-center space-x-2">
                         <Checkbox id="volume-toggle" checked={showVolume} onCheckedChange={(checked) => setShowVolume(Boolean(checked))} />
-                        <Label htmlFor="volume-toggle" className="text-xs font-medium flex items-center gap-1"><BarChart className="h-3 w-3" /> Vol</Label>
+                        <Label htmlFor="volume-toggle" className="text-xs font-medium flex items-center gap-1">Vol</Label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                        <Checkbox id="bbands-toggle" checked={showBbands} onCheckedChange={(checked) => setShowBbands(Boolean(checked))} />
+                        <Label htmlFor="bbands-toggle" className="text-xs font-medium flex items-center gap-1">BBands</Label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                        <Checkbox id="rsi-toggle" checked={showRsi} onCheckedChange={(checked) => setShowRsi(Boolean(checked))} />
+                        <Label htmlFor="rsi-toggle" className="text-xs font-medium flex items-center gap-1">RSI</Label>
                     </div>
                 </div>
             </div>
-             <div className="flex items-center gap-4">
-                <ToggleGroup type="single" defaultValue={interval} onValueChange={(value) => value && setInterval(value)} size="sm">
-                    <ToggleGroupItem value="1m">1m</ToggleGroupItem>
-                    <ToggleGroupItem value="5m">5m</ToggleGroupItem>
-                    <ToggleGroupItem value="1h">1H</ToggleGroupItem>
-                </ToggleGroup>
-             </div>
-        </div>
+         </div>
       </CardHeader>
       <CardContent>
         {renderContent()}

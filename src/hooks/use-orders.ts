@@ -8,6 +8,7 @@ import type { Order } from '@/lib/types';
 export function useOrders() {
   const firestore = useFirestore();
   const { user } = useUser();
+  const userId = user?.uid;
 
   const ordersCollection = useMemoFirebase(
     () => (firestore ? collection(firestore, 'orders') : null),
@@ -16,16 +17,16 @@ export function useOrders() {
 
   const ordersQuery = useMemoFirebase(
     () => {
-      if (!ordersCollection || !user) return null;
+      if (!ordersCollection || !userId) return null;
       // Query for orders that belong to the current user and are not in a final state
       return query(
         ordersCollection,
-        where('userId', '==', user.uid),
+        where('userId', '==', userId),
         where('status', 'in', ['OPEN', 'PARTIAL']),
         orderBy('createdAt', 'desc')
       );
     },
-    [ordersCollection, user]
+    [ordersCollection, userId]
   );
 
   return useCollection<Order>(ordersQuery);

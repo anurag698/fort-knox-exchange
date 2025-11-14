@@ -136,11 +136,11 @@ export async function createOrder(prevState: FormState, formData: FormData): Pro
 
     try {
         const { firestore } = getFirebaseAdmin();
+        const batch = firestore.batch();
         
         const marketId = "BTC-USDT"; 
 
         const newOrderRef = firestore.collection('orders').doc();
-
         const newOrder = {
             id: newOrderRef.id,
             userId,
@@ -154,10 +154,41 @@ export async function createOrder(prevState: FormState, formData: FormData): Pro
             createdAt: new Date(),
             updatedAt: new Date(),
         };
+        batch.set(newOrderRef, newOrder);
 
-        await newOrderRef.set(newOrder);
+        const assetId = side === 'BUY' ? 'USDT' : 'BTC';
+        const amount = side === 'BUY' ? price * quantity : quantity;
+        const ledgerEntryRef = firestore.collection('users').doc(userId).collection('ledgerEntries').doc();
+        batch.set(ledgerEntryRef, {
+            id: ledgerEntryRef.id,
+            userId,
+            assetId,
+            type: `TRADE_${side}`,
+            amount: amount,
+            orderId: newOrderRef.id,
+            description: `${side} order for ${quantity} BTC at ${price} USDT.`,
+            createdAt: new Date(),
+        });
+        
+        // Simulate a fee
+        const feeAmount = (price * quantity) * 0.001; // 0.1% fee
+        const feeLedgerEntryRef = firestore.collection('users').doc(userId).collection('ledgerEntries').doc();
+        batch.set(feeLedgerEntryRef, {
+            id: feeLedgerEntryRef.id,
+            userId,
+            assetId: 'USDT',
+            type: 'FEE',
+            amount: feeAmount,
+            orderId: newOrderRef.id,
+            description: `Trading fee for order ${newOrderRef.id}`,
+            createdAt: new Date(),
+        });
 
+
+        await batch.commit();
+        
         revalidatePath('/trade');
+        revalidatePath('/ledger');
         return {
             status: 'success',
             message: `${side} order placed successfully.`,
@@ -284,6 +315,7 @@ export async function requestDeposit(prevState: FormState, formData: FormData): 
 
     try {
         const { firestore } = getFirebaseAdmin();
+        const batch = firestore.batch();
         const newDepositRef = firestore.collection('users').doc(userId).collection('deposits').doc();
 
         const newDeposit = {
@@ -295,10 +327,24 @@ export async function requestDeposit(prevState: FormState, formData: FormData): 
             createdAt: new Date(),
             updatedAt: new Date(),
         };
+        batch.set(newDepositRef, newDeposit);
 
-        await newDepositRef.set(newDeposit);
+        const ledgerEntryRef = firestore.collection('users').doc(userId).collection('ledgerEntries').doc();
+        batch.set(ledgerEntryRef, {
+            id: ledgerEntryRef.id,
+            userId,
+            assetId,
+            type: 'DEPOSIT',
+            amount: 0,
+            depositId: newDepositRef.id,
+            description: `Deposit request for ${assetId}`,
+            createdAt: new Date(),
+        });
+        
+        await batch.commit();
 
-        revalidatePath('/portfolio'); // revalidate the wallet page
+        revalidatePath('/portfolio');
+        revalidatePath('/ledger');
         return {
             status: 'success',
             message: `Deposit address generated for asset.`,
@@ -338,6 +384,7 @@ export async function requestWithdrawal(prevState: FormState, formData: FormData
 
     try {
         const { firestore } = getFirebaseAdmin();
+        const batch = firestore.batch();
 
         // Fetch user and asset data required for AI analysis
         const userRef = firestore.collection('users').doc(userId);
@@ -352,9 +399,7 @@ export async function requestWithdrawal(prevState: FormState, formData: FormData
             return { status: 'error', message: 'Could not retrieve user or asset data for analysis.' };
         }
 
-        // Create the withdrawal document first
         const newWithdrawalRef = firestore.collection('users').doc(userId).collection('withdrawals').doc();
-
         const newWithdrawal = {
             id: newWithdrawalRef.id,
             userId,
@@ -367,9 +412,24 @@ export async function requestWithdrawal(prevState: FormState, formData: FormData
             aiRiskLevel: 'Medium', // Default while processing
             aiReason: 'Analysis in progress...',
         };
+        batch.set(newWithdrawalRef, newWithdrawal);
 
-        await newWithdrawalRef.set(newWithdrawal);
-        revalidatePath('/portfolio'); // revalidate the wallet page immediately
+        const ledgerEntryRef = firestore.collection('users').doc(userId).collection('ledgerEntries').doc();
+        batch.set(ledgerEntryRef, {
+            id: ledgerEntryRef.id,
+            userId,
+            assetId,
+            type: 'WITHDRAWAL',
+            amount,
+            withdrawalId: newWithdrawalRef.id,
+            description: `Withdrawal request for ${amount} ${asset.symbol}`,
+            createdAt: new Date(),
+        });
+
+        await batch.commit();
+
+        revalidatePath('/portfolio');
+        revalidatePath('/ledger');
 
         // Now, asynchronously perform AI analysis and update the doc
         (async () => {
@@ -391,14 +451,12 @@ export async function requestWithdrawal(prevState: FormState, formData: FormData
                 
                 const result = await moderateWithdrawalRequest(moderationInput);
 
-                // Update the withdrawal document with the AI analysis results
                 await newWithdrawalRef.update({
                     aiRiskLevel: result.riskLevel,
                     aiReason: result.reason,
                 });
             } catch (aiError) {
                 console.error("AI Analysis background task failed:", aiError);
-                // Optionally update the doc to reflect the failure
                 await newWithdrawalRef.update({
                     aiRiskLevel: 'Medium',
                     aiReason: 'AI analysis failed to run.',
@@ -496,5 +554,7 @@ export async function submitKyc(prevState: any, formData: FormData): Promise<For
     };
   }
 }
+
+    
 
     

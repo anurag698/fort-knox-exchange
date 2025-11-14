@@ -25,6 +25,9 @@ export default function SettingsPage() {
   const userAvatar = PlaceHolderImages.find(img => img.id === 'user-avatar');
 
   const getAvatarFallback = () => {
+    if (userProfile?.username) {
+      return userProfile.username.substring(0, 2).toUpperCase();
+    }
     if (authUser?.email) {
       return authUser.email.substring(0, 2).toUpperCase();
     }
@@ -47,16 +50,18 @@ export default function SettingsPage() {
   const renderContent = () => {
     if (isLoading) {
       return (
-        <div className="space-y-4">
-          <div className="flex items-center space-x-4">
+        <div className="space-y-6">
+          <div className="flex items-center space-x-6">
             <Skeleton className="h-24 w-24 rounded-full" />
             <div className="space-y-2">
               <Skeleton className="h-6 w-[250px]" />
               <Skeleton className="h-4 w-[200px]" />
             </div>
           </div>
-          <Skeleton className="h-4 w-1/2" />
-          <Skeleton className="h-4 w-1/3" />
+          <div className="space-y-2">
+            <Skeleton className="h-4 w-1/4" />
+            <Skeleton className="h-4 w-1/3" />
+          </div>
         </div>
       );
     }
@@ -65,9 +70,9 @@ export default function SettingsPage() {
       return (
         <Alert variant="destructive">
           <AlertCircle className="h-4 w-4" />
-          <AlertTitle>Error</AlertTitle>
+          <AlertTitle>Error Loading Profile</AlertTitle>
           <AlertDescription>
-            Failed to load your profile information. Please try again later.
+            There was an error fetching your profile data. It's possible that your security rules are preventing access. Please check the console for more details.
           </AlertDescription>
         </Alert>
       );
@@ -81,11 +86,16 @@ export default function SettingsPage() {
           </div>
           <h3 className="mt-4 text-lg font-semibold">No Profile Found</h3>
           <p className="mb-4 mt-2 text-sm text-muted-foreground">
-            We couldn't find a profile for your account. It may still be provisioning.
+            We couldn't find a profile for your account. It may still be provisioning. Please wait a moment and refresh the page.
           </p>
         </div>
       );
     }
+
+    // Safely access timestamp and convert
+    const creationDate = userProfile.createdAt && userProfile.createdAt.toDate 
+      ? userProfile.createdAt.toDate()
+      : null;
 
     return (
       <div className="space-y-6">
@@ -104,13 +114,13 @@ export default function SettingsPage() {
           </div>
         </div>
 
-        <div className="space-y-2">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="flex items-center gap-2">
-                <span className="font-medium">KYC Status:</span>
+                <span className="font-medium text-sm">KYC Status:</span>
                 <Badge variant={getKYCBadgeVariant(userProfile.kycStatus)}>{userProfile.kycStatus}</Badge>
             </div>
              <p className="text-sm text-muted-foreground">
-              Account Created: {new Date(userProfile.createdAt?.toDate()).toLocaleDateString()}
+              Member since: {creationDate ? creationDate.toLocaleDateString() : 'N/A'}
             </p>
         </div>
 

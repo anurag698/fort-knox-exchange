@@ -1,9 +1,10 @@
 
 'use client';
 
-import { collectionGroup, query, where, limit } from 'firebase/firestore';
-import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
+import { collectionGroup, query, where, getDocs } from 'firebase/firestore';
+import { useFirestore, useMemoFirebase } from '@/firebase';
 import type { Withdrawal } from '@/lib/types';
+import { useEffect, useState } from 'react';
 
 /**
  * Fetches a single withdrawal document by its ID from the 'withdrawals' collection group.
@@ -11,30 +12,54 @@ import type { Withdrawal } from '@/lib/types';
  */
 export function useWithdrawal(withdrawalId: string) {
   const firestore = useFirestore();
-
-  const withdrawalsCollectionGroup = useMemoFirebase(
-    () => (firestore ? collectionGroup(firestore, 'withdrawals') : null),
-    [firestore]
-  );
+  const [data, setData] = useState<Withdrawal | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<Error | null>(null);
 
   const withdrawalQuery = useMemoFirebase(
     () => {
-      if (!withdrawalsCollectionGroup || !withdrawalId) return null;
-      // Because collection group queries require an index for `where` clauses,
-      // and we don't know the full path to the document, we must query
-      // by the ID field that should exist on the document itself.
-      // We limit it to 1 because we expect the ID to be unique.
+      if (!firestore || !withdrawalId) return null;
+      // Because collection group queries require an index for `where` clauses on fields other than the document ID,
+      // and we don't know the full path, we query by the 'id' field within the document.
       return query(
-        withdrawalsCollectionGroup,
-        where('id', '==', withdrawalId),
-        limit(1)
+        collectionGroup(firestore, 'withdrawals'),
+        where('id', '==', withdrawalId)
       );
     },
-    [withdrawalsCollectionGroup, withdrawalId]
+    [firestore, withdrawalId]
   );
+  
+  useEffect(() => {
+    if (!withdrawalQuery) {
+        setIsLoading(false);
+        return;
+    }
 
-  const { data, ...rest } = useCollection<Withdrawal>(withdrawalQuery);
+    const fetchWithdrawal = async () => {
+        setIsLoading(true);
+        try {
+            const querySnapshot = await getDocs(withdrawalQuery);
+            if (!querySnapshot.empty) {
+                // There should only be one document with a unique withdrawalId
+                const doc = querySnapshot.docs[0];
+                setData({ id: doc.id, ...doc.data() } as Withdrawal);
+            } else {
+                setData(null);
+            }
+            setError(null);
+        } catch (err) {
+            setError(err instanceof Error ? err : new Error('Failed to fetch withdrawal data.'));
+            console.error(err);
+        } finally {
+            setIsLoading(false);
+        }
+    };
+    
+    fetchWithdrawal();
 
-  // useCollection returns an array, but we only want a single document.
-  return { data: data?.[0] ?? null, ...rest };
+  }, [withdrawalQuery]);
+
+  return { data, isLoading, error };
 }
+
+    

@@ -132,7 +132,7 @@ export default function ReviewWithdrawalPage({ params }: { params: { id: string 
             <p className="text-sm text-muted-foreground">Amount: {withdrawal.amount} {asset?.symbol}</p>
             <p className="text-sm text-muted-foreground">Asset ID: {withdrawal.assetId}</p>
             <p className="text-sm text-muted-foreground">Status: <Badge variant={withdrawal.status === 'PENDING' ? 'secondary' : 'default'}>{withdrawal.status}</Badge></p>
-            <p className="text-sm text-muted-foreground font-mono">Address: {withdrawal.transactionHash || 'N/A'}</p>
+            <p className="text-sm text-muted-foreground font-mono">Address: {withdrawal.withdrawalAddress || 'N/A'}</p>
         </div>
       </div>
     );
@@ -219,7 +219,7 @@ export default function ReviewWithdrawalPage({ params }: { params: { id: string 
                         <input type="hidden" name="withdrawalId" value={withdrawal?.id} />
                         <input type="hidden" name="amount" value={withdrawal?.amount} />
                         <input type="hidden" name="asset" value={asset?.symbol} />
-                        <input type="hidden" name="withdrawalAddress" value={withdrawal?.transactionHash} />
+                        <input type="hidden" name="withdrawalAddress" value={withdrawal?.withdrawalAddress} />
                         <input type="hidden" name="userKYCStatus" value={userProfile?.kycStatus} />
                         <input type="hidden" name="userAccountCreationDate" value={userProfile?.createdAt?.toDate().toISOString().split('T')[0]} />
                         <input type="hidden" name="userWithdrawalHistory" value="User has made 2 small withdrawals in the past 6 months, both to verified addresses." />
@@ -235,3 +235,5 @@ export default function ReviewWithdrawalPage({ params }: { params: { id: string 
     </div>
   );
 }
+
+    

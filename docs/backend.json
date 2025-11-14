@@ -475,6 +475,10 @@
           "type": "string",
           "description": "Status of the withdrawal (REQUESTED, PENDING, APPROVED, SENT, REJECTED)."
         },
+        "withdrawalAddress": {
+          "type": "string",
+          "description": "The blockchain address to which the assets will be sent."
+        },
         "transactionHash": {
           "type": "string",
           "description": "Transaction hash of the withdrawal on the blockchain."
@@ -496,6 +500,7 @@
         "assetId",
         "amount",
         "status",
+        "withdrawalAddress",
         "createdAt",
         "updatedAt"
       ]
@@ -762,3 +767,4 @@
     "reasoning": "The Firestore data structure is designed to support a centralized crypto exchange, prioritizing security, scalability, and ease of debugging. It leverages denormalization to ensure authorization independence, enabling atomic operations and simplifying security rules. Structural segregation is used to maintain a homogeneous security posture within each collection, and access modeling follows consistent patterns for private and collaborative data. The structure explicitly models the state of entities and uses semantic naming conventions for clarity.\n\nSpecifically, the structure achieves Authorization Independence (CRITICAL) by avoiding hierarchical authorization dependencies (`get()`). For example, the `orders` collection, while associated with a user, does not require fetching user data to determine access. Similarly, while balances belong to users, direct client-side writes are denied, and backend updates enforce balance consistency.  The `markets` and `publicData` collections are publicly readable, supporting the required QAPs (Rules are not Filters) without complex logic.\n\nThe membership model is not explicitly used here as roles are managed via dedicated collections (`adminUsers`) and path-based ownership is employed for user-specific data (e.g., `users/{userId}/balances/{balanceId}`). This approach simplifies rule creation and enforcement."
   }
 }
+    

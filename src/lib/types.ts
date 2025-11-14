@@ -39,6 +39,7 @@ export type Withdrawal = {
     assetId: string;
     amount: number;
     status: 'REQUESTED' | 'PENDING' | 'APPROVED' | 'SENT' | 'REJECTED';
+    withdrawalAddress: string;
     transactionHash?: string;
     createdAt: any;
     updatedAt: any;
@@ -75,3 +76,5 @@ export type Balance = {
   createdAt: any;
   updatedAt: any;
 };
+
+    

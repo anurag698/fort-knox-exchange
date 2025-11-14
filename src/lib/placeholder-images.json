@@ -5,6 +5,18 @@
       "description": "A placeholder for user avatars",
       "imageUrl": "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwxfHxwZXJzb24lMjBmYWNlfGVufDB8fHx8MTc2MzA5NDY2N3ww&ixlib=rb-4.1.0&q=80&w=1080",
       "imageHint": "person face"
+    },
+    {
+      "id": "mobile-app-view",
+      "description": "A placeholder showing a mobile phone with a crypto app interface",
+      "imageUrl": "https://images.unsplash.com/photo-1719464521902-4dc9595b182d?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw5fHxjcnlwdG8lMjBhcHB8ZW58MHx8fHwxNzYzMTYxMTE5fDA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "crypto app"
+    },
+    {
+      "id": "qr-code",
+      "description": "A placeholder for a QR code",
+      "imageUrl": "https://images.unsplash.com/photo-1559131397-f94da358f7ca?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw3fHxxciUyMGNvZGV8ZW58MHx8fHwxNzYzMTQ4NjE3fDA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "qr code"
     }
   ]
 }

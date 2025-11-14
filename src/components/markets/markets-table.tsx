@@ -8,10 +8,10 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { Badge } from '@/components/ui/badge';
 import type { Market } from '@/lib/types';
 import { useAssets } from '@/hooks/use-assets';
 import { useMemo } from 'react';
+import { Skeleton } from '@/components/ui/skeleton';
 
 type MarketsTableProps = {
   markets: Market[];
@@ -28,9 +28,9 @@ export function MarketsTable({ markets }: MarketsTableProps) {
     if (assetsLoading) {
       return (
         <div className="space-y-2">
-            <div className="h-12 w-full animate-pulse rounded-md bg-muted"></div>
-            <div className="h-12 w-full animate-pulse rounded-md bg-muted"></div>
-            <div className="h-12 w-full animate-pulse rounded-md bg-muted"></div>
+            <Skeleton className="h-12 w-full" />
+            <Skeleton className="h-12 w-full" />
+            <Skeleton className="h-12 w-full" />
         </div>
       );
     }

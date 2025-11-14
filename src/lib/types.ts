@@ -10,3 +10,10 @@ export type Market = {
   takerFee: number;
   createdAt: string;
 };
+
+export type Asset = {
+  id: string;
+  symbol: string;
+  name: string;
+  createdAt: string;
+};

@@ -18,7 +18,7 @@ type AnalyzedWithdrawal = Withdrawal & {
 
 export function useWithdrawals(status: Withdrawal['status'] = 'PENDING') {
   const firestore = useFirestore();
-  const { data: assets, isLoading: assetsLoading } = useAssets();
+  const { data: assets, isLoading: assetsLoading, error: assetsError } = useAssets();
   const [analyzedWithdrawals, setAnalyzedWithdrawals] = useState<AnalyzedWithdrawal[] | null>(null);
 
   const withdrawalsCollectionGroup = useMemoFirebase(
@@ -38,7 +38,7 @@ export function useWithdrawals(status: Withdrawal['status'] = 'PENDING') {
     [withdrawalsCollectionGroup, status]
   );
 
-  const { data: withdrawals, isLoading: withdrawalsLoading, error } = useCollection<Withdrawal>(withdrawalsQuery);
+  const { data: withdrawals, isLoading: withdrawalsLoading, error: withdrawalsError } = useCollection<Withdrawal>(withdrawalsQuery);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
 
   useEffect(() => {
@@ -109,6 +109,6 @@ export function useWithdrawals(status: Withdrawal['status'] = 'PENDING') {
   return { 
       data: analyzedWithdrawals, 
       isLoading: withdrawalsLoading || assetsLoading || isAnalyzing, 
-      error 
+      error: withdrawalsError || assetsError 
   };
 }

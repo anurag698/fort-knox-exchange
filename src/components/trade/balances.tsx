@@ -7,14 +7,16 @@ import { useMarkets } from '@/hooks/use-markets';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useMemo } from 'react';
-import { Wallet } from 'lucide-react';
+import { Wallet, AlertCircle } from 'lucide-react';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
 export function Balances({ marketId = 'BTC-USDT' }: { marketId?: string }) {
-  const { data: balances, isLoading: balancesLoading } = useBalances();
-  const { data: assets, isLoading: assetsLoading } = useAssets();
-  const { data: markets, isLoading: marketsLoading } = useMarkets();
+  const { data: balances, isLoading: balancesLoading, error: balancesError } = useBalances();
+  const { data: assets, isLoading: assetsLoading, error: assetsError } = useAssets();
+  const { data: markets, isLoading: marketsLoading, error: marketsError } = useMarkets();
 
   const isLoading = balancesLoading || assetsLoading || marketsLoading;
+  const error = balancesError || assetsError || marketsError;
 
   const { baseAsset, quoteAsset, baseBalance, quoteBalance } = useMemo(() => {
     if (isLoading || !markets || !assets || !balances) {
@@ -49,6 +51,18 @@ export function Balances({ marketId = 'BTC-USDT' }: { marketId?: string }) {
             <Skeleton className="h-4 w-1/3" />
           </div>
         </div>
+      );
+    }
+
+    if (error) {
+       return (
+        <Alert variant="destructive" className="mt-4">
+          <AlertCircle className="h-4 w-4" />
+          <AlertTitle>Error</AlertTitle>
+          <AlertDescription>
+              Failed to load balances.
+          </AlertDescription>
+        </Alert>
       );
     }
     

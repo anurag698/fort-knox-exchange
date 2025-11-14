@@ -13,11 +13,12 @@ import { PortfolioOverview } from '@/components/portfolio/portfolio-overview';
 import { useMemo } from 'react';
 
 export default function PortfolioPage() {
-  const { data: balances, isLoading: balancesLoading } = useBalances();
-  const { data: assets, isLoading: assetsLoading } = useAssets();
+  const { data: balances, isLoading: balancesLoading, error: balancesError } = useBalances();
+  const { data: assets, isLoading: assetsLoading, error: assetsError } = useAssets();
   const { data: prices, isLoading: pricesLoading } = usePrices();
 
   const isLoading = balancesLoading || assetsLoading || pricesLoading;
+  const error = balancesError || assetsError;
 
   const portfolioData = useMemo(() => {
     if (isLoading || !balances || !assets || !prices) {
@@ -46,6 +47,18 @@ export default function PortfolioPage() {
           <Skeleton className="h-48 w-full" />
           <Skeleton className="h-64 w-full" />
         </div>
+      );
+    }
+    
+    if (error) {
+       return (
+        <Alert variant="destructive">
+          <AlertCircle className="h-4 w-4" />
+          <AlertTitle>Error</AlertTitle>
+          <AlertDescription>
+            Failed to load portfolio data. Please try again later.
+          </AlertDescription>
+        </Alert>
       );
     }
 

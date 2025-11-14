@@ -20,7 +20,7 @@ import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from '@/comp
 
 export default function AdminPage() {
   const { data: withdrawals, isLoading, error } = useWithdrawals('PENDING');
-  const { data: assets, isLoading: assetsLoading } = useAssets();
+  const { data: assets, isLoading: assetsLoading, error: assetsError } = useAssets();
   const { count: usersCount, isLoading: usersLoading } = useUsersCount();
   const { count: marketsCount, isLoading: marketsLoading } = useMarketsCount();
   const { count: withdrawalsCount, isLoading: withdrawalsCountLoading } = useWithdrawalsCount('PENDING');
@@ -69,15 +69,15 @@ export default function AdminPage() {
       );
     }
 
-    if (error) {
+    if (error || assetsError) {
        return (
         <TableRow>
             <TableCell colSpan={6}>
                  <Alert variant="destructive" className="mt-4">
                     <AlertCircle className="h-4 w-4" />
-                    <AlertTitle>Error Loading Withdrawals</AlertTitle>
+                    <AlertTitle>Error Loading Data</AlertTitle>
                     <AlertDescription>
-                        Could not fetch withdrawal data. Please check your Firestore security rules and network connection.
+                        Could not fetch withdrawal or asset data. Please check your Firestore security rules and network connection.
                     </AlertDescription>
                 </Alert>
             </TableCell>

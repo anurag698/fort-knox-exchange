@@ -2,7 +2,7 @@
 "use client";
 
 import { useEffect } from "react";
-import { useFormState } from "react-dom";
+import { useActionState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -28,8 +28,8 @@ export function OrderForm() {
   const { user } = useUser();
   const { toast } = useToast();
 
-  const [buyState, buyAction] = useFormState(createOrder, { status: "idle", message: "" });
-  const [sellState, sellAction] = useFormState(createOrder, { status: "idle", message: "" });
+  const [buyState, buyAction] = useActionState(createOrder, { status: "idle", message: "" });
+  const [sellState, sellAction] = useActionState(createOrder, { status: "idle", message: "" });
 
   const buyForm = useForm<OrderFormValues>({
     resolver: zodResolver(orderSchema),

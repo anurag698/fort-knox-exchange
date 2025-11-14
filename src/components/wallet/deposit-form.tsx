@@ -2,7 +2,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useFormState } from "react-dom";
+import { useActionState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -31,7 +31,7 @@ const generateMockAddress = (symbol: string) => {
 export function DepositForm({ assets }: { assets: Asset[] }) {
   const { user } = useUser();
   const { toast } = useToast();
-  const [state, formAction] = useFormState(requestDeposit, { status: "idle", message: "" });
+  const [state, formAction] = useActionState(requestDeposit, { status: "idle", message: "" });
   const [depositAddress, setDepositAddress] = useState("");
   const [hasCopied, setHasCopied] = useState(false);
 

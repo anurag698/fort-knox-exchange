@@ -10,7 +10,8 @@ import { Badge } from '@/components/ui/badge';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { approveKyc, rejectKyc } from '@/app/actions';
-import { useFormState, useFormStatus } from 'react-dom';
+import { useActionState } from 'react';
+import { useFormStatus } from 'react-dom';
 
 function KycButtons({ disabled }: { disabled: boolean }) {
   const { pending: approvePending } = useFormStatus();
@@ -34,7 +35,7 @@ function KycButtons({ disabled }: { disabled: boolean }) {
 
 export default function ManageUserPage({ params }: { params: { id: string } }) {
   const { data: user, isLoading, error } = useUserById(params.id);
-  const [_, formAction] = useFormState(approveKyc, { status: 'idle', message: '' });
+  const [_, formAction] = useActionState(approveKyc, { status: 'idle', message: '' });
 
   const getKYCBadgeVariant = (status?: string) => {
     switch (status) {

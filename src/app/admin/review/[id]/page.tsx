@@ -12,7 +12,8 @@ import { Badge } from '@/components/ui/badge';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { approveWithdrawal, rejectWithdrawal } from '@/app/actions';
-import { useFormState, useFormStatus } from 'react-dom';
+import { useActionState } from 'react';
+import { useFormStatus } from 'react-dom';
 import { useAssets } from '@/hooks/use-assets';
 import type { Withdrawal } from '@/lib/types';
 
@@ -50,7 +51,7 @@ export default function ReviewWithdrawalPage({ params }: { params: { id: string 
   const { data: assets, isLoading: assetsLoading } = useAssets();
   const asset = assets?.find(a => a.id === withdrawal?.assetId);
 
-  const [_, formAction] = useFormState(approveWithdrawal, { status: 'idle', message: '' });
+  const [_, formAction] = useActionState(approveWithdrawal, { status: 'idle', message: '' });
 
 
   const isLoading = isWithdrawalLoading || isProfileLoading || assetsLoading;
@@ -201,5 +202,3 @@ export default function ReviewWithdrawalPage({ params }: { params: { id: string 
     </div>
   );
 }
-
-    

@@ -4,7 +4,8 @@
 import { useEffect } from 'react';
 import { useUser, useFirestore, useDoc, useMemoFirebase } from '@/firebase';
 import { doc } from 'firebase/firestore';
-import { useFormState, useFormStatus } from 'react-dom';
+import { useActionState } from 'react';
+import { useFormStatus } from 'react-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -41,8 +42,9 @@ function SubmitButton() {
 
 function KycSubmitButton({ kycStatus } : { kycStatus?: UserProfile['kycStatus'] }) {
   const { pending } = useFormStatus();
-  const isDisabled = kycStatus === 'VERIFIED' || kycStatus === 'PENDING' || kycStatus === 'REJECTED';
-  const buttonText = kycStatus === 'PENDING' ? 'Verification Pending' : 'Start Verification';
+  const isDisabled = kycStatus === 'VERIFIED' || kycStatus === 'PENDING';
+  const buttonText = kycStatus === 'PENDING' ? 'Verification Pending' : (kycStatus === 'VERIFIED' ? 'Verified' : 'Start Verification');
+
 
   return (
     <Button type="submit" disabled={isDisabled || pending} className="w-full">
@@ -65,8 +67,8 @@ export default function SettingsPage() {
 
   const { data: userProfile, isLoading: isProfileLoading, error } = useDoc<UserProfile>(userDocRef);
 
-  const [profileFormState, profileFormAction] = useFormState(updateUserProfile, { status: "idle", message: "" });
-  const [kycFormState, kycFormAction] = useFormState(submitKyc, { status: "idle", message: "" });
+  const [profileFormState, profileFormAction] = useActionState(updateUserProfile, { status: "idle", message: "" });
+  const [kycFormState, kycFormAction] = useActionState(submitKyc, { status: "idle", message: "" });
 
 
   const form = useForm<ProfileFormValues>({

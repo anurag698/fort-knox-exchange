@@ -68,6 +68,7 @@ export type UserProfile = {
     createdAt: any;
     updatedAt: any;
     referralCode?: string;
+    isAdmin?: boolean;
 };
 
 export type LedgerEntry = {

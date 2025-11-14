@@ -15,11 +15,14 @@ import { User, LogOut, Settings, LogIn, Landmark, Home, CandlestickChart, ArrowR
 import { useIsMobile } from "@/hooks/use-mobile";
 import { PlaceHolderImages } from "@/lib/placeholder-images";
 import Link from 'next/link';
-import { useUser, useAuth } from '@/firebase';
+import { useUser, useAuth, useDoc, useFirestore, useMemoFirebase } from '@/firebase';
+import { doc } from 'firebase/firestore';
 import { signOut } from 'firebase/auth';
 import { useRouter, usePathname } from "next/navigation";
 import { clearSession } from "@/app/actions";
 import { cn } from "@/lib/utils";
+import type { UserProfile } from "@/lib/types";
+
 
 const mainLinks = [
   { href: "/markets", label: "Markets", icon: CandlestickChart },
@@ -39,6 +42,13 @@ export default function Header() {
   const router = useRouter();
   const pathname = usePathname();
   const userAvatar = PlaceHolderImages.find(img => img.id === 'user-avatar');
+
+  const firestore = useFirestore();
+  const userDocRef = useMemoFirebase(
+    () => (firestore && user ? doc(firestore, 'users', user.uid) : null),
+    [firestore, user]
+  );
+  const { data: userProfile } = useDoc<UserProfile>(userDocRef);
 
   const handleSignOut = async () => {
     if (auth) {
@@ -73,6 +83,11 @@ export default function Header() {
                 <Link href={link.href}>{link.label}</Link>
              </Button>
           ))}
+          {userProfile?.isAdmin && (
+               <Button asChild variant="link" className={cn("text-sm font-medium", pathname.startsWith(adminLink.href) ? "text-primary" : "text-muted-foreground hover:text-foreground")}>
+                  <Link href={adminLink.href}>{adminLink.label}</Link>
+               </Button>
+          )}
         </nav>
 
       </div>
@@ -98,7 +113,7 @@ export default function Header() {
             <DropdownMenuLabel className="font-normal">
               <div className="flex flex-col space-y-1">
                 <p className="text-sm font-medium leading-none">
-                  {user.displayName || user.email?.split('@')[0]}
+                  {userProfile?.username || user.email?.split('@')[0]}
                 </p>              
                 <p className="text-xs leading-none text-muted-foreground">
                   {user.email}
@@ -106,12 +121,14 @@ export default function Header() {
               </div>
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
-             <DropdownMenuItem asChild>
-                <Link href={adminLink.href}>
-                    <adminLink.icon className="mr-2 h-4 w-4" />
-                    <span>{adminLink.label}</span>
-                </Link>
-            </DropdownMenuItem>
+             {userProfile?.isAdmin && (
+                <DropdownMenuItem asChild>
+                    <Link href={adminLink.href}>
+                        <adminLink.icon className="mr-2 h-4 w-4" />
+                        <span>{adminLink.label}</span>
+                    </Link>
+                </DropdownMenuItem>
+             )}
             <DropdownMenuItem asChild>
               <Link href="/settings">
                 <Settings className="mr-2 h-4 w-4" />

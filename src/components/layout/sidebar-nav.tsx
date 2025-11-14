@@ -23,6 +23,9 @@ import {
   Repeat,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useUser, useDoc, useFirestore, useMemoFirebase } from '@/firebase';
+import { doc } from 'firebase/firestore';
+import type { UserProfile } from "@/lib/types";
 
 const mainLinks = [
   { href: "/", label: "Home", icon: Home },
@@ -33,13 +36,19 @@ const mainLinks = [
   { href: "/ledger", label: "Ledger", icon: BookText },
 ];
 
-const bottomLinks = [
-  { href: "/admin", label: "Admin", icon: UserCog },
-  { href: "/settings", label: "Settings", icon: Settings },
-];
+const adminLink = { href: "/admin", label: "Admin", icon: UserCog };
+const settingsLink = { href: "/settings", label: "Settings", icon: Settings };
+
 
 export default function SidebarNav() {
   const pathname = usePathname();
+  const { user } = useUser();
+  const firestore = useFirestore();
+  const userDocRef = useMemoFirebase(
+    () => (firestore && user ? doc(firestore, 'users', user.uid) : null),
+    [firestore, user]
+  );
+  const { data: userProfile } = useDoc<UserProfile>(userDocRef);
 
   const renderLink = (link: typeof mainLinks[0]) => (
     <SidebarMenuItem key={link.href}>
@@ -68,10 +77,13 @@ export default function SidebarNav() {
         </Link>
       </SidebarHeader>
       <SidebarContent className="flex-1 p-2">
-        <SidebarMenu>{mainLinks.map(link => renderLink(link))}</SidebarMenu>
+        <SidebarMenu>{mainLinks.map(renderLink)}</SidebarMenu>
       </SidebarContent>
       <SidebarFooter className="border-t border-sidebar-border p-2">
-        <SidebarMenu>{bottomLinks.map(link => renderLink(link))}</SidebarMenu>
+        <SidebarMenu>
+            {userProfile?.isAdmin && renderLink(adminLink)}
+            {renderLink(settingsLink)}
+        </SidebarMenu>
       </SidebarFooter>
     </>
   );

@@ -9,6 +9,7 @@ import {
   getDoc,
   doc,
   serverTimestamp,
+  collection,
   CollectionReference,
   DocumentReference,
   SetOptions,
@@ -126,6 +127,7 @@ export async function createNewUserDocument(firestore: Firestore, firebaseUser: 
             // USDT Balance
             const usdtBalanceRef = doc(balancesRef, 'USDT');
             setDocumentNonBlocking(usdtBalanceRef, {
+                id: usdtBalanceRef.id,
                 userId: firebaseUser.uid,
                 assetId: 'USDT',
                 available: 100000,
@@ -137,6 +139,7 @@ export async function createNewUserDocument(firestore: Firestore, firebaseUser: 
             // BTC Balance
             const btcBalanceRef = doc(balancesRef, 'BTC');
             setDocumentNonBlocking(btcBalanceRef, {
+                id: btcBalanceRef.id,
                 userId: firebaseUser.uid,
                 assetId: 'BTC',
                 available: 1,
@@ -148,6 +151,7 @@ export async function createNewUserDocument(firestore: Firestore, firebaseUser: 
             // ETH Balance
             const ethBalanceRef = doc(balancesRef, 'ETH');
             setDocumentNonBlocking(ethBalanceRef, {
+                id: ethBalanceRef.id,
                 userId: firebaseUser.uid,
                 assetId: 'ETH',
                 available: 10,

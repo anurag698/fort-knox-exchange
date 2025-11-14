@@ -1,3 +1,6 @@
+'use client';
+
+import { useAuthGate } from '@/hooks/use-auth-gate';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
@@ -18,6 +21,8 @@ const pendingWithdrawals = [
 ];
 
 export default function AdminPage() {
+  useAuthGate();
+
   return (
     <div className="flex flex-col gap-8">
       <div className="flex flex-col gap-2">

@@ -102,6 +102,11 @@ export function SignIn() {
 
   const onSignInSubmit = async (values: z.infer<typeof signInSchema>) => {
     setLoading(true);
+    if (!auth) {
+        setLoading(false);
+        toast({variant: 'destructive', title: 'Error', description: 'Firebase not initialized.'});
+        return;
+    }
     try {
       const userCredential = await signInWithEmailAndPassword(auth, values.email, values.password);
       await handleAuthSuccess(userCredential.user);
@@ -112,8 +117,14 @@ export function SignIn() {
 
   const onSignUpSubmit = async (values: z.infer<typeof signUpSchema>) => {
     setLoading(true);
+    if (!auth) {
+        setLoading(false);
+        toast({variant: 'destructive', title: 'Error', description: 'Firebase not initialized.'});
+        return;
+    }
     try {
       const userCredential = await createUserWithEmailAndPassword(auth, values.email, values.password);
+      // The onAuthStateChanged listener in FirebaseProvider will handle user doc creation
       await handleAuthSuccess(userCredential.user);
     } catch (error) {
       handleAuthError(error);

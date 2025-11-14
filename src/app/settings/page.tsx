@@ -172,8 +172,8 @@ export default function SettingsPage() {
 
     return (
       <Form {...form}>
-        <form action={profileFormAction}>
-          <CardContent className="space-y-8">
+        <form action={profileFormAction} className="h-full flex flex-col">
+          <CardContent className="space-y-8 flex-grow">
             <div className="flex items-center space-x-6">
               <Avatar className="h-24 w-24">
                 {authUser?.photoURL ? (
@@ -258,7 +258,7 @@ export default function SettingsPage() {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <div className="lg:col-span-2">
-          <Card>
+          <Card className="h-full flex flex-col">
             <CardHeader>
               <CardTitle>My Profile</CardTitle>
               <CardDescription>

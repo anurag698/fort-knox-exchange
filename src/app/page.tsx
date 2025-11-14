@@ -1,67 +1,86 @@
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { CodeBlock } from "@/components/ui/code-block";
-import fs from "fs/promises";
-import path from "path";
+import { CheckCircle, LogIn, Wallet, ArrowRightLeft, AreaChart, BookText } from "lucide-react";
+import Link from 'next/link';
+import { Button } from "@/components/ui/button";
 
-async function getFileContent(filePath: string) {
-  try {
-    const fullPath = path.join(process.cwd(), filePath);
-    return await fs.readFile(fullPath, "utf-8");
-  } catch (error) {
-    console.error(`Error reading file ${filePath}:`, error);
-    return `Error: Could not load file content for ${filePath}.`;
-  }
-}
+const steps = [
+  {
+    icon: LogIn,
+    title: "Create an Account or Sign In",
+    description: "Start by creating a new account or signing in to access the exchange.",
+    link: "/auth",
+    linkText: "Go to Auth"
+  },
+  {
+    icon: Wallet,
+    title: "Fund Your Account",
+    description: "Navigate to the Wallet page to generate a deposit address and fund your account.",
+    link: "/portfolio",
+    linkText: "Go to Wallet"
+  },
+  {
+    icon: ArrowRightLeft,
+    title: "Start Trading",
+    description: "Explore the available markets and place your first trade on the Trade page.",
+    link: "/trade",
+    linkText: "Go to Trade"
+  },
+  {
+    icon: AreaChart,
+    title: "Track Your Portfolio",
+    description: "View your asset allocation and total portfolio value in the Wallet.",
+    link: "/portfolio",
+    linkText: "View Portfolio"
+  },
+    {
+    icon: BookText,
+    title: "Review Your History",
+    description: "Check the Ledger for a complete history of all your transactions.",
+    link: "/ledger",
+    linkText: "View Ledger"
+  },
+];
 
-export default async function Home() {
-  const backendJson = await getFileContent('docs/backend.json');
-  const firestoreRules = await getFileContent('firestore.rules');
-
+export default function Home() {
   return (
     <div className="flex flex-col gap-8">
-      <div className="flex flex-col gap-2">
-        <h1 className="font-headline text-3xl font-bold tracking-tight">
-          Firestore for Your Exchange
+      <div className="flex flex-col gap-2 text-center items-center">
+        <h1 className="font-headline text-4xl font-bold tracking-tight">
+          Welcome to Fort Knox Exchange
         </h1>
-        <p className="max-w-3xl text-muted-foreground">
-          A complete guide to structuring your Firestore database, with
-          development and production rules for a secure and scalable crypto
-          exchange.
+        <p className="max-w-2xl text-muted-foreground">
+          Your secure and modern platform for trading digital assets. Follow the steps below to get started.
         </p>
       </div>
-      <Tabs defaultValue="data-model" className="w-full">
-        <TabsList className="grid w-full grid-cols-1 sm:grid-cols-2 h-auto">
-          <TabsTrigger value="data-model">Data Model (backend.json)</TabsTrigger>
-          <TabsTrigger value="prod-rules">Security Rules</TabsTrigger>
-        </TabsList>
-        <TabsContent value="data-model" className="mt-6">
-           <Card>
-            <CardHeader>
-              <CardTitle>Data Model Definition</CardTitle>
-              <CardDescription>
-                This JSON file defines the entities and Firestore collection structure for the application. It serves as the blueprint for the database.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <CodeBlock>{backendJson}</CodeBlock>
-            </CardContent>
-          </Card>
-        </TabsContent>
-        <TabsContent value="prod-rules" className="mt-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>Production Security Rules</CardTitle>
-              <CardDescription>
-                These are the live, secure rules for the production environment, enforcing strict data access policies.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <CodeBlock>{firestoreRules}</CodeBlock>
-            </CardContent>
-          </Card>
-        </TabsContent>
-      </Tabs>
+      
+      <Card className="max-w-4xl mx-auto w-full">
+        <CardHeader>
+            <CardTitle>Getting Started</CardTitle>
+            <CardDescription>A quick guide to using the exchange.</CardDescription>
+        </CardHeader>
+        <CardContent>
+            <ul className="space-y-6">
+                {steps.map((step, index) => (
+                    <li key={index} className="flex items-start gap-4">
+                        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 text-primary shrink-0">
+                            <step.icon className="h-6 w-6" />
+                        </div>
+                        <div className="flex-grow">
+                            <h3 className="font-semibold text-lg">{step.title}</h3>
+                            <p className="text-muted-foreground">{step.description}</p>
+                             <Button variant="link" asChild className="p-0 h-auto mt-1">
+                                <Link href={step.link}>
+                                    {step.linkText}
+                                </Link>
+                            </Button>
+                        </div>
+                    </li>
+                ))}
+            </ul>
+        </CardContent>
+      </Card>
+
     </div>
   );
 }

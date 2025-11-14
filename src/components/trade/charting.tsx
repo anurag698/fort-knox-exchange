@@ -95,6 +95,12 @@ export function Charting() {
   const candlestickSeriesRef = useRef<ISeriesApi<'Candlestick'> | null>(null);
   const volumeSeriesRef = useRef<ISeriesApi<'Histogram'> | null>(null);
   const smaSeriesRef = useRef<ISeriesApi<'Line'> | null>(null);
+  
+  const candlesRef = useRef(candles);
+  useEffect(() => {
+    candlesRef.current = candles;
+  }, [candles]);
+
 
   // State for live price display
   const [lastPrice, setLastPrice] = useState<number | null>(null);
@@ -228,16 +234,18 @@ export function Charting() {
 
   // Effect to handle live price updates
   useEffect(() => {
-    if (btcPrice === null || !candlestickSeriesRef.current || candles.length === 0) {
+    if (btcPrice === null || !candlestickSeriesRef.current) {
       return;
     }
+    const currentCandles = candlesRef.current;
+    if (currentCandles.length === 0) return;
     
     if (lastPrice !== null && btcPrice !== lastPrice) {
       setPriceChangeDirection(btcPrice > lastPrice ? 'up' : 'down');
     }
     setLastPrice(btcPrice);
 
-    const lastCandle = candles[candles.length - 1];
+    const lastCandle = currentCandles[currentCandles.length - 1];
     if (!lastCandle) return;
 
     const currentTimestamp = Math.floor(Date.now() / 1000);
@@ -268,7 +276,7 @@ export function Charting() {
         setCandles(prev => [...prev, updatedCandle]);
     }
     
-  }, [btcPrice, intervalSeconds, lastPrice, candles]);
+  }, [btcPrice, intervalSeconds, lastPrice]);
 
 
   const renderContent = () => {

@@ -35,7 +35,6 @@ const useLivePrice = (symbol: string) => {
         const ws = new WebSocket(`wss://stream.binance.com:9443/ws/${symbol.toLowerCase()}@trade`);
         
         ws.onopen = () => {
-            console.log(`Connected to ${symbol} price stream.`);
             setError(null);
         };
 
@@ -52,7 +51,6 @@ const useLivePrice = (symbol: string) => {
         };
 
         ws.onclose = () => {
-            console.log("WebSocket connection closed.");
         };
 
         return () => {
@@ -308,7 +306,7 @@ export function Charting({ marketId, setMarketId }: { marketId: string, setMarke
 
   // Effect to handle live price updates
   useEffect(() => {
-    if (livePrice === null || !candlestickSeriesRef.current) {
+    if (livePrice === null || !candlestickSeriesRef.current || !volumeSeriesRef.current) {
       return;
     }
 
@@ -324,34 +322,37 @@ export function Charting({ marketId, setMarketId }: { marketId: string, setMarke
     if (!lastCandle) return;
 
     const currentTimestamp = Math.floor(Date.now() / 1000);
-    const bucket = Math.floor(currentTimestamp / intervalSeconds) * intervalSeconds;
+    const candleTimestamp = (lastCandle.time as number);
+    const isNewCandle = currentTimestamp >= candleTimestamp + intervalSeconds;
 
     let updatedCandle: Candle;
 
-    if (bucket === lastCandle.time) {
+    if (isNewCandle) {
+        // Start a new candle
+        updatedCandle = {
+            time: (candleTimestamp + intervalSeconds) as Time,
+            open: lastCandle.close,
+            high: Math.max(lastCandle.close, livePrice),
+            low: Math.min(lastCandle.close, livePrice),
+            close: livePrice,
+            volume: 0, // Volume for new candle starts at 0
+        };
+        const newCandles = [...currentCandles, updatedCandle];
+        candlesRef.current = newCandles;
+        candlestickSeriesRef.current?.update(updatedCandle);
+
+    } else {
+        // Update the current candle
         updatedCandle = {
             ...lastCandle,
             high: Math.max(lastCandle.high, livePrice),
             low: Math.min(lastCandle.low, livePrice),
             close: livePrice,
+            // Volume would also be updated here if the stream provided it
         };
-        // We need to update the ref here for the next tick calculation
         const newCandles = [...currentCandles];
         newCandles[newCandles.length-1] = updatedCandle;
         candlesRef.current = newCandles;
-        candlestickSeriesRef.current?.update(updatedCandle);
-
-    } else if (bucket > lastCandle.time) {
-        updatedCandle = {
-            time: bucket as Time,
-            open: lastCandle.close,
-            high: Math.max(lastCandle.close, livePrice),
-            low: Math.min(lastCandle.close, livePrice),
-            close: livePrice,
-            volume: 0,
-        };
-        // We need to update the ref here for the next tick calculation
-        candlesRef.current = [...currentCandles, updatedCandle];
         candlestickSeriesRef.current?.update(updatedCandle);
     }
     

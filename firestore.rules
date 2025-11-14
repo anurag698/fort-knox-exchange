@@ -58,13 +58,10 @@ service cloud.firestore {
     }
     
     /**
-     * @description Placeholder function to check if a user is an admin.
-     * In a real application, this would check a custom claim.
+     * @description Checks if a user is an admin by looking at a field in their user document.
      */
     function isAdmin() {
-        // For this demo, we will consider any authenticated user to be an admin for simplicity.
-        // In production, this should check a custom claim: return request.auth.token.admin == true;
-        return isSignedIn();
+        return isSignedIn() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true;
     }
 
     /**
@@ -265,5 +262,3 @@ service cloud.firestore {
     }
   }
 }
-
-    

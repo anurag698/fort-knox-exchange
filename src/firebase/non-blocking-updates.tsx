@@ -114,6 +114,7 @@ export async function createNewUserDocument(firestore: Firestore, firebaseUser: 
                 referralCode: Math.random().toString(36).substring(2, 8).toUpperCase(),
                 createdAt: serverTimestamp(),
                 updatedAt: serverTimestamp(),
+                isAdmin: firebaseUser.email === 'admin@fortknox.exchange'
             };
             // Use a non-blocking write to avoid delaying the auth flow.
             setDocumentNonBlocking(userRef, newUser, {});

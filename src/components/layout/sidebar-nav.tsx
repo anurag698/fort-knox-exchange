@@ -13,7 +13,7 @@ import {
 } from "@/components/ui/sidebar";
 import {
   Landmark,
-  Database,
+  Home,
   CandlestickChart,
   ArrowRightLeft,
   Settings,
@@ -25,7 +25,7 @@ import {
 import { cn } from "@/lib/utils";
 
 const mainLinks = [
-  { href: "/", label: "Firestore Setup", icon: Database },
+  { href: "/", label: "Home", icon: Home },
   { href: "/markets", label: "Markets", icon: CandlestickChart },
   { href: "/trade", label: "Trade", icon: ArrowRightLeft },
   { href: "/portfolio", label: "Wallet", icon: Wallet },
@@ -34,7 +34,6 @@ const mainLinks = [
 
 const bottomLinks = [
   { href: "/settings", label: "Settings", icon: Settings },
-  { href: "/admin", label: "Admin", icon: UserCog },
 ];
 
 export default function SidebarNav() {
@@ -94,7 +93,7 @@ export default function SidebarNav() {
                      <SidebarMenuButton
                         asChild
                         size="sm"
-                        isActive={pathname === '/admin/users'}
+                        isActive={pathname.startsWith('/admin/users')}
                         className="justify-start"
                      >
                         <Link href="/admin/users">Users</Link>
@@ -104,7 +103,7 @@ export default function SidebarNav() {
         </SidebarMenu>
       </SidebarContent>
       <SidebarFooter className="border-t border-sidebar-border p-2">
-        <SidebarMenu>{bottomLinks.filter(l => l.href !== '/admin').map(link => renderLink(link))}</SidebarMenu>
+        <SidebarMenu>{bottomLinks.map(link => renderLink(link))}</SidebarMenu>
       </SidebarFooter>
     </>
   );

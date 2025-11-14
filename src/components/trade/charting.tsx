@@ -99,43 +99,44 @@ export function Charting() {
     if (btcPrice === undefined || !candlestickSeriesRef.current) {
       return;
     }
-
-    const newPrice = btcPrice;
-    const now = Date.now();
-    const lastCandle = candles[candles.length - 1];
     
-    // lightweight-charts works with UTC timestamps, so we need to adjust
-    const currentTimestamp = Math.floor(now / 1000);
+    setCandles(prevCandles => {
+        if (prevCandles.length === 0) return [];
+        
+        const newPrice = btcPrice;
+        const lastCandle = prevCandles[prevCandles.length - 1];
+        
+        // lightweight-charts works with UTC timestamps, so we need to adjust
+        const currentTimestamp = Math.floor(Date.now() / 1000);
+        const bucket = Math.floor(currentTimestamp / intervalSeconds) * intervalSeconds;
 
-    const bucket = Math.floor(currentTimestamp / intervalSeconds) * intervalSeconds;
+        if (bucket === lastCandle.time) {
+            // Update the current candle
+            const updatedCandle = {
+                ...lastCandle,
+                high: Math.max(lastCandle.high, newPrice),
+                low: Math.min(lastCandle.low, newPrice),
+                close: newPrice,
+            };
+            candlestickSeriesRef.current?.update(updatedCandle);
+            return [...prevCandles.slice(0, -1), updatedCandle];
+        } else if (bucket > lastCandle.time) {
+            // Create a new candle
+            const newCandle: Candle = {
+                time: bucket as Time,
+                open: lastCandle.close,
+                high: newPrice,
+                low: newPrice,
+                close: newPrice,
+            };
+            candlestickSeriesRef.current?.update(newCandle);
+            return [...prevCandles, newCandle];
+        }
 
-    if (!lastCandle || !candlestickSeriesRef.current) return;
+        return prevCandles;
+    });
 
-    if (bucket === lastCandle.time) {
-        // Update the current candle
-        const updatedCandle = {
-            ...lastCandle,
-            high: Math.max(lastCandle.high, newPrice),
-            low: Math.min(lastCandle.low, newPrice),
-            close: newPrice,
-        };
-        candlestickSeriesRef.current.update(updatedCandle);
-        // Also update our local state
-        setCandles(prev => [...prev.slice(0, -1), updatedCandle]);
-    } else if (bucket > lastCandle.time) {
-        // Create a new candle
-        const newCandle: Candle = {
-            time: bucket as Time,
-            open: lastCandle.close,
-            high: newPrice,
-            low: newPrice,
-            close: newPrice,
-        };
-        candlestickSeriesRef.current.update(newCandle);
-        setCandles(prev => [...prev, newCandle]);
-    }
-
-  }, [btcPrice, candles, intervalSeconds]);
+  }, [btcPrice, intervalSeconds]);
 
 
   const renderContent = () => {

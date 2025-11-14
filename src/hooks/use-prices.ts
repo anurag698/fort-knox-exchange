@@ -44,7 +44,7 @@ export function usePrices() {
       setIsLoading(false);
       return;
     }
-    if (!assets || assets.length === 0) {
+    if (!assets) {
       // If there are no assets, we can't fetch prices, but it's not an error state.
       // We can just set loading to false and data to an empty object.
       setIsLoading(false);
@@ -120,13 +120,13 @@ export function usePrices() {
     };
 
     fetchPrices();
-    // Set up an interval to refetch prices every 5 seconds
-    const intervalId = setInterval(fetchPrices, 5000); 
+    // Set up an interval to refetch prices every 15 seconds
+    const intervalId = setInterval(fetchPrices, 15000); 
 
     // Cleanup interval on component unmount
     return () => clearInterval(intervalId);
 
-  }, [assets, assetsLoading, assetsError, data]); // Add `data` to dependency array to control initial loading state
+  }, [assets, assetsLoading, assetsError]); // Removed data from dependency array
 
   return { data, isLoading, error };
 }

@@ -265,6 +265,54 @@ export async function seedInitialData(firestore: Firestore) {
       });
     }
 
+    const solEthMarket = await marketsCol.doc('SOL-ETH').get();
+    if (!solEthMarket.exists) {
+        console.log("Seeding SOL-ETH market...");
+      await marketsCol.doc('SOL-ETH').set({
+        id: 'SOL-ETH',
+        baseAssetId: 'SOL',
+        quoteAssetId: 'ETH',
+        minOrderSize: 0.1,
+        pricePrecision: 6,
+        quantityPrecision: 2,
+        makerFee: 0.001,
+        takerFee: 0.001,
+        createdAt: new Date(),
+      });
+    }
+
+    const adaEthMarket = await marketsCol.doc('ADA-ETH').get();
+    if (!adaEthMarket.exists) {
+        console.log("Seeding ADA-ETH market...");
+      await marketsCol.doc('ADA-ETH').set({
+        id: 'ADA-ETH',
+        baseAssetId: 'ADA',
+        quoteAssetId: 'ETH',
+        minOrderSize: 10,
+        pricePrecision: 8,
+        quantityPrecision: 0,
+        makerFee: 0.001,
+        takerFee: 0.001,
+        createdAt: new Date(),
+      });
+    }
+
+    const maticEthMarket = await marketsCol.doc('MATIC-ETH').get();
+    if (!maticEthMarket.exists) {
+        console.log("Seeding MATIC-ETH market...");
+      await marketsCol.doc('MATIC-ETH').set({
+        id: 'MATIC-ETH',
+        baseAssetId: 'MATIC',
+        quoteAssetId: 'ETH',
+        minOrderSize: 10,
+        pricePrecision: 8,
+        quantityPrecision: 2,
+        makerFee: 0.001,
+        takerFee: 0.001,
+        createdAt: new Date(),
+      });
+    }
+
   } catch (error) {
     console.error("Error during data seeding:", error);
     // Don't re-throw, as this shouldn't block application startup

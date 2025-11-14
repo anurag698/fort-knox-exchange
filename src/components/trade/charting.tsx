@@ -1,15 +1,7 @@
 
 "use client"
 
-import { useMemo, useState, useEffect } from "react";
-import {
-  CandlestickChart,
-  CartesianGrid,
-  XAxis,
-  YAxis,
-  Tooltip,
-  ResponsiveContainer,
-} from "recharts";
+import { useMemo, useState, useEffect, useRef } from "react";
 import { usePrices } from "@/hooks/use-prices";
 import {
   Card,
@@ -22,15 +14,10 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { AlertCircle } from "lucide-react";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import { LightweightChart } from "@/components/ui/lightweight-chart";
+import { type CandlestickData, type IChartApi, type ISeriesApi, type Time } from "lightweight-charts";
 
-
-type Candle = {
-  time: number; // UNIX timestamp (seconds)
-  open: number;
-  high: number;
-  low: number;
-  close: number;
-};
+type Candle = CandlestickData<Time>;
 
 // Mock function to generate historical data
 const generateMockCandles = (count: number, intervalSeconds: number): Candle[] => {
@@ -43,7 +30,7 @@ const generateMockCandles = (count: number, intervalSeconds: number): Candle[] =
         const high = open + Math.random() * 500;
         const low = open - Math.random() * 500;
         const close = low + Math.random() * (high - low);
-        data.push({ time: currentTime, open, high, low, close });
+        data.push({ time: currentTime as Time, open, high, low, close });
         lastClose = close;
         currentTime += intervalSeconds;
     }
@@ -57,6 +44,9 @@ export function Charting() {
   const [isLoading, setIsLoading] = useState(true);
   const [interval, setInterval] = useState<string>("1m");
   const btcPrice = prices?.['BTC'];
+  
+  const chartRef = useRef<IChartApi>(null);
+  const candlestickSeriesRef = useRef<ISeriesApi<'Candlestick'>>(null);
 
   const intervalSeconds = useMemo(() => {
     switch (interval) {
@@ -73,52 +63,73 @@ export function Charting() {
     // In a real app, this would be a fetch call to /api/markets/BTC-USDT/candles?interval=...
     // We simulate it with mock data for now.
     setTimeout(() => {
-      setCandles(generateMockCandles(100, intervalSeconds));
+      const mockCandles = generateMockCandles(100, intervalSeconds);
+      setCandles(mockCandles);
+      if (candlestickSeriesRef.current) {
+        candlestickSeriesRef.current.setData(mockCandles);
+      }
       setIsLoading(false);
     }, 500);
   }, [interval, intervalSeconds]);
 
   // Update candles with live prices
   useEffect(() => {
-    if (btcPrice === undefined || candles.length === 0) {
+    if (btcPrice === undefined || !candlestickSeriesRef.current) {
       return;
     }
 
     const newPrice = btcPrice;
     const now = Date.now();
     const lastCandle = candles[candles.length - 1];
+    
+    // lightweight-charts works with UTC timestamps, so we need to adjust
+    const currentTimestamp = Math.floor(now / 1000);
 
-    // Determine the time bucket for the new price
-    const bucket = Math.floor(now / 1000 / intervalSeconds) * intervalSeconds;
+    const bucket = Math.floor(currentTimestamp / intervalSeconds) * intervalSeconds;
 
-    setCandles(currentCandles => {
-        const last = currentCandles[currentCandles.length - 1];
+    if (!lastCandle || !candlestickSeriesRef.current) return;
 
-        if (bucket === last.time) {
-            // Update the current candle
-            const updatedLastCandle = {
-                ...last,
-                high: Math.max(last.high, newPrice),
-                low: Math.min(last.low, newPrice),
-                close: newPrice,
-            };
-            // Return a new array with the last candle updated
-            return [...currentCandles.slice(0, -1), updatedLastCandle];
-        } else {
-            // Create a new candle
-            const newCandle: Candle = {
-                time: bucket,
-                open: last.close,
-                high: newPrice,
-                low: newPrice,
-                close: newPrice,
-            };
-            // Return a new array with the new candle appended
-            return [...currentCandles, newCandle];
-        }
-    });
+    if (bucket === lastCandle.time) {
+        // Update the current candle
+        const updatedCandle = {
+            ...lastCandle,
+            high: Math.max(lastCandle.high, newPrice),
+            low: Math.min(lastCandle.low, newPrice),
+            close: newPrice,
+        };
+        candlestickSeriesRef.current.update(updatedCandle);
+        // Also update our local state
+        setCandles(prev => [...prev.slice(0, -1), updatedCandle]);
+    } else if (bucket > lastCandle.time) {
+        // Create a new candle
+        const newCandle: Candle = {
+            time: bucket as Time,
+            open: lastCandle.close,
+            high: newPrice,
+            low: newPrice,
+            close: newPrice,
+        };
+        candlestickSeriesRef.current.update(newCandle);
+        setCandles(prev => [...prev, newCandle]);
+    }
 
-  }, [btcPrice, candles.length, intervalSeconds]);
+  }, [btcPrice, candles, intervalSeconds]);
+
+
+  const chartOptions = {
+    layout: {
+      background: { color: 'transparent' },
+      textColor: 'hsl(var(--muted-foreground))',
+    },
+    grid: {
+      vertLines: { color: 'hsl(var(--border))' },
+      horzLines: { color: 'hsl(var(--border))' },
+    },
+    timeScale: {
+      timeVisible: true,
+      secondsVisible: false,
+    },
+  };
 
   const renderContent = () => {
     if (isLoading) {
@@ -138,59 +149,29 @@ export function Charting() {
         </div>
       );
     }
-    
-    if(candles.length === 0){
-       return (
-         <div className="h-96 flex items-center justify-center text-muted-foreground">
-          Waiting for chart data...
-        </div>
-      );
-    }
 
     return (
-       <ResponsiveContainer width="100%" height={400}>
-          <CandlestickChart
-            data={candles}
-            margin={{ top: 20, right: 20, left: -10, bottom: 20 }}
-          >
-            <CartesianGrid strokeDasharray="3 3" vertical={false} />
-            <XAxis
-              dataKey="time"
-              tickFormatter={(time) => new Date(time * 1000).toLocaleTimeString()}
-              minTickGap={80}
-              tickLine={false}
-              axisLine={false}
-            />
-            <YAxis
-              domain={['dataMin - 100', 'dataMax + 100']}
-              tickFormatter={(price) => price.toLocaleString()}
-              orientation="right"
-              tickLine={false}
-              axisLine={false}
-            />
-            <Tooltip
-                contentStyle={{
-                    backgroundColor: 'hsl(var(--background))',
-                    border: '1px solid hsl(var(--border))'
-                }}
-                labelFormatter={(time) => new Date(time * 1000).toLocaleString()}
-            />
-            <defs>
-              <linearGradient id="colorGreen" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor="#10b981" stopOpacity={0.8}/>
-                <stop offset="95%" stopColor="#10b981" stopOpacity={0}/>
-              </linearGradient>
-              <linearGradient id="colorRed" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor="#ef4444" stopOpacity={0.8}/>
-                <stop offset="95%" stopColor="#ef4444" stopOpacity={0}/>
-              </linearGradient>
-            </defs>
-          </CandlestickChart>
-        </ResponsiveContainer>
+      <LightweightChart 
+        options={chartOptions}
+        candlestickSeriesOptions={{
+            upColor: '#10b981',
+            downColor: '#ef4444',
+            borderDownColor: '#ef4444',
+            borderUpColor: '#10b981',
+            wickDownColor: '#ef4444',
+            wickUpColor: '#10b981',
+        }}
+        initialData={candles}
+        onChartReady={(chart, series) => {
+            chartRef.current = chart;
+            candlestickSeriesRef.current = series;
+        }}
+        height={400}
+      />
     );
   }
 
-  const latestPrice = candles.length > 0 ? candles[candles.length-1].close : btcPrice;
+  const latestPrice = btcPrice ?? (candles.length > 0 ? candles[candles.length - 1].close : undefined);
 
   return (
     <Card className="flex-grow">

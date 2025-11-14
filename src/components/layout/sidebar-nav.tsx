@@ -1,3 +1,4 @@
+
 "use client";
 
 import Link from "next/link";
@@ -18,6 +19,7 @@ import {
   ArrowRightLeft,
   Settings,
   UserCog,
+  BookText,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -26,6 +28,7 @@ const mainLinks = [
   { href: "/moderate-withdrawal", label: "AI Moderation", icon: ShieldCheck },
   { href: "/markets", label: "Markets", icon: CandlestickChart },
   { href: "/trade", label: "Trade", icon: ArrowRightLeft },
+  { href: "/ledger", label: "Ledger", icon: BookText },
 ];
 
 const bottomLinks = [

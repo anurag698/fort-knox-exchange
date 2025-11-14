@@ -31,3 +31,14 @@ export type Order = {
   createdAt: any;
   updatedAt: any;
 };
+
+export type Withdrawal = {
+    id: string;
+    userId: string;
+    assetId: string;
+    amount: number;
+    status: 'REQUESTED' | 'PENDING' | 'APPROVED' | 'SENT' | 'REJECTED';
+    transactionHash?: string;
+    createdAt: any;
+    updatedAt: any;
+};

@@ -30,7 +30,7 @@ const useLivePrice = (symbol: string) => {
     const [error, setError] = useState<Error | null>(null);
 
     useEffect(() => {
-        if (!symbol) return;
+        if (!symbol || symbol.length === 0) return;
         const ws = new WebSocket(`wss://stream.binance.com:9443/ws/${symbol.toLowerCase()}@trade`);
         
         ws.onopen = () => {
@@ -236,6 +236,13 @@ export function Charting({ marketId, setMarketId }: { marketId: string, setMarke
     fetch(`https://api.binance.com/api/v3/klines?symbol=${binanceSymbol}&interval=${binanceInterval}&limit=1000`)
         .then(res => res.json())
         .then(data => {
+            if (!Array.isArray(data)) {
+                // handle error case where binance returns {code:..., msg:...}
+                console.error("Failed to fetch klines from Binance:", data);
+                setCandles([]);
+                setIsLoading(false);
+                return;
+            }
             const formattedCandles: Candle[] = data.map((d: any) => ({
                 time: d[0] / 1000,
                 open: parseFloat(d[1]),
@@ -252,6 +259,7 @@ export function Charting({ marketId, setMarketId }: { marketId: string, setMarke
         })
         .catch(err => {
             console.error(err);
+            setCandles([]);
             setIsLoading(false);
         });
 
@@ -329,7 +337,7 @@ export function Charting({ marketId, setMarketId }: { marketId: string, setMarke
             time: (candleTimestamp + intervalSeconds) as Time,
             open: lastCandle.close,
             high: Math.max(lastCandle.close, livePrice),
-            low: Math.min(lastCandle.close, livePrice),
+            low: Math.min(lastCandle.low, livePrice),
             close: livePrice,
             volume: 0, // Simplified: real volume would require another feed
         };
@@ -386,6 +394,8 @@ export function Charting({ marketId, setMarketId }: { marketId: string, setMarke
   const changeColor = change24h >= 0 ? 'text-green-500' : 'text-red-500';
 
   const timeIntervals = ["1m", "5m", "15m", "30m", "1h", "4h", "1d"];
+  
+  const currentMarket = markets?.find(m => m.id === marketId);
 
   return (
     <Card className="flex-grow">
@@ -408,7 +418,7 @@ export function Charting({ marketId, setMarketId }: { marketId: string, setMarke
                         ))}
                       </DropdownMenuContent>
                     </DropdownMenu>
-                    <CardDescription>Bitcoin / Tether</CardDescription>
+                    <CardDescription>{currentMarket?.baseAssetId} / {currentMarket?.quoteAssetId}</CardDescription>
                 </div>
                 <div className="flex items-baseline gap-6 text-right">
                      <div>

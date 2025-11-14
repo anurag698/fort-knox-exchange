@@ -1,3 +1,4 @@
+
 "use client";
 
 import { SidebarTrigger, useSidebar } from "@/components/ui/sidebar";
@@ -11,7 +12,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { User, LogOut, Settings, LogIn, Landmark, Home, CandlestickChart, ArrowRightLeft, Wallet, BookText, Repeat, UserCog } from "lucide-react";
+import { User, LogOut, Settings, LogIn, Landmark, Home, CandlestickChart, ArrowRightLeft, Wallet, BookText, Repeat, UserCog, Database } from "lucide-react";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { PlaceHolderImages } from "@/lib/placeholder-images";
 import Link from 'next/link';
@@ -83,6 +84,9 @@ export default function Header() {
                 <Link href={link.href}>{link.label}</Link>
              </Button>
           ))}
+           <Button asChild variant="link" className={cn("text-sm font-medium", pathname.startsWith('/seed-data') ? "text-primary" : "text-muted-foreground hover:text-foreground")}>
+              <Link href={'/seed-data'}>Seed Data</Link>
+           </Button>
           {userProfile?.isAdmin && (
                <Button asChild variant="link" className={cn("text-sm font-medium", pathname.startsWith(adminLink.href) ? "text-primary" : "text-muted-foreground hover:text-foreground")}>
                   <Link href={adminLink.href}>{adminLink.label}</Link>
@@ -154,3 +158,5 @@ export default function Header() {
     </header>
   );
 }
+
+    

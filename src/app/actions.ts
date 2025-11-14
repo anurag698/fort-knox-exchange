@@ -7,10 +7,22 @@ import { revalidatePath } from "next/cache";
 import { redirect } from 'next/navigation';
 import { cookies } from "next/headers";
 import { getFirebaseAdmin, getUserIdFromSession } from "@/lib/firebase-admin";
+import { seedInitialData } from "@/lib/seed-data";
 
 type FormState = {
   status: 'success' | 'error' | 'idle';
   message: string;
+}
+
+export async function seedDatabase(prevState: any, formData: FormData) {
+  try {
+    const { firestore } = getFirebaseAdmin();
+    await seedInitialData(firestore);
+    return { status: 'success', message: 'Database seeded successfully!' };
+  } catch (error) {
+    console.error("Database Seeding Error:", error);
+    return { status: 'error', message: 'Failed to seed database.' };
+  }
 }
 
 const updateUserProfileSchema = z.object({
@@ -630,3 +642,5 @@ export async function submitKyc(prevState: any, formData: FormData): Promise<For
     };
   }
 }
+
+    

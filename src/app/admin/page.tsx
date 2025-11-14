@@ -26,9 +26,9 @@ export default function AdminPage() {
   const { count: withdrawalsCount, isLoading: withdrawalsCountLoading } = useWithdrawalsCount('PENDING');
 
   const summaryStats = [
-    { title: "Total Users", value: usersCount, isLoading: usersLoading, icon: Users },
-    { title: "Active Markets", value: marketsCount, isLoading: marketsLoading, icon: CandlestickChart },
-    { title: "Pending Withdrawals", value: withdrawalsCount, isLoading: withdrawalsCountLoading, icon: ShieldAlert },
+    { title: "Total Users", value: usersCount, isLoading: usersLoading, icon: Users, href: "/admin/users" },
+    { title: "Active Markets", value: marketsCount, isLoading: marketsLoading, icon: CandlestickChart, href: "/markets" },
+    { title: "Pending Withdrawals", value: withdrawalsCount, isLoading: withdrawalsCountLoading, icon: ShieldAlert, href: "#moderation" },
   ];
 
   const assetsMap = useMemo(() => {
@@ -159,12 +159,17 @@ export default function AdminPage() {
               ) : (
                 <div className="text-2xl font-bold">{stat.value}</div>
               )}
+               <Button variant="link" size="sm" className="p-0 h-auto -ml-1 text-xs" asChild>
+                  <Link href={stat.href ?? '#'}>
+                      View all <ArrowRight className="h-3 w-3 ml-1" />
+                  </Link>
+              </Button>
             </CardContent>
           </Card>
         ))}
       </div>
 
-      <Card>
+      <Card id="moderation">
         <CardHeader>
           <CardTitle>Withdrawal Moderation Queue</CardTitle>
           <CardDescription>
@@ -192,5 +197,3 @@ export default function AdminPage() {
     </div>
   );
 }
-
-    

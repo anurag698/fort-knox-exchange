@@ -15,7 +15,7 @@ import { useMemo } from 'react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
-import { ArrowUpRight, ArrowDownLeft } from 'lucide-react';
+import { ArrowUpRight, ArrowDownLeft, ReceiptText } from 'lucide-react';
 
 type LedgerTableProps = {
   entries: LedgerEntry[];
@@ -28,8 +28,9 @@ const getTransactionIcon = (type: string) => {
             return <ArrowDownLeft className="h-4 w-4 text-green-500" />;
         case 'WITHDRAWAL':
         case 'TRADE_SELL':
-        case 'FEE':
             return <ArrowUpRight className="h-4 w-4 text-red-500" />;
+        case 'FEE':
+            return <ReceiptText className="h-4 w-4 text-muted-foreground" />;
         default:
             return null;
     }
@@ -58,8 +59,8 @@ export function LedgerTable({ entries }: LedgerTableProps) {
       <Table>
         <TableHeader>
           <TableRow>
-            <TableHead className="w-[150px]">Date</TableHead>
-            <TableHead>Type</TableHead>
+            <TableHead className="w-[180px]">Date</TableHead>
+            <TableHead className="w-[150px]">Type</TableHead>
             <TableHead>Description</TableHead>
             <TableHead className="text-right">Amount</TableHead>
           </TableRow>
@@ -69,6 +70,8 @@ export function LedgerTable({ entries }: LedgerTableProps) {
             const asset = assetsMap.get(entry.assetId);
             const entryDate = entry.createdAt?.toDate ? entry.createdAt.toDate() : new Date();
             const isCredit = ['DEPOSIT', 'TRADE_BUY'].includes(entry.type.toUpperCase());
+            const isFee = entry.type.toUpperCase() === 'FEE';
+            const amountColor = isCredit ? "text-green-500" : (isFee ? "text-muted-foreground" : "text-red-500");
 
             return (
               <TableRow key={entry.id}>
@@ -78,12 +81,12 @@ export function LedgerTable({ entries }: LedgerTableProps) {
                 <TableCell>
                     <div className="flex items-center gap-2">
                         {getTransactionIcon(entry.type)}
-                        <Badge variant="secondary">{entry.type}</Badge>
+                        <Badge variant="secondary" className="capitalize">{entry.type.toLowerCase().replace('_', ' ')}</Badge>
                     </div>
                 </TableCell>
                 <TableCell className="text-sm">{entry.description || 'N/A'}</TableCell>
-                <TableCell className={cn("text-right font-mono", isCredit ? "text-green-600" : "text-red-600")}>
-                    {isCredit ? '+' : '-'} {entry.amount.toFixed(8)} {asset?.symbol ?? ''}
+                <TableCell className={cn("text-right font-mono", amountColor)}>
+                    {isCredit ? '+' : '-'} {entry.amount.toFixed(asset?.symbol === 'USDT' ? 2 : 8)} {asset?.symbol ?? ''}
                 </TableCell>
               </TableRow>
             );

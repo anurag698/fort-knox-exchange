@@ -17,3 +17,17 @@ export type Asset = {
   name: string;
   createdAt: string;
 };
+
+export type Order = {
+  id: string;
+  userId: string;
+  marketId: string;
+  side: 'BUY' | 'SELL';
+  type: 'LIMIT' | 'MARKET';
+  price?: number;
+  quantity: number;
+  status: 'OPEN' | 'PARTIAL' | 'FILLED' | 'CANCELED';
+  filledAmount: number;
+  createdAt: any;
+  updatedAt: any;
+};

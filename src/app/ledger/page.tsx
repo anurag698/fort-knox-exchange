@@ -2,7 +2,6 @@
 'use client';
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { useAuthGate } from "@/hooks/use-auth-gate";
 import { useLedger } from "@/hooks/use-ledger";
 import { LedgerTable } from "@/components/ledger/ledger-table";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -10,7 +9,6 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { AlertCircle, BookOpen } from "lucide-react";
 
 export default function LedgerPage() {
-  useAuthGate();
   const { data: ledgerEntries, isLoading, error } = useLedger();
 
   const renderContent = () => {

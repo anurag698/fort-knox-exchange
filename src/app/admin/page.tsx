@@ -1,7 +1,6 @@
 
 'use client';
 
-import { useAuthGate } from '@/hooks/use-auth-gate';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
@@ -19,7 +18,6 @@ import { useWithdrawalsCount } from '@/hooks/use-withdrawals-count';
 
 
 export default function AdminPage() {
-  useAuthGate();
   const { data: withdrawals, isLoading, error } = useWithdrawals('PENDING');
   const { data: assets, isLoading: assetsLoading } = useAssets();
   const { count: usersCount, isLoading: usersLoading } = useUsersCount();

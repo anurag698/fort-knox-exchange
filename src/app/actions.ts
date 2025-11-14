@@ -4,11 +4,11 @@
 import { moderateWithdrawalRequest, type ModerateWithdrawalRequestInput, type ModerateWithdrawalRequestOutput } from "@/ai/flows/moderate-withdrawal-requests";
 import { z } from "zod";
 import { revalidatePath } from "next/cache";
-import { getAuth } from 'firebase-admin/auth';
-import { FieldValue, getFirestore } from 'firebase-admin/firestore';
+import { getFirebaseAdmin } from "@/lib/firebase-admin";
+import { FieldValue } from 'firebase-admin/firestore';
 import { redirect } from 'next/navigation';
-import { initializeApp, getApps, getApp, App } from 'firebase-admin/app';
 import { cookies } from "next/headers";
+import { getAuth } from "firebase-admin/auth";
 
 const withdrawalSchema = z.object({
   userId: z.string().min(1, "User ID is required."),
@@ -55,35 +55,6 @@ export async function checkWithdrawal(prevState: FormState, formData: FormData):
       result: null,
     };
   }
-}
-
-// Securely get the Firebase Admin SDK instance
-let adminApp: App;
-function getFirebaseAdmin() {
-    if (adminApp) {
-        return { firestore: getFirestore(adminApp), auth: getAuth(adminApp), app: adminApp };
-    }
-    
-    const serviceAccount = process.env.FIREBASE_SERVICE_ACCOUNT;
-    if (!serviceAccount) {
-        throw new Error('FIREBASE_SERVICE_ACCOUNT environment variable is not set.');
-    }
-
-    const appName = 'firebase-admin-app-for-actions';
-    
-    if (!getApps().some(existingApp => existingApp.name === appName)) {
-        adminApp = initializeApp({
-            credential: {
-                projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
-                clientEmail: JSON.parse(serviceAccount).client_email,
-                privateKey: JSON.parse(serviceAccount).private_key.replace(/\\n/g, '\n'),
-            },
-        }, appName);
-    } else {
-        adminApp = getApp(appName);
-    }
-    
-    return { firestore: getFirestore(adminApp), auth: getAuth(adminApp), app: adminApp };
 }
 
 async function getUserIdFromSession() {
@@ -273,4 +244,27 @@ export async function rejectWithdrawal(formData: FormData) {
   await updateWithdrawalStatus(formData, 'REJECTED');
   revalidatePath('/admin');
   redirect('/admin');
+}
+
+export async function createSession(token: string) {
+  if (!token) {
+    throw new Error('Token is required for session creation.');
+  }
+
+  const { auth } = getFirebaseAdmin();
+  const expiresIn = 60 * 60 * 24 * 5 * 1000; // 5 days
+  const sessionCookie = await auth.createSessionCookie(token, { expiresIn });
+
+  cookies().set('__session', sessionCookie, {
+    maxAge: expiresIn,
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+  });
+  
+  return { status: 'success' };
+}
+
+export async function clearSession() {
+  cookies().delete('__session');
+  return { status: 'success' };
 }

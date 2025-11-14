@@ -1,7 +1,6 @@
 
 'use client';
 
-import { useAuthGate } from '@/hooks/use-auth-gate';
 import { useWithdrawal } from '@/hooks/use-withdrawal';
 import { useUser, useFirestore, useDoc, useMemoFirebase } from '@/firebase';
 import { doc } from 'firebase/firestore';
@@ -51,7 +50,6 @@ function ModerationButtons({ disabled }: { disabled: boolean }) {
 
 
 export default function ReviewWithdrawalPage({ params }: { params: { id: string } }) {
-  useAuthGate();
   const { toast } = useToast();
   const { data: withdrawal, isLoading: isWithdrawalLoading, error: withdrawalError } = useWithdrawal(params.id);
   const firestore = useFirestore();

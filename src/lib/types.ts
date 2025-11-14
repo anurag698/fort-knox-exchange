@@ -51,4 +51,17 @@ export type UserProfile = {
     kycStatus: 'PENDING' | 'VERIFIED' | 'REJECTED';
     createdAt: any;
     updatedAt: any;
-}
+};
+
+export type LedgerEntry = {
+  id: string;
+  userId: string;
+  assetId: string;
+  type: string;
+  amount: number;
+  orderId?: string;
+  depositId?: string;
+  withdrawalId?: string;
+  description?: string;
+  createdAt: any;
+};

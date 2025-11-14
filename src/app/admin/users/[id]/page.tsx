@@ -170,5 +170,3 @@ export default function ManageUserPage({ params }: { params: { id: string } }) {
     </div>
   );
 }
-
-    

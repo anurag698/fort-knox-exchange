@@ -26,19 +26,35 @@ export function MarketsTable({ markets: initialMarkets }: MarketsTableProps) {
     const [pricesLoading, setPricesLoading] = useState(true);
 
     const markets = useMemo(() => {
-        if (!initialMarkets) return [];
-        return initialMarkets.map(market => ({
-            ...market,
-            change: (market.id.charCodeAt(0) % 11) - 5 + Math.random() * 2 - 1, 
-            volume: (market.id.charCodeAt(1) % 100) * 100000 + Math.random() * 50000,
-        }));
+        // If we get markets from the hook, use them.
+        if (initialMarkets && initialMarkets.length > 0) {
+            return initialMarkets.map(market => ({
+                ...market,
+                change: (market.id.charCodeAt(0) % 11) - 5 + Math.random() * 2 - 1, 
+                volume: (market.id.charCodeAt(1) % 100) * 100000 + Math.random() * 50000,
+            }));
+        }
+        // Fallback to a hardcoded list if the hook returns empty. This is the key fix.
+        const hardcodedSymbols = ['BTC-USDT', 'ETH-USDT', 'SOL-USDT', 'ADA-USDT', 'MATIC-USDT', 'DOGE-USDT', 'ETH-BTC', 'SOL-BTC', 'ADA-BTC', 'MATIC-BTC', 'DOGE-BTC'];
+        return hardcodedSymbols.map(id => {
+             const [base, quote] = id.split('-');
+             return {
+                 id: id,
+                 baseAssetId: base,
+                 quoteAssetId: quote,
+                 change: (id.charCodeAt(0) % 11) - 5 + Math.random() * 2 - 1,
+                 volume: (id.charCodeAt(1) % 100) * 100000 + Math.random() * 50000,
+                 minOrderSize: 0,
+                 pricePrecision: 2,
+                 quantityPrecision: 4,
+                 makerFee: 0,
+                 takerFee: 0,
+                 createdAt: new Date().toISOString(),
+             }
+        });
     }, [initialMarkets]);
 
     const marketSymbols = useMemo(() => {
-        if (markets.length === 0) {
-            // Fallback to a hardcoded list if markets are not yet loaded
-            return ['BTCUSDT', 'ETHUSDT', 'SOLUSDT', 'ADAUSDT', 'MATICUSDT', 'DOGEUSDT', 'ETHBTC', 'SOLBTC', 'ADABTC', 'MATICBTC', 'DOGEBTC'];
-        }
         return markets.map(m => `${m.baseAssetId}${m.quoteAssetId}`);
     }, [markets]);
 
@@ -78,35 +94,9 @@ export function MarketsTable({ markets: initialMarkets }: MarketsTableProps) {
         return new Map(assets.map(asset => [asset.id, asset]));
     }, [assets]);
     
-    const displayMarkets = useMemo(() => {
-        if (markets.length > 0) return markets;
-
-        // Create a display list from the hardcoded symbols if initialMarkets is empty
-        return marketSymbols.map(symbol => {
-             const base = symbol.endsWith('USDT') ? symbol.replace('USDT', '') : symbol.replace('BTC', '');
-             const quote = symbol.endsWith('USDT') ? 'USDT' : 'BTC';
-             const id = `${base}-${quote}`;
-             return {
-                 id: id,
-                 baseAssetId: base,
-                 quoteAssetId: quote,
-                 change: (id.charCodeAt(0) % 11) - 5 + Math.random() * 2 - 1,
-                 volume: (id.charCodeAt(1) % 100) * 100000 + Math.random() * 50000,
-                 // Add dummy values for other required fields from Market type
-                 minOrderSize: 0,
-                 pricePrecision: 2,
-                 quantityPrecision: 4,
-                 makerFee: 0,
-                 takerFee: 0,
-                 createdAt: new Date().toISOString(),
-             }
-        });
-
-    }, [initialMarkets, markets, marketSymbols]);
-
     const isLoading = assetsLoading || pricesLoading;
 
-    if (isLoading && displayMarkets.length === 0) {
+    if (isLoading && markets.length === 0) {
       return (
         <div className="space-y-2">
             <Skeleton className="h-12 w-full" />
@@ -128,7 +118,7 @@ export function MarketsTable({ markets: initialMarkets }: MarketsTableProps) {
           </TableRow>
         </TableHeader>
         <TableBody>
-          {displayMarkets.map((market) => {
+          {markets.map((market) => {
             const baseAsset = assetsMap.get(market.baseAssetId) ?? { symbol: market.baseAssetId };
             const quoteAsset = assetsMap.get(market.quoteAssetId) ?? { symbol: market.quoteAssetId };
             const price = prices[`${market.baseAssetId}${market.quoteAssetId}`] ?? 0;
@@ -159,4 +149,3 @@ export function MarketsTable({ markets: initialMarkets }: MarketsTableProps) {
     </div>
   );
 }
-

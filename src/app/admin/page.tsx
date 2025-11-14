@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useAuthGate } from '@/hooks/use-auth-gate';
@@ -11,6 +12,7 @@ import { useAssets } from '@/hooks/use-assets';
 import { useMemo } from 'react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import Link from 'next/link';
 
 // Placeholder data - in a real app, this would be fetched from your backend.
 const summaryStats = [
@@ -93,8 +95,10 @@ export default function AdminPage() {
                 </TableCell>
                 <TableCell>{withdrawalDate.toLocaleDateString()}</TableCell>
                 <TableCell className="text-right">
-                <Button variant="ghost" size="sm">
+                <Button variant="ghost" size="sm" asChild>
+                  <Link href={`/admin/review/${withdrawal.id}`}>
                     Review <ArrowRight className="ml-2 h-4 w-4" />
+                  </Link>
                 </Button>
                 </TableCell>
             </TableRow>

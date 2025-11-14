@@ -1,4 +1,5 @@
 
+
 export type Market = {
   id: string;
   baseAssetId: string;
@@ -42,3 +43,12 @@ export type Withdrawal = {
     createdAt: any;
     updatedAt: any;
 };
+
+export type UserProfile = {
+    id: string;
+    email: string;
+    username: string;
+    kycStatus: 'PENDING' | 'VERIFIED' | 'REJECTED';
+    createdAt: any;
+    updatedAt: any;
+}

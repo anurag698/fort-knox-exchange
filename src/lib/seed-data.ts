@@ -1,4 +1,5 @@
 
+
 import type { Firestore } from 'firebase-admin/firestore';
 
 /**
@@ -312,6 +313,55 @@ export async function seedInitialData(firestore: Firestore) {
         createdAt: new Date(),
       });
     }
+
+    const adaSolMarket = await marketsCol.doc('ADA-SOL').get();
+    if (!adaSolMarket.exists) {
+        console.log("Seeding ADA-SOL market...");
+      await marketsCol.doc('ADA-SOL').set({
+        id: 'ADA-SOL',
+        baseAssetId: 'ADA',
+        quoteAssetId: 'SOL',
+        minOrderSize: 1,
+        pricePrecision: 6,
+        quantityPrecision: 0,
+        makerFee: 0.001,
+        takerFee: 0.001,
+        createdAt: new Date(),
+      });
+    }
+
+    const maticSolMarket = await marketsCol.doc('MATIC-SOL').get();
+    if (!maticSolMarket.exists) {
+        console.log("Seeding MATIC-SOL market...");
+      await marketsCol.doc('MATIC-SOL').set({
+        id: 'MATIC-SOL',
+        baseAssetId: 'MATIC',
+        quoteAssetId: 'SOL',
+        minOrderSize: 1,
+        pricePrecision: 6,
+        quantityPrecision: 2,
+        makerFee: 0.001,
+        takerFee: 0.001,
+        createdAt: new Date(),
+      });
+    }
+
+    const dogeSolMarket = await marketsCol.doc('DOGE-SOL').get();
+    if (!dogeSolMarket.exists) {
+        console.log("Seeding DOGE-SOL market...");
+      await marketsCol.doc('DOGE-SOL').set({
+        id: 'DOGE-SOL',
+        baseAssetId: 'DOGE',
+        quoteAssetId: 'SOL',
+        minOrderSize: 10,
+        pricePrecision: 8,
+        quantityPrecision: 0,
+        makerFee: 0.001,
+        takerFee: 0.001,
+        createdAt: new Date(),
+      });
+    }
+
 
   } catch (error) {
     console.error("Error during data seeding:", error);

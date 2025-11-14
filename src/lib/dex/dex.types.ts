@@ -1,3 +1,4 @@
+
 // API Request and Response types
 
 export interface DexQuoteRequest {
@@ -47,7 +48,7 @@ export interface OneInchToken {
 
 export interface OneInchQuote {
   fromToken: OneInchToken;
-  toToken: One2InchToken;
+  toToken: OneInchToken;
   toTokenAmount: string;
   fromTokenAmount: string;
   estimatedGas: string;

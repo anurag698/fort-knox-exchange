@@ -1,3 +1,4 @@
+
 import { SwapWidget } from '@/components/swap/swap-widget';
 
 export default function SwapPage() {

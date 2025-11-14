@@ -1,0 +1,100 @@
+// Production-ready, secure Firestore rules for Fort Knox Exchange.
+// Default deny-all, with specific allow rules for collections.
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // --- Helper Functions ---
+    // Checks if a user is authenticated.
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    // Checks if the authenticated user is the owner of the document.
+    function isOwner(userId) {
+      return request.auth.uid == userId;
+    }
+
+    // Checks if the authenticated user is an admin.
+    // This relies on a custom claim set via the Firebase Admin SDK.
+    function isAdmin() {
+      // Example: return request.auth.token.role == 'admin';
+      // For this example, we'll deny all admin-level client access and assume backend-only.
+      return false;
+    }
+
+    // --- Collection: users ---
+    // Users can create their own profile, and read/update their own data.
+    // Admins have no special client-side permissions here; they use the Admin SDK.
+    match /users/{userId} {
+      allow read, update: if isSignedIn() && isOwner(userId);
+      allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
+    }
+
+    // --- Subcollection: users/{userId}/balances ---
+    // Balances are critical. Users can only read their own.
+    // All writes MUST come from the trusted backend (e.g., Cloud Functions).
+    match /users/{userId}/balances/{assetId} {
+      allow read: if isSignedIn() && isOwner(userId);
+      allow write: if false; // DENY all client-side writes.
+    }
+
+    // --- Collection: orders ---
+    // Users can create their own orders and read them.
+    // For a public order book, reads might be more permissive. We'll stick to owner-only reads for now.
+    // Updates (fills, cancellations) MUST come from the backend.
+    match /orders/{orderId} {
+      allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow update, delete: if false; // DENY client-side updates/deletes.
+    }
+
+    // --- Collection: markets ---
+    // Market data (e.g., BTC-USDT info) is public for everyone.
+    // Only the backend/admin can create or modify markets.
+    match /markets/{marketId} {
+      allow read: if true;
+      allow write: if false; // DENY all client-side writes.
+    }
+
+    // --- Collection: deposits ---
+    // Users can only read their own deposit history.
+    // Deposits are created by the backend after blockchain confirmation.
+    match /deposits/{depositId} {
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow write: if false; // DENY all client-side writes.
+    }
+
+    // --- Collection: withdrawals ---
+    // Users can create a withdrawal request and read their own history.
+    // They cannot update the status (e.g., from PENDING to APPROVED).
+    match /withdrawals/{withdrawalId} {
+      allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      // Disallow client updates. All status changes are via backend.
+      allow update: if false;
+    }
+
+    // --- Collection: adminUsers ---
+    // This collection is for backend use only. No client access.
+    // It might store admin roles or permissions that the backend uses.
+    match /adminUsers/{adminId} {
+      allow read, write: if false;
+    }
+
+    // --- Collection: publicData ---
+    // Publicly readable data like announcements.
+    // Only the backend/admin can write.
+    match /publicData/{docId} {
+      allow read: if true;
+      allow write: if false;
+    }
+
+    // --- Default Deny Rule ---
+    // This is a crucial fallback. If no rule above matches, access is denied.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

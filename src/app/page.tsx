@@ -1,10 +1,23 @@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import DataModel from "@/components/docs/data-model";
-import DevRules from "@/components/docs/dev-rules";
-import ProdRules from "@/components/docs/prod-rules";
-import MigrationGuide from "@/components/docs/migration-guide";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { CodeBlock } from "@/components/ui/code-block";
+import fs from "fs/promises";
+import path from "path";
 
-export default function Home() {
+async function getFileContent(filePath: string) {
+  try {
+    const fullPath = path.join(process.cwd(), filePath);
+    return await fs.readFile(fullPath, "utf-8");
+  } catch (error) {
+    console.error(`Error reading file ${filePath}:`, error);
+    return `Error: Could not load file content for ${filePath}.`;
+  }
+}
+
+export default async function Home() {
+  const backendJson = await getFileContent('docs/backend.json');
+  const firestoreRules = await getFileContent('firestore.rules');
+
   return (
     <div className="flex flex-col gap-8">
       <div className="flex flex-col gap-2">
@@ -18,23 +31,35 @@ export default function Home() {
         </p>
       </div>
       <Tabs defaultValue="data-model" className="w-full">
-        <TabsList className="grid w-full grid-cols-1 sm:grid-cols-2 md:grid-cols-4 h-auto">
-          <TabsTrigger value="data-model">Data Model</TabsTrigger>
-          <TabsTrigger value="dev-rules">DEV Rules</TabsTrigger>
-          <TabsTrigger value="prod-rules">PROD Rules</TabsTrigger>
-          <TabsTrigger value="migration-guide">Migration Guide</TabsTrigger>
+        <TabsList className="grid w-full grid-cols-1 sm:grid-cols-2 h-auto">
+          <TabsTrigger value="data-model">Data Model (backend.json)</TabsTrigger>
+          <TabsTrigger value="prod-rules">Security Rules</TabsTrigger>
         </TabsList>
         <TabsContent value="data-model" className="mt-6">
-          <DataModel />
-        </TabsContent>
-        <TabsContent value="dev-rules" className="mt-6">
-          <DevRules />
+           <Card>
+            <CardHeader>
+              <CardTitle>Data Model Definition</CardTitle>
+              <CardDescription>
+                This JSON file defines the entities and Firestore collection structure for the application. It serves as the blueprint for the database.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <CodeBlock>{backendJson}</CodeBlock>
+            </CardContent>
+          </Card>
         </TabsContent>
         <TabsContent value="prod-rules" className="mt-6">
-          <ProdRules />
-        </TabsContent>
-        <TabsContent value="migration-guide" className="mt-6">
-          <MigrationGuide />
+          <Card>
+            <CardHeader>
+              <CardTitle>Production Security Rules</CardTitle>
+              <CardDescription>
+                These are the live, secure rules for the production environment, enforcing strict data access policies.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <CodeBlock>{firestoreRules}</CodeBlock>
+            </CardContent>
+          </Card>
         </TabsContent>
       </Tabs>
     </div>

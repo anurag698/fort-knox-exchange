@@ -91,9 +91,5 @@ export function useDoc<T = any>(
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [memoizedDocRef]); // Re-run if the memoizedDocRef changes.
 
-  if (memoizedDocRef && !(memoizedDocRef as any).__memo) {
-    throw new Error('useDoc received an unmemoized document reference. Please wrap the reference creation in useMemoFirebase.');
-  }
-
   return { data, isLoading, error };
 }

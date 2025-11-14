@@ -40,26 +40,32 @@ export default function SidebarNav() {
                 <SidebarMenu>
                     {mainLinks.map((link) => (
                         <SidebarMenuItem key={link.href}>
-                            <Link href={link.href} passHref legacyBehavior>
+                            <Link href={link.href} passHref>
                                 <SidebarMenuButton
+                                    asChild
                                     isActive={pathname.startsWith(link.href)}
                                     tooltip={link.label}
                                 >
-                                    <link.icon />
-                                    <span>{link.label}</span>
+                                    <div>
+                                        <link.icon />
+                                        <span>{link.label}</span>
+                                    </div>
                                 </SidebarMenuButton>
                             </Link>
                         </SidebarMenuItem>
                     ))}
                     {userProfile?.isAdmin && (
                         <SidebarMenuItem>
-                             <Link href={adminLink.href} passHref legacyBehavior>
+                             <Link href={adminLink.href} passHref>
                                 <SidebarMenuButton
+                                    asChild
                                     isActive={pathname.startsWith(adminLink.href)}
                                     tooltip={adminLink.label}
                                 >
-                                    <adminLink.icon />
-                                    <span>{adminLink.label}</span>
+                                    <div>
+                                        <adminLink.icon />
+                                        <span>{adminLink.label}</span>
+                                    </div>
                                 </SidebarMenuButton>
                             </Link>
                         </SidebarMenuItem>

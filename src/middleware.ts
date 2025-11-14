@@ -1,6 +1,5 @@
 
 import { NextResponse, type NextRequest } from 'next/server';
-import { getAuth } from 'firebase-admin/auth';
 import { getFirebaseAdmin } from '@/lib/firebase-admin';
 
 // List of protected paths that require authentication
@@ -11,8 +10,7 @@ export async function middleware(request: NextRequest) {
   const sessionCookie = request.cookies.get('__session')?.value;
 
   // Initialize Firebase Admin
-  getFirebaseAdmin();
-  const auth = getAuth();
+  const { auth } = getFirebaseAdmin();
 
   let decodedToken = null;
   if (sessionCookie) {

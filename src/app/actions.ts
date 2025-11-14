@@ -4,36 +4,10 @@
 import { moderateWithdrawalRequest, type ModerateWithdrawalRequestInput, type ModerateWithdrawalRequestOutput } from "@/ai/flows/moderate-withdrawal-requests";
 import { z } from "zod";
 import { revalidatePath } from "next/cache";
-import { initializeApp, getApps, getApp, App } from 'firebase-admin/app';
-import { getAuth as getAdminAuth } from 'firebase-admin/auth';
-import { getFirestore as getAdminFirestore, FieldValue } from 'firebase-admin/firestore';
+import { FieldValue } from 'firebase-admin/firestore';
 import { redirect } from 'next/navigation';
 import { cookies } from "next/headers";
-
-
-// Helper function to initialize Firebase Admin SDK
-function getFirebaseAdmin() {
-  const serviceAccount = process.env.FIREBASE_SERVICE_ACCOUNT;
-  if (!serviceAccount) {
-    throw new Error('FIREBASE_SERVICE_ACCOUNT environment variable is not set.');
-  }
-
-  const appName = 'firebase-admin-app-singleton-actions';
-  if (getApps().some(app => app.name === appName)) {
-    const adminApp = getApp(appName);
-    return { firestore: getAdminFirestore(adminApp), auth: getAdminAuth(adminApp), app: adminApp };
-  }
-  
-  const adminApp = initializeApp({
-    credential: {
-      projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
-      clientEmail: JSON.parse(serviceAccount).client_email,
-      privateKey: JSON.parse(serviceAccount).private_key.replace(/\\n/g, '\n'),
-    },
-  }, appName);
-
-  return { firestore: getAdminFirestore(adminApp), auth: getAdminAuth(adminApp), app: adminApp };
-}
+import { getFirebaseAdmin } from "@/lib/firebase-admin";
 
 
 const withdrawalSchema = z.object({

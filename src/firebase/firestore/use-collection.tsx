@@ -109,10 +109,6 @@ export function useCollection<T = any>(
     return () => unsubscribe();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [memoizedTargetRefOrQuery]); // Re-run if the target query/reference changes.
-  
-  if(memoizedTargetRefOrQuery && !(memoizedTargetRefOrQuery as any).__memo) {
-    throw new Error('useCollection received an unmemoized query. Please wrap the query creation in useMemoFirebase.');
-  }
 
   return { data, isLoading, error };
 }

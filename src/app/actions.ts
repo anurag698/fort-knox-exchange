@@ -267,7 +267,7 @@ export async function createSession(token: string) {
   }
 
   try {
-    const { auth } = getFirebaseAdmin();
+    const { auth, firestore } = getFirebaseAdmin();
     const expiresIn = 60 * 60 * 24 * 5 * 1000; // 5 days
     const sessionCookie = await auth.createSessionCookie(token, { expiresIn });
 
@@ -277,6 +277,61 @@ export async function createSession(token: string) {
       secure: process.env.NODE_ENV === 'production',
       path: '/',
     });
+
+    const decodedToken = await auth.verifyIdToken(token);
+    const userRef = firestore.collection('users').doc(decodedToken.uid);
+    const userDoc = await userRef.get();
+
+    if (!userDoc.exists) {
+      // Create user document and seed balances if it's their first time.
+      const batch = firestore.batch();
+      const newUser = {
+        id: decodedToken.uid,
+        email: decodedToken.email,
+        username: decodedToken.email?.split('@')[0] ?? `user_${Math.random().toString(36).substring(2, 8)}`,
+        kycStatus: 'PENDING',
+        referralCode: Math.random().toString(36).substring(2, 8).toUpperCase(),
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        isAdmin: decodedToken.email === 'admin@fortknox.exchange'
+      };
+      batch.set(userRef, newUser);
+
+      // Seed initial balances
+      const balancesRef = firestore.collection('users').doc(decodedToken.uid).collection('balances');
+      const usdtBalanceRef = balancesRef.doc('USDT');
+      batch.set(usdtBalanceRef, {
+        id: usdtBalanceRef.id,
+        userId: decodedToken.uid,
+        assetId: 'USDT',
+        available: 100000,
+        locked: 0,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      });
+      const btcBalanceRef = balancesRef.doc('BTC');
+      batch.set(btcBalanceRef, {
+        id: btcBalanceRef.id,
+        userId: decodedToken.uid,
+        assetId: 'BTC',
+        available: 1,
+        locked: 0,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      });
+      const ethBalanceRef = balancesRef.doc('ETH');
+      batch.set(ethBalanceRef, {
+        id: ethBalanceRef.id,
+        userId: decodedToken.uid,
+        assetId: 'ETH',
+        available: 10,
+        locked: 0,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      });
+
+      await batch.commit();
+    }
     
     return { status: 'success' };
   } catch (error) {

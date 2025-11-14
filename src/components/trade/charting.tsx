@@ -4,7 +4,6 @@
 import { useMemo, useState, useEffect } from "react";
 import {
   CandlestickChart,
-  Candlestick,
   CartesianGrid,
   XAxis,
   YAxis,
@@ -176,13 +175,16 @@ export function Charting() {
                 }}
                 labelFormatter={(time) => new Date(time * 1000).toLocaleString()}
             />
-            <Candlestick
-              dataKey="close"
-              name="Candle"
-              fill="hsl(var(--primary))"
-              stroke="hsl(var(--primary))"
-              isAnimationActive={false}
-            />
+            <defs>
+              <linearGradient id="colorGreen" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="5%" stopColor="#10b981" stopOpacity={0.8}/>
+                <stop offset="95%" stopColor="#10b981" stopOpacity={0}/>
+              </linearGradient>
+              <linearGradient id="colorRed" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="5%" stopColor="#ef4444" stopOpacity={0.8}/>
+                <stop offset="95%" stopColor="#ef4444" stopOpacity={0}/>
+              </linearGradient>
+            </defs>
           </CandlestickChart>
         </ResponsiveContainer>
     );

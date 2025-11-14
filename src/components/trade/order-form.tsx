@@ -66,7 +66,6 @@ export function OrderForm() {
       <Form {...form}>
         <form action={action} className="mt-4 space-y-4">
           <input type="hidden" name="side" value={side} />
-          {user && <input type="hidden" name="userId" value={user.uid} />}
           
           <FormField
             control={form.control}

@@ -5,8 +5,10 @@ import { moderateWithdrawalRequest, type ModerateWithdrawalRequestInput, type Mo
 import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { getAuth } from 'firebase-admin/auth';
-import { FieldValue } from 'firebase-admin/firestore';
+import { FieldValue, getFirestore } from 'firebase-admin/firestore';
 import { redirect } from 'next/navigation';
+import { initializeApp, getApps, getApp, App } from 'firebase-admin/app';
+import { cookies } from "next/headers";
 
 const withdrawalSchema = z.object({
   userId: z.string().min(1, "User ID is required."),
@@ -55,22 +57,22 @@ export async function checkWithdrawal(prevState: FormState, formData: FormData):
   }
 }
 
-// This is a placeholder for server-side SDK initialization
-// In a real app, you would initialize Firebase Admin SDK here securely.
-async function getFirebaseAdmin() {
-    const { initializeApp, getApps, getApp, deleteApp } = await import('firebase-admin/app');
-    const { getFirestore } = await import('firebase-admin/firestore');
+// Securely get the Firebase Admin SDK instance
+let adminApp: App;
+function getFirebaseAdmin() {
+    if (adminApp) {
+        return { firestore: getFirestore(adminApp), auth: getAuth(adminApp), app: adminApp };
+    }
+    
     const serviceAccount = process.env.FIREBASE_SERVICE_ACCOUNT;
-
     if (!serviceAccount) {
         throw new Error('FIREBASE_SERVICE_ACCOUNT environment variable is not set.');
     }
 
     const appName = 'firebase-admin-app-for-actions';
     
-    let app;
     if (!getApps().some(existingApp => existingApp.name === appName)) {
-        app = initializeApp({
+        adminApp = initializeApp({
             credential: {
                 projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
                 clientEmail: JSON.parse(serviceAccount).client_email,
@@ -78,10 +80,24 @@ async function getFirebaseAdmin() {
             },
         }, appName);
     } else {
-        app = getApp(appName);
+        adminApp = getApp(appName);
     }
     
-    return { firestore: getFirestore(app), auth: getAuth(app), app };
+    return { firestore: getFirestore(adminApp), auth: getAuth(adminApp), app: adminApp };
+}
+
+async function getUserIdFromSession() {
+  const sessionCookie = cookies().get('__session')?.value;
+  if (!sessionCookie) {
+    return null;
+  }
+  try {
+    const { auth } = getFirebaseAdmin();
+    const decodedToken = await auth.verifySessionCookie(sessionCookie, true);
+    return decodedToken.uid;
+  } catch (error) {
+    return null;
+  }
 }
 
 const cancelOrderSchema = z.object({
@@ -93,6 +109,11 @@ export async function cancelOrder(formData: FormData) {
     orderId: formData.get('orderId'),
   });
 
+  const userId = await getUserIdFromSession();
+  if (!userId) {
+     return { status: 'error', message: 'Authentication required.' };
+  }
+
   if (!validatedFields.success) {
     return {
       status: 'error',
@@ -103,9 +124,13 @@ export async function cancelOrder(formData: FormData) {
   const { orderId } = validatedFields.data;
 
   try {
-    const { firestore } = await getFirebaseAdmin();
-    // In a real app, you would verify user ownership before updating.
+    const { firestore } = getFirebaseAdmin();
     const orderRef = firestore.collection('orders').doc(orderId);
+    const orderDoc = await orderRef.get();
+
+    if (!orderDoc.exists || orderDoc.data()?.userId !== userId) {
+        return { status: 'error', message: 'Order not found or you do not have permission to cancel it.' };
+    }
     
     await orderRef.update({
         status: 'CANCELED',
@@ -130,7 +155,6 @@ const createOrderSchema = z.object({
     price: z.coerce.number().positive("Price must be positive."),
     quantity: z.coerce.number().positive("Amount must be positive."),
     side: z.enum(['BUY', 'SELL']),
-    // For simplicity, we'll hardcode the market and type for now
 });
 
 type CreateOrderFormState = {
@@ -138,11 +162,9 @@ type CreateOrderFormState = {
   message: string;
 }
 
-// NOTE: This action is a placeholder and lacks proper user authentication checks.
-// In a production environment, you MUST verify the user's session and identity.
 export async function createOrder(prevState: CreateOrderFormState, formData: FormData): Promise<CreateOrderFormState> {
     const validatedFields = createOrderSchema.safeParse(Object.fromEntries(formData.entries()));
-    const userId = formData.get('userId') as string;
+    const userId = await getUserIdFromSession();
 
     if (!userId) {
        return { status: 'error', message: 'You must be logged in to place an order.' };
@@ -159,7 +181,7 @@ export async function createOrder(prevState: CreateOrderFormState, formData: For
     const { price, quantity, side } = validatedFields.data;
 
     try {
-        const { firestore } = await getFirebaseAdmin();
+        const { firestore } = getFirebaseAdmin();
         
         const marketId = "BTC-USDT"; 
 
@@ -217,7 +239,7 @@ async function updateWithdrawalStatus(
   const { withdrawalId } = validatedFields.data;
 
   try {
-    const { firestore } = await getFirebaseAdmin();
+    const { firestore } = getFirebaseAdmin();
 
     const withdrawalsRef = firestore.collectionGroup('withdrawals');
     const q = withdrawalsRef.where('id', '==', withdrawalId).limit(1);

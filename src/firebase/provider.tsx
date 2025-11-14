@@ -3,7 +3,7 @@
 
 import React, { DependencyList, createContext, useContext, ReactNode, useMemo, useState, useEffect } from 'react';
 import { FirebaseApp } from 'firebase/app';
-import { Firestore, doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
+import { Firestore, doc, getDoc, serverTimestamp } from 'firebase/firestore';
 import { Auth, User, onAuthStateChanged } from 'firebase/auth';
 import { FirebaseErrorListener } from '@/components/FirebaseErrorListener'
 import { setDocumentNonBlocking } from './non-blocking-updates';
@@ -98,6 +98,19 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
             };
             setDocumentNonBlocking(userRef, newUser, {});
           }
+          // Set session cookie
+          const token = await firebaseUser.getIdToken();
+          await fetch('/api/auth/session', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ token }),
+          });
+
+        } else {
+            // User signed out, clear cookie
+            await fetch('/api/auth/session', { method: 'DELETE' });
         }
         setUserAuthState({ user: firebaseUser, isUserLoading: false, userError: null });
       },

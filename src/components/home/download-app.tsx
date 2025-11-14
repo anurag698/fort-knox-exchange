@@ -61,7 +61,7 @@ export function DownloadApp() {
                             <span>Linux</span>
                         </div>
                     </div>
-                    <Button size="lg" className="bg-yellow-500 hover:bg-yellow-600 text-black font-bold text-lg h-14 px-8">
+                    <Button size="lg" className="text-lg h-14 px-8">
                         <Gift className="mr-3 h-5 w-5" />
                         Unlock Rewards
                     </Button>

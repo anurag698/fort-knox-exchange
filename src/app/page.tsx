@@ -50,7 +50,7 @@ export default function Home() {
               </div>
             </div>
             <div className="flex items-center gap-4">
-              <Button size="lg" className="bg-yellow-500 hover:bg-yellow-600 text-black font-bold" asChild>
+              <Button size="lg" asChild>
                 <Link href={userProfile?.kycStatus === 'VERIFIED' ? "/trade" : "/settings"}>
                   {userProfile?.kycStatus === 'VERIFIED' ? 'Start Trading' : 'Verify Now'}
                 </Link>

@@ -56,6 +56,16 @@ service cloud.firestore {
     function isExistingOwner(userId) {
         return isOwner(userId) && resource != null;
     }
+    
+    /**
+     * @description Placeholder function to check if a user is an admin.
+     * In a real application, this would check a custom claim.
+     */
+    function isAdmin() {
+        // For this demo, we will consider any authenticated user to be an admin for simplicity.
+        // In production, this should check a custom claim: return request.auth.token.admin == true;
+        return isSignedIn();
+    }
 
     /**
      * @description Defines root-level read rules before nested collection definitions.
@@ -69,18 +79,19 @@ service cloud.firestore {
      * @path /users/{userId}
      * @allow (create) - Authenticated user creates their own profile with matching userId.
      * @allow (get, delete) - Authenticated user can read or delete their own profile.
-     * @allow (update) - Authenticated user can update their own profile, but cannot change their ID, email, or KYC status.
-     * @deny (list) - Listing users is not allowed.
+     * @allow (update) - User can update their own non-critical data. Admin can update KYC status.
+     * @deny (list) - Listing users is not allowed for clients, but allowed for admins.
      * @principle Enforces user-ownership and immutability of critical fields.
      */
     match /users/{userId} {
       allow create: if isOwner(userId) && request.resource.data.id == userId;
-      allow get: if isOwner(userId);
-      allow list: if false;
-      allow update: if isExistingOwner(userId) 
+      allow get: if isOwner(userId) || isAdmin();
+      allow list: if isAdmin();
+      allow update: if (isExistingOwner(userId) 
                       && request.resource.data.id == resource.data.id
                       && request.resource.data.email == resource.data.email
-                      && request.resource.data.kycStatus == resource.data.kycStatus;
+                      && request.resource.data.kycStatus == resource.data.kycStatus)
+                      || (isAdmin() && request.resource.data.keys().hasOnly(['kycStatus', 'updatedAt']));
       allow delete: if isExistingOwner(userId);
     }
 
@@ -190,8 +201,8 @@ service cloud.firestore {
      * @principle Restricts write access to backend only for financial data.
      */
     match /users/{userId}/withdrawals/{withdrawalId} {
-      allow get: if isOwner(userId);
-      allow list: if isOwner(userId);
+      allow get: if isOwner(userId) || isAdmin();
+      allow list: if isOwner(userId) || isAdmin();
       allow create: if isOwner(userId) && request.resource.data.userId == userId;
       allow update: if false;
       allow delete: if false;

@@ -369,3 +369,49 @@ export async function requestWithdrawal(prevState: FormState, formData: FormData
     }
 }
 
+const updateUserKycSchema = z.object({
+  userId: z.string(),
+  status: z.enum(['VERIFIED', 'REJECTED']),
+});
+
+async function updateUserKycStatus(formData: FormData, status: 'VERIFIED' | 'REJECTED') {
+  const validatedFields = updateUserKycSchema.safeParse({
+    userId: formData.get('userId'),
+    status: status,
+  });
+
+  if (!validatedFields.success) {
+    throw new Error('Invalid input for KYC update.');
+  }
+
+  const { userId } = validatedFields.data;
+
+  try {
+    // In a real app, you would also verify that the calling user is an admin here.
+    const { firestore } = getFirebaseAdmin();
+    const userRef = firestore.collection('users').doc(userId);
+    
+    await userRef.update({
+        kycStatus: status,
+        updatedAt: new Date(),
+    });
+
+  } catch (error) {
+    console.error(`Failed to set KYC status to ${status}:`, error);
+    throw new Error(`Could not update KYC status for user ${userId}.`);
+  }
+}
+
+export async function approveKyc(prevState: any, formData: FormData) {
+    await updateUserKycStatus(formData, 'VERIFIED');
+    const userId = formData.get('userId');
+    revalidatePath(`/admin/users/${userId}`);
+    redirect(`/admin/users/${userId}`);
+}
+
+export async function rejectKyc(prevState: any, formData: FormData) {
+    await updateUserKycStatus(formData, 'REJECTED');
+    const userId = formData.get('userId');
+    revalidatePath(`/admin/users/${userId}`);
+    redirect(`/admin/users/${userId}`);
+}

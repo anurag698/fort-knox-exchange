@@ -6,23 +6,26 @@ import { useCollection, useFirestore, useUser, useMemoFirebase } from '@/firebas
 import type { Deposit } from '@/lib/types';
 
 /**
- * Fetches all deposit documents for a specific user ID from the 'deposits' collection.
- * @param userId The unique ID of the user whose deposits to fetch.
+ * Fetches deposit documents for a user.
+ * If a userId is provided, fetches for that user. Otherwise, fetches for the currently authenticated user.
+ * @param userId The optional ID of the user whose deposits to fetch.
  */
-export function useUserDeposits() {
+export function useUserDeposits(userId?: string) {
   const firestore = useFirestore();
-  const { user } = useUser();
-  const userId = user?.uid;
+  const { user: authUser } = useUser();
+  
+  // Use the provided userId, or fall back to the authenticated user's ID
+  const targetUserId = userId || authUser?.uid;
 
   const depositsQuery = useMemoFirebase(
     () => {
-      if (!firestore || !userId) return null;
+      if (!firestore || !targetUserId) return null;
       return query(
-        collection(firestore, 'users', userId, 'deposits'),
+        collection(firestore, 'users', targetUserId, 'deposits'),
         orderBy('createdAt', 'desc')
       );
     },
-    [firestore, userId]
+    [firestore, targetUserId]
   );
 
   return useCollection<Deposit>(depositsQuery);

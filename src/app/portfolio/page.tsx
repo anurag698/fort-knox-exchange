@@ -40,6 +40,15 @@ export default function WalletPage() {
         setPricesLoading(false);
     }
 
+    ws.onclose = () => {
+      console.log('Price stream closed.');
+    }
+
+    ws.onerror = (error) => {
+        console.error('Price stream error:', error);
+        setPricesLoading(false);
+    }
+
     return () => {
       ws.close();
     };
@@ -49,7 +58,7 @@ export default function WalletPage() {
   const error = balancesError || assetsError;
 
   const portfolioData = useMemo(() => {
-    if (isLoading || !balances || !assets || !prices) {
+    if (isLoading || !balances || !assets || Object.keys(prices).length === 0) {
       return [];
     }
 

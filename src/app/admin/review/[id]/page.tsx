@@ -7,7 +7,7 @@ import { doc } from 'firebase/firestore';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { AlertCircle, ArrowLeft, ShieldAlert, ShieldCheck, Loader2 } from 'lucide-react';
+import { AlertCircle, ArrowLeft, ShieldAlert, ShieldCheck, Loader2, History } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
@@ -16,6 +16,8 @@ import { useActionState } from 'react';
 import { useFormStatus } from 'react-dom';
 import { useAssets } from '@/hooks/use-assets';
 import type { Withdrawal } from '@/lib/types';
+import { UserDeposits } from '@/components/wallet/user-deposits';
+import { UserWithdrawals } from '@/components/wallet/user-withdrawals';
 
 
 function ModerationButtons({ disabled }: { disabled: boolean }) {
@@ -198,6 +200,11 @@ export default function ReviewWithdrawalPage({ params }: { params: { id: string 
             </form>
         </div>
        </div>
+       
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            <UserDeposits userId={withdrawal?.userId} />
+            <UserWithdrawals userId={withdrawal?.userId} />
+        </div>
 
     </div>
   );

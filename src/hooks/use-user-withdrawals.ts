@@ -6,23 +6,26 @@ import { useCollection, useFirestore, useUser, useMemoFirebase } from '@/firebas
 import type { Withdrawal } from '@/lib/types';
 
 /**
- * Fetches all withdrawal documents for a specific user ID from the 'withdrawals' collection.
- * @param userId The unique ID of the user whose withdrawals to fetch.
+ * Fetches withdrawal documents for a user.
+ * If a userId is provided, fetches for that user. Otherwise, fetches for the currently authenticated user.
+ * @param userId The optional ID of the user whose withdrawals to fetch.
  */
-export function useUserWithdrawals() {
+export function useUserWithdrawals(userId?: string) {
   const firestore = useFirestore();
-  const { user } = useUser();
-  const userId = user?.uid;
+  const { user: authUser } = useUser();
+
+  // Use the provided userId, or fall back to the authenticated user's ID
+  const targetUserId = userId || authUser?.uid;
 
   const withdrawalsQuery = useMemoFirebase(
     () => {
-      if (!firestore || !userId) return null;
+      if (!firestore || !targetUserId) return null;
       return query(
-        collection(firestore, 'users', userId, 'withdrawals'),
+        collection(firestore, 'users', targetUserId, 'withdrawals'),
         orderBy('createdAt', 'desc')
       );
     },
-    [firestore, userId]
+    [firestore, targetUserId]
   );
 
   return useCollection<Withdrawal>(withdrawalsQuery);

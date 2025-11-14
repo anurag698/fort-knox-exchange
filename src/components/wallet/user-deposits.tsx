@@ -11,8 +11,12 @@ import { useAssets } from '@/hooks/use-assets';
 import { useMemo } from 'react';
 import { Badge } from '@/components/ui/badge';
 
-export function UserDeposits() {
-    const { data: deposits, isLoading, error } = useUserDeposits();
+interface UserDepositsProps {
+  userId?: string;
+}
+
+export function UserDeposits({ userId }: UserDepositsProps) {
+    const { data: deposits, isLoading, error } = useUserDeposits(userId);
     const { data: assets, isLoading: assetsLoading } = useAssets();
     const assetsMap = useMemo(() => new Map(assets?.map(a => [a.id, a])), [assets]);
 
@@ -32,7 +36,7 @@ export function UserDeposits() {
                     <AlertCircle className="h-4 w-4" />
                     <AlertTitle>Error Loading Deposits</AlertTitle>
                     <AlertDescription>
-                        There was a problem fetching your deposit history.
+                        There was a problem fetching the deposit history.
                     </AlertDescription>
                 </Alert>
             );
@@ -41,7 +45,7 @@ export function UserDeposits() {
         if (!deposits || deposits.length === 0) {
             return (
                 <div className="text-center py-8 text-muted-foreground">
-                    <p>You have no deposit history.</p>
+                    <p>No deposit history found.</p>
                 </div>
             );
         }
@@ -79,7 +83,7 @@ export function UserDeposits() {
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2"><History className="h-5 w-5" /> Deposit History</CardTitle>
-        <CardDescription>A record of your past deposit requests.</CardDescription>
+        <CardDescription>A record of past deposit requests.</CardDescription>
       </CardHeader>
       <CardContent>
          {renderContent()}
@@ -87,4 +91,3 @@ export function UserDeposits() {
     </Card>
   );
 }
-

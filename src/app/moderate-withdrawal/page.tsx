@@ -101,7 +101,7 @@ export default function ModerateWithdrawalPage() {
                   </FormItem>
                 )}/>
                 <FormField control={form.control} name="userAccountCreationDate" render={({ field }) => (
-                  <FormItem><FormLabel>Account Creation Date</Formlabel><FormControl><Input type="date" {...field} /></FormControl><FormMessage /></FormItem>
+                  <FormItem><FormLabel>Account Creation Date</FormLabel><FormControl><Input type="date" {...field} /></FormControl><FormMessage /></FormItem>
                 )}/>
               </div>
               <FormField control={form.control} name="userWithdrawalHistory" render={({ field }) => (

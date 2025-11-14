@@ -21,7 +21,7 @@ import { useAssets } from '@/hooks/use-assets';
 function AnalyzeButton() {
   const { pending } = useFormStatus();
   return (
-    <Button type="submit" disabled={pending} className="w-full">
+    <Button type="submit" disabled={pending} className="w-full" formAction={checkWithdrawal}>
       {pending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <ShieldCheck className="mr-2 h-4 w-4" />}
       Analyze Now
     </Button>
@@ -29,15 +29,18 @@ function AnalyzeButton() {
 }
 
 function ModerationButtons({ disabled }: { disabled: boolean }) {
-  const { pending } = useFormStatus();
+  const { pending: approvePending } = useFormStatus();
+  const { pending: rejectPending } = useFormStatus();
+  const pending = approvePending || rejectPending;
+
   return (
     <div className="flex gap-2 w-full">
       <Button className="w-full" disabled={disabled || pending} formAction={approveWithdrawal}>
-        {pending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+        {approvePending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
         Approve
       </Button>
       <Button variant="destructive" className="w-full" disabled={disabled || pending} formAction={rejectWithdrawal}>
-        {pending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+        {rejectPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
         Reject
       </Button>
     </div>
@@ -204,7 +207,7 @@ export default function ReviewWithdrawalPage({ params }: { params: { id: string 
             </Card>
         </div>
         <div className="lg:col-span-1">
-             <form action={formAction} className="flex flex-col h-full">
+             <form className="flex flex-col h-full">
                 <Card className="flex flex-col flex-grow">
                     <CardHeader>
                         <CardTitle>AI Risk Analysis</CardTitle>
@@ -235,5 +238,3 @@ export default function ReviewWithdrawalPage({ params }: { params: { id: string 
     </div>
   );
 }
-
-    

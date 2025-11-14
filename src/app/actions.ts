@@ -200,7 +200,6 @@ export async function createOrder(prevState: CreateOrderFormState, formData: For
 
 const moderateWithdrawalSchema = z.object({
   withdrawalId: z.string(),
-  userId: z.string(),
 });
 
 async function updateWithdrawalStatus(
@@ -215,16 +214,22 @@ async function updateWithdrawalStatus(
     throw new Error('Invalid input for withdrawal moderation.');
   }
 
-  const { withdrawalId, userId } = validatedFields.data;
+  const { withdrawalId } = validatedFields.data;
 
   try {
     const { firestore } = await getFirebaseAdmin();
-    // In a real application, you would perform more robust checks,
-    // but here we get the doc reference directly. This is insecure
-    // if the doc ID is predictable. We are using random IDs.
-    const withdrawalRef = firestore.collection('users').doc(userId).collection('withdrawals').doc(withdrawalId);
+
+    const withdrawalsRef = firestore.collectionGroup('withdrawals');
+    const q = withdrawalsRef.where('id', '==', withdrawalId).limit(1);
+    const querySnapshot = await q.get();
+
+    if (querySnapshot.empty) {
+      throw new Error(`Withdrawal with ID ${withdrawalId} not found.`);
+    }
+
+    const withdrawalDoc = querySnapshot.docs[0];
     
-    await withdrawalRef.update({
+    await withdrawalDoc.ref.update({
       status: status,
       updatedAt: FieldValue.serverTimestamp(),
     });

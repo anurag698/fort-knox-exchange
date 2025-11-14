@@ -11,6 +11,48 @@ import { AlertCircle, CandlestickChart } from 'lucide-react';
 export default function MarketsPage() {
   const { data: markets, isLoading, error } = useMarkets();
 
+  const renderContent = () => {
+    if (isLoading) {
+      return (
+        <div className="space-y-4">
+          <Skeleton className="h-12 w-full" />
+          <Skeleton className="h-12 w-full" />
+          <Skeleton className="h-12 w-full" />
+          <Skeleton className="h-12 w-full" />
+        </div>
+      );
+    }
+
+    if (error) {
+      return (
+        <Alert variant="destructive">
+          <AlertCircle className="h-4 w-4" />
+          <AlertTitle>Error</AlertTitle>
+          <AlertDescription>
+            Failed to load market data. Please try again later.
+          </AlertDescription>
+        </Alert>
+      );
+    }
+
+    if (!markets || markets.length === 0) {
+      return (
+         <div className="flex flex-col items-center justify-center rounded-lg border-2 border-dashed border-muted-foreground/30 p-12 text-center">
+          <div className="flex h-20 w-20 items-center justify-center rounded-full bg-muted">
+            <CandlestickChart className="h-10 w-10 text-muted-foreground" />
+          </div>
+          <h3 className="mt-4 text-lg font-semibold">No Markets Found</h3>
+          <p className="mb-4 mt-2 text-sm text-muted-foreground">
+            There are currently no markets available to trade. New markets will appear here once added by an administrator.
+          </p>
+        </div>
+      );
+    }
+    
+    return <MarketsTable markets={markets} />;
+  }
+
+
   return (
     <div className="flex flex-col gap-8">
        <div className="flex flex-col gap-2">
@@ -29,37 +71,7 @@ export default function MarketsPage() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          {isLoading && (
-            <div className="space-y-4">
-              <Skeleton className="h-12 w-full" />
-              <Skeleton className="h-12 w-full" />
-              <Skeleton className="h-12 w-full" />
-              <Skeleton className="h-12 w-full" />
-            </div>
-          )}
-          {error && (
-            <Alert variant="destructive">
-              <AlertCircle className="h-4 w-4" />
-              <AlertTitle>Error</AlertTitle>
-              <AlertDescription>
-                Failed to load market data. Please try again later.
-              </AlertDescription>
-            </Alert>
-          )}
-          {!isLoading && !error && markets && markets.length > 0 && (
-            <MarketsTable markets={markets} />
-          )}
-          {!isLoading && !error && (!markets || markets.length === 0) && (
-             <div className="flex flex-col items-center justify-center rounded-lg border-2 border-dashed border-muted-foreground/30 p-12 text-center">
-              <div className="flex h-20 w-20 items-center justify-center rounded-full bg-muted">
-                <CandlestickChart className="h-10 w-10 text-muted-foreground" />
-              </div>
-              <h3 className="mt-4 text-lg font-semibold">No Markets Found</h3>
-              <p className="mb-4 mt-2 text-sm text-muted-foreground">
-                There are currently no markets available to trade. New markets will appear here once added by an administrator.
-              </p>
-            </div>
-          )}
+          {renderContent()}
         </CardContent>
       </Card>
     </div>

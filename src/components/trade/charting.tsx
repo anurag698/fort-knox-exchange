@@ -12,12 +12,15 @@ import {
 } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { AlertCircle } from "lucide-react";
+import { AlertCircle, ChevronDown } from "lucide-react";
 import { createChart, type CandlestickData, type IChartApi, type ISeriesApi, type Time, type LineData, type HistogramData } from "lightweight-charts";
 import { getThemeColor, cn } from "@/lib/utils";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import { Button } from "@/components/ui/button";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { useMarkets } from "@/hooks/use-markets";
 
 
 type Candle = CandlestickData<Time> & { volume: number };
@@ -28,6 +31,7 @@ const useLivePrice = (symbol: string) => {
     const [error, setError] = useState<Error | null>(null);
 
     useEffect(() => {
+        if (!symbol) return;
         const ws = new WebSocket(`wss://stream.binance.com:9443/ws/${symbol.toLowerCase()}@trade`);
         
         ws.onopen = () => {
@@ -61,8 +65,11 @@ const useLivePrice = (symbol: string) => {
 };
 
 
-export function Charting() {
-  const { price: btcPrice, error: pricesError } = useLivePrice('btcusdt');
+export function Charting({ marketId, setMarketId }: { marketId: string, setMarketId: (id: string) => void }) {
+  const binanceSymbol = marketId.replace('-', '');
+  const { price: livePrice, error: pricesError } = useLivePrice(binanceSymbol);
+  const { data: markets, isLoading: marketsLoading } = useMarkets();
+  
   const [candles, setCandles] = useState<Candle[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [interval, setInterval] = useState<string>("15m");
@@ -225,12 +232,11 @@ export function Charting() {
     };
   }, []);
 
-  // Effect to load initial data and handle interval changes
+  // Effect to load initial data and handle interval/market changes
   useEffect(() => {
     setIsLoading(true);
-    // Binance API requires interval in format '1m', '5m', '1h' etc.
     const binanceInterval = interval.toLowerCase();
-    fetch(`https://api.binance.com/api/v3/klines?symbol=BTCUSDT&interval=${binanceInterval}&limit=1000`)
+    fetch(`https://api.binance.com/api/v3/klines?symbol=${binanceSymbol}&interval=${binanceInterval}&limit=1000`)
         .then(res => res.json())
         .then(data => {
             const formattedCandles: Candle[] = data.map((d: any) => ({
@@ -252,7 +258,7 @@ export function Charting() {
             setIsLoading(false);
         });
 
-  }, [interval]);
+  }, [interval, binanceSymbol]);
 
   // Effect to update chart series when data or visibility changes
   useEffect(() => {
@@ -302,14 +308,14 @@ export function Charting() {
 
   // Effect to handle live price updates
   useEffect(() => {
-    if (btcPrice === null || !candlestickSeriesRef.current) {
+    if (livePrice === null || !candlestickSeriesRef.current) {
       return;
     }
 
-    if (lastPrice !== null && btcPrice !== lastPrice) {
-      setPriceChangeDirection(btcPrice > lastPrice ? 'up' : 'down');
+    if (lastPrice !== null && livePrice !== lastPrice) {
+      setPriceChangeDirection(livePrice > lastPrice ? 'up' : 'down');
     }
-    setLastPrice(btcPrice);
+    setLastPrice(livePrice);
 
     const currentCandles = candlesRef.current;
     if (currentCandles.length === 0) return;
@@ -325,9 +331,9 @@ export function Charting() {
     if (bucket === lastCandle.time) {
         updatedCandle = {
             ...lastCandle,
-            high: Math.max(lastCandle.high, btcPrice),
-            low: Math.min(lastCandle.low, btcPrice),
-            close: btcPrice,
+            high: Math.max(lastCandle.high, livePrice),
+            low: Math.min(lastCandle.low, livePrice),
+            close: livePrice,
         };
         // We need to update the ref here for the next tick calculation
         const newCandles = [...currentCandles];
@@ -339,9 +345,9 @@ export function Charting() {
         updatedCandle = {
             time: bucket as Time,
             open: lastCandle.close,
-            high: Math.max(lastCandle.close, btcPrice),
-            low: Math.min(lastCandle.close, btcPrice),
-            close: btcPrice,
+            high: Math.max(lastCandle.close, livePrice),
+            low: Math.min(lastCandle.close, livePrice),
+            close: livePrice,
             volume: 0,
         };
         // We need to update the ref here for the next tick calculation
@@ -350,7 +356,7 @@ export function Charting() {
     }
     
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [btcPrice, intervalSeconds, lastPrice]);
+  }, [livePrice, intervalSeconds, lastPrice]);
 
 
   const renderContent = () => {
@@ -369,8 +375,8 @@ export function Charting() {
     }
     return (
       <div className="relative">
-          {isLoading && <Skeleton className="absolute inset-0 h-[500px] w-full" />}
-          <div ref={chartContainerRef} className={cn(isLoading && "opacity-0")} />
+          {(isLoading || marketsLoading) && <Skeleton className="absolute inset-0 h-[500px] w-full" />}
+          <div ref={chartContainerRef} className={cn((isLoading || marketsLoading) && "opacity-0")} />
       </div>
     );
   }
@@ -397,7 +403,21 @@ export function Charting() {
         <div className="flex flex-col gap-4">
             <div className="flex justify-between items-start">
                 <div>
-                    <CardTitle>BTC/USDT</CardTitle>
+                     <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" className="text-2xl font-semibold p-0 h-auto -ml-1">
+                          {marketId.replace('-', '/')}
+                          <ChevronDown className="h-5 w-5 ml-2" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent>
+                        {markets?.map(market => (
+                           <DropdownMenuItem key={market.id} onSelect={() => setMarketId(market.id)}>
+                             {market.id.replace('-', '/')}
+                           </DropdownMenuItem>
+                        ))}
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                     <CardDescription>Bitcoin / Tether</CardDescription>
                 </div>
                 <div className="flex items-baseline gap-6 text-right">

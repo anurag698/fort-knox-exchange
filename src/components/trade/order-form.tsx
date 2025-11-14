@@ -19,29 +19,32 @@ import { cn } from "@/lib/utils";
 const orderSchema = z.object({
   price: z.coerce.number().positive({ message: "Price must be positive." }),
   quantity: z.coerce.number().positive({ message: "Amount must be positive." }),
+  marketId: z.string(),
 });
 
 type OrderFormValues = z.infer<typeof orderSchema>;
 
 interface OrderFormProps {
   selectedPrice?: number;
+  marketId: string;
 }
 
-export function OrderForm({ selectedPrice }: OrderFormProps) {
+export function OrderForm({ selectedPrice, marketId }: OrderFormProps) {
   const { user } = useUser();
   const { toast } = useToast();
+  const [baseAsset, quoteAsset] = marketId.split('-');
 
   const [buyState, buyAction] = useActionState(createOrder, { status: "idle", message: "" });
   const [sellState, sellAction] = useActionState(createOrder, { status: "idle", message: "" });
 
   const buyForm = useForm<OrderFormValues>({
     resolver: zodResolver(orderSchema),
-    defaultValues: { price: undefined, quantity: undefined },
+    defaultValues: { price: undefined, quantity: undefined, marketId },
   });
 
   const sellForm = useForm<OrderFormValues>({
     resolver: zodResolver(orderSchema),
-    defaultValues: { price: undefined, quantity: undefined },
+    defaultValues: { price: undefined, quantity: undefined, marketId },
   });
   
   useEffect(() => {
@@ -51,23 +54,28 @@ export function OrderForm({ selectedPrice }: OrderFormProps) {
     }
   }, [selectedPrice, buyForm, sellForm]);
 
+   useEffect(() => {
+    buyForm.setValue('marketId', marketId);
+    sellForm.setValue('marketId', marketId);
+  }, [marketId, buyForm, sellForm]);
+
   useEffect(() => {
     if (buyState.status === 'success' && buyState.message) {
       toast({ title: "Success", description: buyState.message });
-      buyForm.reset({ price: buyForm.getValues('price'), quantity: undefined });
+      buyForm.reset({ price: buyForm.getValues('price'), quantity: undefined, marketId });
     } else if (buyState.status === 'error' && buyState.message) {
       toast({ variant: "destructive", title: "Error", description: buyState.message });
     }
-  }, [buyState, toast, buyForm]);
+  }, [buyState, toast, buyForm, marketId]);
 
   useEffect(() => {
     if (sellState.status === 'success' && sellState.message) {
       toast({ title: "Success", description: sellState.message });
-      sellForm.reset({ price: sellForm.getValues('price'), quantity: undefined });
+      sellForm.reset({ price: sellForm.getValues('price'), quantity: undefined, marketId });
     } else if (sellState.status === 'error' && sellState.message) {
       toast({ variant: "destructive", title: "Error", description: sellState.message });
     }
-  }, [sellState, toast, sellForm]);
+  }, [sellState, toast, sellForm, marketId]);
 
   const OrderTabContent = ({ side, form, action }: { side: 'BUY' | 'SELL', form: any, action: any }) => {
     const total = form.watch("price") * form.watch("quantity") || 0;
@@ -76,13 +84,14 @@ export function OrderForm({ selectedPrice }: OrderFormProps) {
       <Form {...form}>
         <form action={action} className="mt-4 space-y-4">
           <input type="hidden" name="side" value={side} />
+           <input type="hidden" name="marketId" value={marketId} />
           
           <FormField
             control={form.control}
             name="price"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Price (USDT)</FormLabel>
+                <FormLabel>Price ({quoteAsset})</FormLabel>
                 <FormControl>
                   <Input placeholder="0.00" type="number" step="0.01" {...field} />
                 </FormControl>
@@ -95,7 +104,7 @@ export function OrderForm({ selectedPrice }: OrderFormProps) {
             name="quantity"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Amount (BTC)</FormLabel>
+                <FormLabel>Amount ({baseAsset})</FormLabel>
                 <FormControl>
                   <Input placeholder="0.00" type="number" step="0.0001" {...field} />
                 </FormControl>
@@ -113,7 +122,7 @@ export function OrderForm({ selectedPrice }: OrderFormProps) {
             variant={side === 'SELL' ? 'destructive' : 'default'}
             disabled={!user}
           >
-            {user ? `${side} BTC` : 'Please sign in'}
+            {user ? `${side} ${baseAsset}` : 'Please sign in'}
           </Button>
         </form>
       </Form>

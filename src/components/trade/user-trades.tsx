@@ -39,8 +39,8 @@ function CancelOrderButton({ orderId }: { orderId: string }) {
     );
 }
 
-export function UserTrades() {
-    const { data: orders, isLoading, error } = useOrders();
+export function UserTrades({ marketId }: { marketId: string }) {
+    const { data: orders, isLoading, error } = useOrders(marketId);
     const { data: assets, isLoading: assetsLoading } = useAssets();
     const { data: markets, isLoading: marketsLoading } = useMarkets();
 
@@ -80,7 +80,7 @@ export function UserTrades() {
         if (!orders || orders.length === 0) {
             return (
                 <div className="text-center py-12 text-muted-foreground">
-                    <p>You have no open orders.</p>
+                    <p>You have no open orders for this market.</p>
                 </div>
             );
         }
@@ -139,5 +139,3 @@ export function UserTrades() {
     </Card>
   );
 }
-
-    

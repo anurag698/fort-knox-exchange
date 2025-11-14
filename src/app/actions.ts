@@ -114,6 +114,7 @@ const createOrderSchema = z.object({
     price: z.coerce.number().positive("Price must be positive."),
     quantity: z.coerce.number().positive("Amount must be positive."),
     side: z.enum(['BUY', 'SELL']),
+    marketId: z.string(),
 });
 
 export async function createOrder(prevState: FormState, formData: FormData): Promise<FormState> {
@@ -132,13 +133,13 @@ export async function createOrder(prevState: FormState, formData: FormData): Pro
         };
     }
     
-    const { price, quantity, side } = validatedFields.data;
+    const { price, quantity, side, marketId } = validatedFields.data;
 
     try {
         const { firestore } = getFirebaseAdmin();
         const batch = firestore.batch();
         
-        const marketId = "BTC-USDT"; 
+        const [baseAssetId, quoteAssetId] = marketId.split('-');
 
         const newOrderRef = firestore.collection('orders').doc();
         const newOrder = {
@@ -156,7 +157,7 @@ export async function createOrder(prevState: FormState, formData: FormData): Pro
         };
         batch.set(newOrderRef, newOrder);
 
-        const assetId = side === 'BUY' ? 'USDT' : 'BTC';
+        const assetId = side === 'BUY' ? quoteAssetId : baseAssetId;
         const amount = side === 'BUY' ? price * quantity : quantity;
         const ledgerEntryRef = firestore.collection('users').doc(userId).collection('ledgerEntries').doc();
         batch.set(ledgerEntryRef, {
@@ -166,7 +167,7 @@ export async function createOrder(prevState: FormState, formData: FormData): Pro
             type: `TRADE_${side}`,
             amount: amount,
             orderId: newOrderRef.id,
-            description: `${side} order for ${quantity} BTC at ${price} USDT.`,
+            description: `${side} order for ${quantity} ${baseAssetId} at ${price} ${quoteAssetId}.`,
             createdAt: new Date(),
         });
         
@@ -176,7 +177,7 @@ export async function createOrder(prevState: FormState, formData: FormData): Pro
         batch.set(feeLedgerEntryRef, {
             id: feeLedgerEntryRef.id,
             userId,
-            assetId: 'USDT',
+            assetId: quoteAssetId,
             type: 'FEE',
             amount: feeAmount,
             orderId: newOrderRef.id,

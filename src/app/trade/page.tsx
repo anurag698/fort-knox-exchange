@@ -9,17 +9,18 @@ import { UserTrades } from "@/components/trade/user-trades";
 
 export default function TradePage() {
   const [selectedPrice, setSelectedPrice] = useState<number | undefined>(undefined);
+  const [marketId, setMarketId] = useState<string>('BTC-USDT');
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
       <div className="lg:col-span-4 flex flex-col gap-4">
-        <Charting />
-        <UserTrades />
+        <Charting marketId={marketId} setMarketId={setMarketId} />
+        <UserTrades marketId={marketId} />
       </div>
       <div className="lg:col-span-1 flex flex-col gap-4">
-        <OrderBook onPriceSelect={setSelectedPrice} />
-        <Balances />
-        <OrderForm selectedPrice={selectedPrice} />
+        <OrderBook marketId={marketId} onPriceSelect={setSelectedPrice} />
+        <Balances marketId={marketId} />
+        <OrderForm marketId={marketId} selectedPrice={selectedPrice} />
       </div>
     </div>
   );

@@ -8,10 +8,12 @@ import { AlertCircle } from "lucide-react";
 
 interface OrderBookProps {
   onPriceSelect: (price: number) => void;
+  marketId: string;
 }
 
-export function OrderBook({ onPriceSelect }: OrderBookProps) {
-  const { bids, asks, isLoading, error } = useOrderBook('BTC-USDT');
+export function OrderBook({ onPriceSelect, marketId }: OrderBookProps) {
+  const { bids, asks, isLoading, error } = useOrderBook(marketId);
+  const [baseAsset, quoteAsset] = marketId.split('-');
 
   const renderOrderList = (orders: ProcessedOrder[], isBid: boolean) => {
     if (orders.length === 0) {
@@ -22,21 +24,24 @@ export function OrderBook({ onPriceSelect }: OrderBookProps) {
       )
     }
 
+    // Determine the max total for visualization
+    const maxTotal = Math.max(...orders.map(o => o.total), 0);
+
     return (
       <div className="space-y-1">
         {orders.slice(0, 7).map((order, index) => (
           <div 
             key={index} 
-            className="flex justify-between text-xs font-mono relative cursor-pointer hover:bg-muted/50"
+            className="flex justify-between text-xs font-mono relative cursor-pointer hover:bg-muted/50 p-0.5"
             onClick={() => onPriceSelect(order.price)}
           >
             <div 
-              className={`absolute top-0 left-0 h-full ${isBid ? 'bg-green-500/10' : 'bg-red-500/10'}`} 
-              style={{ width: `${Math.min(order.total / 100, 100)}%`}} // Example width logic
+              className={`absolute top-0 right-0 h-full ${isBid ? 'bg-green-500/10' : 'bg-red-500/10'}`} 
+              style={{ width: `${(order.total / maxTotal) * 100}%`}}
             />
-            <span className={isBid ? "text-green-500" : "text-red-500"}>{order.price.toFixed(2)}</span>
-            <span>{order.quantity.toFixed(4)}</span>
-            <span>{order.total.toFixed(2)}</span>
+            <span className={`z-10 ${isBid ? "text-green-500" : "text-red-500"}`}>{order.price.toFixed(2)}</span>
+            <span className="z-10">{order.quantity.toFixed(4)}</span>
+            <span className="z-10">{order.total.toFixed(2)}</span>
           </div>
         ))}
       </div>
@@ -69,8 +74,8 @@ export function OrderBook({ onPriceSelect }: OrderBookProps) {
       <div className="space-y-3">
         <div>
           <div className="flex justify-between text-xs text-muted-foreground mb-1 px-1">
-            <span>Price (USDT)</span>
-            <span>Amount (BTC)</span>
+            <span>Price ({quoteAsset})</span>
+            <span>Amount ({baseAsset})</span>
             <span>Total</span>
           </div>
           {renderOrderList(asks.reverse(), false)}

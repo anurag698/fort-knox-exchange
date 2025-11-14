@@ -475,19 +475,14 @@ export async function submitKyc(prevState: any, formData: FormData): Promise<For
   }
 
   try {
-    // In a real app, you would upload documents to Cloud Storage and
-    // then update the user's status. For this demo, we just confirm
-    // that the status is PENDING and provide feedback.
     const { firestore } = getFirebaseAdmin();
     const userRef = firestore.collection('users').doc(userId);
-    const userDoc = await userRef.get();
-
-    if (!userDoc.exists || userDoc.data()?.kycStatus !== 'PENDING') {
-      return { status: 'error', message: 'KYC status is not eligible for submission.' };
-    }
     
-    // No actual state change, just revalidating path to reflect any potential updates
-    // and giving success feedback.
+    await userRef.update({
+      kycStatus: 'PENDING',
+      updatedAt: new Date(),
+    });
+    
     revalidatePath('/settings');
     return {
       status: 'success',

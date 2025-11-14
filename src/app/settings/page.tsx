@@ -39,12 +39,15 @@ function SubmitButton() {
   );
 }
 
-function KycSubmitButton({ disabled } : { disabled: boolean }) {
+function KycSubmitButton({ kycStatus } : { kycStatus?: UserProfile['kycStatus'] }) {
   const { pending } = useFormStatus();
+  const isDisabled = kycStatus === 'VERIFIED' || kycStatus === 'PENDING' || kycStatus === 'REJECTED';
+  const buttonText = kycStatus === 'PENDING' ? 'Verification Pending' : 'Start Verification';
+
   return (
-    <Button type="submit" disabled={disabled || pending} className="w-full">
+    <Button type="submit" disabled={isDisabled || pending} className="w-full">
       {pending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-      Submit for Verification
+      {buttonText}
     </Button>
   );
 }
@@ -230,7 +233,7 @@ export default function SettingsPage() {
     const kycInfo = {
       VERIFIED: { icon: ShieldCheck, title: "KYC Verified", description: "Your identity has been successfully verified. You have full access to all features.", variant: "default" },
       PENDING: { icon: ShieldAlert, title: "KYC Pending", description: "Your information is under review. This may take 1-3 business days.", variant: "secondary" },
-      REJECTED: { icon: ShieldAlert, title: "KYC Rejected", description: "There was an issue with your verification. Please contact support.", variant: "destructive" },
+      REJECTED: { icon: ShieldAlert, title: "KYC Rejected", description: "There was an issue with your verification. Please contact support or try again.", variant: "destructive" },
     }[kycStatus] || { icon: Shield, title: "KYC Required", description: "Please submit your information for verification to access all features.", variant: "outline" };
 
     return (
@@ -279,7 +282,7 @@ export default function SettingsPage() {
                 {renderKycContent()}
               </div>
               <CardFooter className="border-t">
-                  <KycSubmitButton disabled={isLoading || userProfile?.kycStatus !== 'PENDING'} />
+                  <KycSubmitButton kycStatus={userProfile?.kycStatus} />
               </CardFooter>
             </Card>
           </form>

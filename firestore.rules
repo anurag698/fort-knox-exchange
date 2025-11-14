@@ -73,13 +73,6 @@ service cloud.firestore {
     }
 
     /**
-     * @description Defines root-level read rules before nested collection definitions.
-     */
-    match /{document=**} {
-      allow read, write: if false;
-    }
-
-    /**
      * @description Rules for the /users/{userId} collection.
      * @path /users/{userId}
      * @allow (create) - Authenticated user creates their own profile with matching userId.
@@ -97,36 +90,69 @@ service cloud.firestore {
                       || (isAdmin() && request.resource.data.keys().hasOnly(['kycStatus', 'updatedAt']))
                       || (isOwner(userId) && request.resource.data.kycStatus == 'PENDING' && resource.data.kycStatus != 'VERIFIED');
       allow delete: if isExistingOwner(userId);
-    }
 
-    /**
-     * @description Rules for the /users/{userId}/sessions/{sessionId} collection.
-     * @path /users/{userId}/sessions/{sessionId}
-     * @allow (create) - Authenticated user creates a new session under their user ID.
-     * @allow (get, list, update, delete) - Authenticated user reads/updates/deletes their own session data.
-     * @principle Enforces user-ownership; users can only manage their own session data.
-     */
-    match /users/{userId}/sessions/{sessionId} {
-      allow create: if isOwner(userId) && request.resource.data.userId == userId;
-      allow get: if isOwner(userId);
-      allow list: if isOwner(userId);
-      allow update: if isOwner(userId) && request.resource.data.userId == userId;
-      allow delete: if isOwner(userId);
-    }
+        /**
+         * @description Rules for the /users/{userId}/sessions/{sessionId} collection.
+         * @path /users/{userId}/sessions/{sessionId}
+         * @allow (create) - Authenticated user creates a new session under their user ID.
+         * @allow (get, list, update, delete) - Authenticated user reads/updates/deletes their own session data.
+         * @principle Enforces user-ownership; users can only manage their own session data.
+         */
+        match /sessions/{sessionId} {
+          allow read, write: if isOwner(userId);
+        }
 
-    /**
-     * @description Rules for the /users/{userId}/balances/{balanceId} collection.
-     * @path /users/{userId}/balances/{balanceId}
-     * @allow (get, list) - Authenticated user reads their own balance data.
-     * @deny (create, update, delete) - Only the backend can create, update, or delete balance data.
-     * @principle Restricts write access to backend only for financial data.
-     */
-    match /users/{userId}/balances/{balanceId} {
-      allow get: if isOwner(userId);
-      allow list: if isOwner(userId);
-      allow create: if false;
-      allow update: if false;
-      allow delete: if false;
+        /**
+         * @description Rules for the /users/{userId}/balances/{balanceId} collection.
+         * @path /users/{userId}/balances/{balanceId}
+         * @allow (get, list) - Authenticated user reads their own balance data.
+         * @deny (create, update, delete) - Only the backend can create, update, or delete balance data.
+         * @principle Restricts write access to backend only for financial data.
+         */
+        match /balances/{balanceId} {
+          allow get, list: if isOwner(userId);
+          allow write: if false;
+        }
+
+        /**
+         * @description Rules for the /users/{userId}/deposits/{depositId} collection.
+         * @path /users/{userId}/deposits/{depositId}
+         * @allow (get, list) - Authenticated user reads their own deposit data.
+         * @allow (create) - Authenticated user can create their own deposit request.
+         * @deny (update, delete) - Only the backend can update, or delete deposit data.
+         * @principle Restricts write access to backend only for financial data.
+         */
+        match /deposits/{depositId} {
+            allow get, list: if isOwner(userId);
+            allow create: if isOwner(userId) && request.resource.data.userId == userId;
+            allow update, delete: if false;
+        }
+
+        /**
+         * @description Rules for the /users/{userId}/withdrawals/{withdrawalId} collection.
+         * @path /users/{userId}/withdrawals/{withdrawalId}
+         * @allow (get, list) - Authenticated user reads their own withdrawal data.
+         * @allow (create) - Authenticated user can create their own withdrawal request if KYC is verified.
+         * @deny (update, delete) - Only the backend can update, or delete withdrawal data.
+         * @principle Restricts write access to backend only for financial data and requires KYC.
+         */
+        match /withdrawals/{withdrawalId} {
+            allow get, list: if isOwner(userId) || isAdmin();
+            allow create: if isOwner(userId) && request.resource.data.userId == userId && isKycVerified(userId);
+            allow update, delete: if false;
+        }
+
+       /**
+         * @description Rules for the /users/{userId}/ledgerEntries/{ledgerEntryId} collection.
+         * @path /users/{userId}/ledgerEntries/{ledgerEntryId}
+         * @allow (get, list) - Authenticated user reads their own ledger entry data.
+         * @deny (create, update, delete) - Only the backend can create, update, or delete ledger entry data.
+         * @principle Restricts write access to backend only for financial data.
+         */
+        match /ledgerEntries/{ledgerEntryId} {
+            allow get, list: if isOwner(userId);
+            allow write: if false;
+        }
     }
 
     /**
@@ -140,8 +166,7 @@ service cloud.firestore {
      */
     match /orders/{orderId} {
       allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
-      allow get: if true;
-      allow list: if true;
+      allow get, list: if true;
       allow update: if isSignedIn() 
                       && request.auth.uid == resource.data.userId
                       && request.resource.data.status == 'CANCELED'
@@ -154,15 +179,12 @@ service cloud.firestore {
      * @description Rules for the /markets/{marketId} collection.
      * @path /markets/{marketId}
      * @allow (get, list) - Anyone can read market data.
-     * @deny (create, update, delete) - Only the backend can create, update, or delete market data.
+     * @deny (create, update, delete) - Only the backend/admins can create, update, or delete market data.
      * @principle Allows public read access for market data.
      */
     match /markets/{marketId} {
-      allow get: if true;
-      allow list: if true;
-      allow create: if false;
-      allow update: if false;
-      allow delete: if false;
+      allow get, list: if true;
+      allow write: if false;
     }
 
     /**
@@ -173,43 +195,8 @@ service cloud.firestore {
      * @principle Allows public read access for trade data.
      */
     match /trades/{tradeId} {
-      allow get: if true;
-      allow list: if true;
-      allow create: if false;
-      allow update: if false;
-      allow delete: if false;
-    }
-
-    /**
-     * @description Rules for the /users/{userId}/deposits/{depositId} collection.
-     * @path /users/{userId}/deposits/{depositId}
-     * @allow (get, list) - Authenticated user reads their own deposit data.
-     * @allow (create) - Authenticated user can create their own deposit request.
-     * @deny (update, delete) - Only the backend can update, or delete deposit data.
-     * @principle Restricts write access to backend only for financial data.
-     */
-    match /users/{userId}/deposits/{depositId} {
-      allow get: if isOwner(userId);
-      allow list: if isOwner(userId);
-      allow create: if isOwner(userId) && request.resource.data.userId == userId;
-      allow update: if false;
-      allow delete: if false;
-    }
-
-    /**
-     * @description Rules for the /users/{userId}/withdrawals/{withdrawalId} collection.
-     * @path /users/{userId}/withdrawals/{withdrawalId}
-     * @allow (get, list) - Authenticated user reads their own withdrawal data.
-     * @allow (create) - Authenticated user can create their own withdrawal request if KYC is verified.
-     * @deny (update, delete) - Only the backend can update, or delete withdrawal data.
-     * @principle Restricts write access to backend only for financial data and requires KYC.
-     */
-    match /users/{userId}/withdrawals/{withdrawalId} {
-      allow get: if isOwner(userId) || isAdmin();
-      allow list: if isOwner(userId) || isAdmin();
-      allow create: if isOwner(userId) && request.resource.data.userId == userId && isKycVerified(userId);
-      allow update: if false;
-      allow delete: if false;
+      allow get, list: if true;
+      allow write: if false;
     }
 
     /**
@@ -219,11 +206,7 @@ service cloud.firestore {
      * @principle Restricts all client access to admin user data.
      */
     match /adminUsers/{adminId} {
-      allow get: if false;
-      allow list: if false;
-      allow create: if false;
-      allow update: if false;
-      allow delete: if false;
+      allow read, write: if false;
     }
     
      /**
@@ -233,11 +216,8 @@ service cloud.firestore {
      * @deny (create, update, delete) - Only the backend can create, update, or delete public data.
      */
      match /publicData/{docId} {
-      allow get: if true;
-      allow list: if true;
-      allow create: if false;
-      allow update: if false;
-      allow delete: if false;
+      allow get, list: if true;
+      allow write: if false;
     }
 
     /**
@@ -247,26 +227,10 @@ service cloud.firestore {
      * @deny (create, update, delete) - Only the backend can create, update, or delete asset data.
      */
     match /assets/{assetId} {
-      allow get: if true;
-      allow list: if true;
-      allow create: if false;
-      allow update: if false;
-      allow delete: if false;
-    }
-
-   /**
-     * @description Rules for the /users/{userId}/ledgerEntries/{ledgerEntryId} collection.
-     * @path /users/{userId}/ledgerEntries/{ledgerEntryId}
-     * @allow (get, list) - Authenticated user reads their own ledger entry data.
-     * @deny (create, update, delete) - Only the backend can create, update, or delete ledger entry data.
-     * @principle Restricts write access to backend only for financial data.
-     */
-    match /users/{userId}/ledgerEntries/{ledgerEntryId} {
-      allow get: if isOwner(userId);
-      allow list: if isOwner(userId);
-      allow create: if false;
-      allow update: if false;
-      allow delete: if false;
+      allow get, list: if true;
+      allow write: if false;
     }
   }
 }
+
+    

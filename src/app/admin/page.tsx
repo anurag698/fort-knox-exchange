@@ -5,7 +5,12 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Users, CandlestickChart, ShieldAlert, ArrowRight } from "lucide-react";
+import { Users, CandlestickChart, ShieldAlert, ArrowRight, AlertCircle, Hourglass } from "lucide-react";
+import { useWithdrawals } from '@/hooks/use-withdrawals';
+import { useAssets } from '@/hooks/use-assets';
+import { useMemo } from 'react';
+import { Skeleton } from '@/components/ui/skeleton';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
 // Placeholder data - in a real app, this would be fetched from your backend.
 const summaryStats = [
@@ -14,14 +19,89 @@ const summaryStats = [
   { title: "Pending Withdrawals", value: "12", icon: ShieldAlert },
 ];
 
-const pendingWithdrawals = [
-    { id: "WID-5821", user: "user-abc", amount: "1.5 BTC", risk: "High", date: "2024-07-29" },
-    { id: "WID-5820", user: "user-def", amount: "0.2 ETH", risk: "Low", date: "2024-07-29" },
-    { id: "WID-5819", user: "user-ghi", amount: "10,000 USDT", risk: "Medium", date: "2024-07-28" },
-];
 
 export default function AdminPage() {
   useAuthGate();
+  const { data: withdrawals, isLoading, error } = useWithdrawals('PENDING');
+  const { data: assets, isLoading: assetsLoading } = useAssets();
+
+  const assetsMap = useMemo(() => {
+    if (!assets) return new Map();
+    return new Map(assets.map(asset => [asset.id, asset]));
+  }, [assets]);
+
+  const renderWithdrawals = () => {
+    if (isLoading || assetsLoading) {
+      return (
+        <>
+          {[...Array(3)].map((_, i) => (
+            <TableRow key={i}>
+              <TableCell><Skeleton className="h-4 w-32" /></TableCell>
+              <TableCell><Skeleton className="h-4 w-24" /></TableCell>
+              <TableCell><Skeleton className="h-4 w-20" /></TableCell>
+              <TableCell><Skeleton className="h-4 w-16" /></TableCell>
+              <TableCell><Skeleton className="h-4 w-24" /></TableCell>
+              <TableCell className="text-right"><Skeleton className="h-8 w-20 ml-auto" /></TableCell>
+            </TableRow>
+          ))}
+        </>
+      );
+    }
+
+    if (error) {
+       return (
+        <TableRow>
+            <TableCell colSpan={6}>
+                 <Alert variant="destructive" className="mt-4">
+                    <AlertCircle className="h-4 w-4" />
+                    <AlertTitle>Error Loading Withdrawals</AlertTitle>
+                    <AlertDescription>
+                        Could not fetch withdrawal data. Please check your Firestore security rules and network connection.
+                    </AlertDescription>
+                </Alert>
+            </TableCell>
+        </TableRow>
+      );
+    }
+
+    if (!withdrawals || withdrawals.length === 0) {
+      return (
+         <TableRow>
+            <TableCell colSpan={6} className="text-center py-12">
+                 <div className="flex flex-col items-center justify-center text-muted-foreground">
+                    <Hourglass className="h-10 w-10 mb-4" />
+                    <h3 className="text-lg font-semibold">No Pending Withdrawals</h3>
+                    <p className="text-sm">There are no withdrawal requests awaiting moderation.</p>
+                </div>
+            </TableCell>
+        </TableRow>
+      );
+    }
+
+    return withdrawals.map((withdrawal) => {
+        const asset = assetsMap.get(withdrawal.assetId);
+        const withdrawalDate = withdrawal.createdAt?.toDate ? withdrawal.createdAt.toDate() : new Date();
+
+        return (
+            <TableRow key={withdrawal.id}>
+                <TableCell className="font-mono text-xs">{withdrawal.id}</TableCell>
+                <TableCell className="font-mono text-xs">{withdrawal.userId}</TableCell>
+                <TableCell>{withdrawal.amount} {asset?.symbol ?? '...'}</TableCell>
+                <TableCell>
+                    {/* AI Risk assessment will be implemented later */}
+                    <Badge variant='secondary'>Unknown</Badge>
+                </TableCell>
+                <TableCell>{withdrawalDate.toLocaleDateString()}</TableCell>
+                <TableCell className="text-right">
+                <Button variant="ghost" size="sm">
+                    Review <ArrowRight className="ml-2 h-4 w-4" />
+                </Button>
+                </TableCell>
+            </TableRow>
+        )
+    });
+
+  }
 
   return (
     <div className="flex flex-col gap-8">
@@ -68,24 +148,7 @@ export default function AdminPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {pendingWithdrawals.map((withdrawal) => (
-                <TableRow key={withdrawal.id}>
-                  <TableCell className="font-mono text-xs">{withdrawal.id}</TableCell>
-                  <TableCell className="font-mono text-xs">{withdrawal.user}</TableCell>
-                  <TableCell>{withdrawal.amount}</TableCell>
-                  <TableCell>
-                    <Badge variant={withdrawal.risk === 'High' ? 'destructive' : withdrawal.risk === 'Medium' ? 'secondary' : 'default'}>
-                      {withdrawal.risk}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>{withdrawal.date}</TableCell>
-                  <TableCell className="text-right">
-                    <Button variant="ghost" size="sm">
-                        Review <ArrowRight className="ml-2 h-4 w-4" />
-                    </Button>
-                  </TableCell>
-                </TableRow>
-              ))}
+              {renderWithdrawals()}
             </TableBody>
           </Table>
         </CardContent>

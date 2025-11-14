@@ -1,19 +1,46 @@
 
 'use client';
 
+import { useEffect } from 'react';
 import { useUser, useFirestore, useDoc, useMemoFirebase } from '@/firebase';
 import { doc } from 'firebase/firestore';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { useFormState, useFormStatus } from 'react-dom';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
+import { useToast } from '@/hooks/use-toast';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { AlertCircle, User as UserIcon } from 'lucide-react';
+import { AlertCircle, User as UserIcon, Loader2 } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
+import { Input } from '@/components/ui/input';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
+import { updateUserProfile } from '@/app/actions';
+
+const profileSchema = z.object({
+  username: z.string().min(3, "Username must be at least 3 characters."),
+});
+
+type ProfileFormValues = z.infer<typeof profileSchema>;
+
+function SubmitButton() {
+  const { pending } = useFormStatus();
+  return (
+    <Button type="submit" disabled={pending}>
+      {pending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+      Save Changes
+    </Button>
+  );
+}
 
 export default function SettingsPage() {
   const { user: authUser, isUserLoading: isAuthLoading } = useUser();
   const firestore = useFirestore();
+  const { toast } = useToast();
 
   const userDocRef = useMemoFirebase(
     () => (firestore && authUser ? doc(firestore, 'users', authUser.uid) : null),
@@ -21,6 +48,29 @@ export default function SettingsPage() {
   );
 
   const { data: userProfile, isLoading: isProfileLoading, error } = useDoc(userDocRef);
+
+  const [formState, formAction] = useFormState(updateUserProfile, { status: "idle", message: "" });
+
+  const form = useForm<ProfileFormValues>({
+    resolver: zodResolver(profileSchema),
+    defaultValues: {
+      username: '',
+    },
+  });
+
+  useEffect(() => {
+    if (userProfile) {
+      form.reset({ username: userProfile.username });
+    }
+  }, [userProfile, form]);
+  
+  useEffect(() => {
+    if (formState.status === 'success') {
+      toast({ title: "Success", description: formState.message });
+    } else if (formState.status === 'error') {
+      toast({ variant: "destructive", title: "Error", description: formState.message });
+    }
+  }, [formState, toast]);
 
   const isLoading = isAuthLoading || isProfileLoading;
   const userAvatar = PlaceHolderImages.find(img => img.id === 'user-avatar');
@@ -59,9 +109,9 @@ export default function SettingsPage() {
               <Skeleton className="h-4 w-[200px]" />
             </div>
           </div>
-          <div className="space-y-2">
-            <Skeleton className="h-4 w-1/4" />
-            <Skeleton className="h-4 w-1/3" />
+          <div className="space-y-4">
+            <Skeleton className="h-10 w-full" />
+            <Skeleton className="h-10 w-1/3" />
           </div>
         </div>
       );
@@ -93,45 +143,56 @@ export default function SettingsPage() {
       );
     }
 
-    // Safely access timestamp and convert
     const creationDate = userProfile.createdAt && userProfile.createdAt.toDate 
       ? userProfile.createdAt.toDate()
       : null;
 
     return (
-      <div className="space-y-6">
-        <div className="flex items-center space-x-6">
-          <Avatar className="h-24 w-24">
-            {authUser?.photoURL ? (
-                <AvatarImage src={authUser.photoURL} alt="User avatar" />
-            ) : userAvatar ? (
-                <AvatarImage src={userAvatar.imageUrl} alt="User avatar" data-ai-hint={userAvatar.imageHint} />
-            ) : null}
-            <AvatarFallback>{getAvatarFallback()}</AvatarFallback>
-          </Avatar>
-          <div>
-            <h2 className="text-2xl font-bold">{userProfile.username}</h2>
-            <p className="text-muted-foreground">{userProfile.email}</p>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="flex items-center gap-2">
-                <span className="font-medium text-sm">KYC Status:</span>
-                <Badge variant={getKYCBadgeVariant(userProfile.kycStatus)}>{userProfile.kycStatus}</Badge>
+      <Form {...form}>
+        <form action={formAction}>
+          <CardContent className="space-y-8">
+            <div className="flex items-center space-x-6">
+              <Avatar className="h-24 w-24">
+                {authUser?.photoURL ? (
+                    <AvatarImage src={authUser.photoURL} alt="User avatar" />
+                ) : userAvatar ? (
+                    <AvatarImage src={userAvatar.imageUrl} alt="User avatar" data-ai-hint={userAvatar.imageHint} />
+                ) : null}
+                <AvatarFallback>{getAvatarFallback()}</AvatarFallback>
+              </Avatar>
+              <div className="space-y-1">
+                <h2 className="text-2xl font-bold">{userProfile.username}</h2>
+                <p className="text-muted-foreground">{userProfile.email}</p>
+                <div className="flex items-center gap-2 pt-1">
+                    <span className="font-medium text-sm">KYC Status:</span>
+                    <Badge variant={getKYCBadgeVariant(userProfile.kycStatus)}>{userProfile.kycStatus}</Badge>
+                </div>
+              </div>
             </div>
-             <p className="text-sm text-muted-foreground">
+
+            <FormField
+              control={form.control}
+              name="username"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Username</FormLabel>
+                  <FormControl>
+                    <Input placeholder="Your username" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            
+            <p className="text-sm text-muted-foreground">
               Member since: {creationDate ? creationDate.toLocaleDateString() : 'N/A'}
             </p>
-        </div>
-
-        <div className="pt-4">
-             <h3 className="text-lg font-semibold mb-2">Account Management</h3>
-             <p className="text-sm text-muted-foreground">
-                Further account and security management features (like 2FA and API keys) are coming soon.
-             </p>
-        </div>
-      </div>
+          </CardContent>
+          <CardFooter className="border-t px-6 py-4">
+            <SubmitButton />
+          </CardFooter>
+        </form>
+      </Form>
     );
   };
 
@@ -149,12 +210,10 @@ export default function SettingsPage() {
         <CardHeader>
           <CardTitle>My Profile</CardTitle>
           <CardDescription>
-            This is your personal information on Fort Knox Exchange.
+            Update your personal information on Fort Knox Exchange.
           </CardDescription>
         </CardHeader>
-        <CardContent>
-          {renderContent()}
-        </CardContent>
+        {renderContent()}
       </Card>
     </div>
   );

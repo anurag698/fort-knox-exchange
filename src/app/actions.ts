@@ -8,6 +8,52 @@ import { redirect } from 'next/navigation';
 import { cookies } from "next/headers";
 import { getFirebaseAdmin, getUserIdFromSession } from "@/lib/firebase-admin";
 
+const updateUserProfileSchema = z.object({
+  username: z.string().min(3, "Username must be at least 3 characters long."),
+});
+
+export async function updateUserProfile(prevState: any, formData: FormData) {
+  const validatedFields = updateUserProfileSchema.safeParse({
+    username: formData.get('username'),
+  });
+
+  const userId = await getUserIdFromSession();
+  if (!userId) {
+     return { status: 'error', message: 'Authentication required.' };
+  }
+
+  if (!validatedFields.success) {
+    return {
+      status: 'error',
+      message: 'Invalid username.',
+    };
+  }
+  
+  const { username } = validatedFields.data;
+
+  try {
+    const { firestore } = getFirebaseAdmin();
+    const userRef = firestore.collection('users').doc(userId);
+    
+    await userRef.update({
+        username,
+        updatedAt: new Date(),
+    });
+
+    revalidatePath('/settings');
+    return {
+      status: 'success',
+      message: `Username updated successfully.`,
+    };
+  } catch (error) {
+    console.error("Update Profile Error:", error);
+    return {
+      status: 'error',
+      message: 'Failed to update profile.',
+    };
+  }
+}
+
 const cancelOrderSchema = z.object({
   orderId: z.string(),
 });

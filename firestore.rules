@@ -5,8 +5,7 @@
  * This ruleset enforces a strict user-ownership model for personal data,
  * public read access for market data, and backend-only write access for
  * sensitive financial data. All authorization decisions are based on the
- * authenticated user's UID and explicit ownership checks. Data shape validation
- * is relaxed in this prototype phase to allow for rapid schema iteration.
+ * authenticated user's UID and explicit ownership checks.
  *
  * Data Structure:
  * - /users/{userId}: Stores user profile information. Only the user can read/write their own profile.
@@ -27,6 +26,7 @@
  * - Backend-only writes for financial data: Balances, deposits, and withdrawals can only be modified by the backend.
  * - Public read access for market data: Markets and trades are publicly readable.
  * - Strict ownership checks: All user-specific data is protected by ownership checks based on the authenticated user's UID.
+ * - Immutable Fields: Certain fields like user ID and email cannot be changed after creation.
  *
  * Denormalization for Authorization:
  *  - User ID is included in all user-owned documents, enabling direct ownership checks without additional reads.
@@ -67,15 +67,19 @@ service cloud.firestore {
      * @description Rules for the /users/{userId} collection.
      * @path /users/{userId}
      * @allow (create) - Authenticated user creates their own profile with matching userId.
-     * @allow (get, update, delete) - Authenticated user reads/updates/deletes their own profile.
-     * @deny (create) - Authenticated user tries to create a profile with a mismatched userId.
-     * @principle Enforces user-ownership; users can only manage their own data.
+     * @allow (get, delete) - Authenticated user can read or delete their own profile.
+     * @allow (update) - Authenticated user can update their own profile, but cannot change their ID, email, or KYC status.
+     * @deny (list) - Listing users is not allowed.
+     * @principle Enforces user-ownership and immutability of critical fields.
      */
     match /users/{userId} {
       allow create: if isOwner(userId) && request.resource.data.id == userId;
       allow get: if isOwner(userId);
       allow list: if false;
-      allow update: if isExistingOwner(userId) && request.resource.data.id == resource.data.id;
+      allow update: if isExistingOwner(userId) 
+                      && request.resource.data.id == resource.data.id
+                      && request.resource.data.email == resource.data.email
+                      && request.resource.data.kycStatus == resource.data.kycStatus;
       allow delete: if isExistingOwner(userId);
     }
 
@@ -83,8 +87,7 @@ service cloud.firestore {
      * @description Rules for the /users/{userId}/sessions/{sessionId} collection.
      * @path /users/{userId}/sessions/{sessionId}
      * @allow (create) - Authenticated user creates a new session under their user ID.
-     * @allow (get, update, delete) - Authenticated user reads/updates/deletes their own session data.
-     * @deny (create) - Authenticated user tries to create a session under a mismatched user ID.
+     * @allow (get, list, update, delete) - Authenticated user reads/updates/deletes their own session data.
      * @principle Enforces user-ownership; users can only manage their own session data.
      */
     match /users/{userId}/sessions/{sessionId} {
@@ -98,7 +101,7 @@ service cloud.firestore {
     /**
      * @description Rules for the /users/{userId}/balances/{balanceId} collection.
      * @path /users/{userId}/balances/{balanceId}
-     * @allow (get) - Authenticated user reads their own balance data.
+     * @allow (get, list) - Authenticated user reads their own balance data.
      * @deny (create, update, delete) - Only the backend can create, update, or delete balance data.
      * @principle Restricts write access to backend only for financial data.
      */
@@ -164,7 +167,7 @@ service cloud.firestore {
     /**
      * @description Rules for the /users/{userId}/deposits/{depositId} collection.
      * @path /users/{userId}/deposits/{depositId}
-     * @allow (get) - Authenticated user reads their own deposit data.
+     * @allow (get, list) - Authenticated user reads their own deposit data.
      * @deny (create, update, delete) - Only the backend can create, update, or delete deposit data.
      * @principle Restricts write access to backend only for financial data.
      */
@@ -179,7 +182,7 @@ service cloud.firestore {
     /**
      * @description Rules for the /users/{userId}/withdrawals/{withdrawalId} collection.
      * @path /users/{userId}/withdrawals/{withdrawalId}
-     * @allow (get) - Authenticated user reads their own withdrawal data.
+     * @allow (get, list) - Authenticated user reads their own withdrawal data.
      * @deny (create, update, delete) - Only the backend can create, update, or delete withdrawal data.
      * @principle Restricts write access to backend only for financial data.
      */
@@ -236,7 +239,7 @@ service cloud.firestore {
    /**
      * @description Rules for the /users/{userId}/ledgerEntries/{ledgerEntryId} collection.
      * @path /users/{userId}/ledgerEntries/{ledgerEntryId}
-     * @allow (get) - Authenticated user reads their own ledger entry data.
+     * @allow (get, list) - Authenticated user reads their own ledger entry data.
      * @deny (create, update, delete) - Only the backend can create, update, or delete ledger entry data.
      * @principle Restricts write access to backend only for financial data.
      */

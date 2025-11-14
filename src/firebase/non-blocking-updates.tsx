@@ -96,6 +96,7 @@ export function deleteDocumentNonBlocking(docRef: DocumentReference) {
 
 /**
  * Checks if a user document exists and creates it if it doesn't.
+ * Also seeds initial balances for new users.
  * This is an async function but is typically not awaited in the auth flow.
  */
 export async function createNewUserDocument(firestore: Firestore, firebaseUser: User) {
@@ -118,6 +119,43 @@ export async function createNewUserDocument(firestore: Firestore, firebaseUser: 
             };
             // Use a non-blocking write to avoid delaying the auth flow.
             setDocumentNonBlocking(userRef, newUser, {});
+
+            // Seed initial balances for the new user
+            const balancesRef = collection(firestore, 'users', firebaseUser.uid, 'balances');
+            
+            // USDT Balance
+            const usdtBalanceRef = doc(balancesRef, 'USDT');
+            setDocumentNonBlocking(usdtBalanceRef, {
+                userId: firebaseUser.uid,
+                assetId: 'USDT',
+                available: 100000,
+                locked: 0,
+                createdAt: serverTimestamp(),
+                updatedAt: serverTimestamp(),
+            }, {});
+
+            // BTC Balance
+            const btcBalanceRef = doc(balancesRef, 'BTC');
+            setDocumentNonBlocking(btcBalanceRef, {
+                userId: firebaseUser.uid,
+                assetId: 'BTC',
+                available: 1,
+                locked: 0,
+                createdAt: serverTimestamp(),
+                updatedAt: serverTimestamp(),
+            }, {});
+
+            // ETH Balance
+            const ethBalanceRef = doc(balancesRef, 'ETH');
+            setDocumentNonBlocking(ethBalanceRef, {
+                userId: firebaseUser.uid,
+                assetId: 'ETH',
+                available: 10,
+                locked: 0,
+                createdAt: serverTimestamp(),
+                updatedAt: serverTimestamp(),
+            }, {});
+
         }
     } catch(e) {
       // Intentionally ignore permission errors, as the security rules may prevent reads.

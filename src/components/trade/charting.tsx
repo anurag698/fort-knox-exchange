@@ -67,8 +67,8 @@ export function Charting() {
 
   const [showVolume, setShowVolume] = useState(true);
   const [showSma, setShowSma] = useState(true);
-  const [showBbands, setShowBbands] = useState(false);
-  const [showRsi, setShowRsi] = useState(false);
+  const [showBbands, setShowBbands] = useState(true);
+  const [showRsi, setShowRsi] = useState(true);
   
   const chartContainerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
@@ -196,7 +196,7 @@ export function Charting() {
     volumeSeriesRef.current = volumeSeries;
     
     const rsiSeries = chart.addLineSeries({ priceScaleId: 'rsi', lastValueVisible: false, priceLineVisible: false });
-    chart.priceScale('rsi').applyOptions({ scaleMargins: { top: 0.85, bottom: 0.7 }});
+    chart.priceScale('rsi').applyOptions({ scaleMargins: { top: 0.8, bottom: 0 }});
     rsiSeriesRef.current = rsiSeries;
 
     const smaSeries = chart.addLineSeries({ color: 'rgba(255, 215, 0, 0.7)', lineWidth: 2, lastValueVisible: false, priceLineVisible: false });
@@ -344,7 +344,8 @@ export function Charting() {
         setCandles(prev => [...prev, updatedCandle]);
     }
     
-  }, [btcPrice, intervalSeconds, lastPrice]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [btcPrice, intervalSeconds]);
 
 
   const renderContent = () => {
@@ -408,7 +409,7 @@ export function Charting() {
                         </p>
                     </div>
                 </div>
-                <div className="flex items-center gap-4 mt-2 border-t pt-2">
+                 <div className="flex items-center gap-4 mt-2 border-t pt-2">
                     <div className="flex items-center space-x-2">
                         <Checkbox id="sma-toggle" checked={showSma} onCheckedChange={(checked) => setShowSma(Boolean(checked))} />
                         <Label htmlFor="sma-toggle" className="text-xs font-medium flex items-center gap-1">SMA</Label>
@@ -435,5 +436,3 @@ export function Charting() {
     </Card>
   )
 }
-
-    

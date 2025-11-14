@@ -1,4 +1,3 @@
-
 "use client";
 
 import { SidebarTrigger, useSidebar } from "@/components/ui/sidebar";
@@ -12,20 +11,33 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { User, LogOut, Settings, LogIn } from "lucide-react";
+import { User, LogOut, Settings, LogIn, Landmark, Home, CandlestickChart, ArrowRightLeft, Wallet, BookText, Repeat, UserCog } from "lucide-react";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { PlaceHolderImages } from "@/lib/placeholder-images";
 import Link from 'next/link';
 import { useUser, useAuth } from '@/firebase';
 import { signOut } from 'firebase/auth';
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import { clearSession } from "@/app/actions";
+import { cn } from "@/lib/utils";
+
+const mainLinks = [
+  { href: "/markets", label: "Markets", icon: CandlestickChart },
+  { href: "/trade", label: "Trade", icon: ArrowRightLeft },
+  { href: "/swap", label: "Swap", icon: Repeat },
+  { href: "/portfolio", label: "Wallet", icon: Wallet },
+  { href: "/ledger", label: "Ledger", icon: BookText },
+];
+
+const adminLink = { href: "/admin", label: "Admin", icon: UserCog };
+
 
 export default function Header() {
   const isMobile = useIsMobile();
   const { user, isUserLoading } = useUser();
   const auth = useAuth();
   const router = useRouter();
+  const pathname = usePathname();
   const userAvatar = PlaceHolderImages.find(img => img.id === 'user-avatar');
 
   const handleSignOut = async () => {
@@ -45,13 +57,30 @@ export default function Header() {
 
   return (
     <header className="sticky top-0 z-20 flex h-16 shrink-0 items-center justify-between border-b bg-background/80 px-4 backdrop-blur-sm sm:px-6">
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-4">
         {isMobile && <SidebarTrigger />}
+        <Link href="/" className="flex items-center gap-2.5">
+          <Landmark className="h-7 w-7 text-primary" />
+          <div className="hidden flex-col md:flex">
+            <h2 className="font-headline text-lg font-semibold leading-tight text-foreground">Fort Knox</h2>
+            <p className="text-xs text-muted-foreground">Exchange</p>
+          </div>
+        </Link>
+        
+        <nav className="hidden items-center gap-2 md:flex">
+          {mainLinks.map((link) => (
+             <Button key={link.label} asChild variant="link" className={cn("text-sm font-medium", pathname === link.href ? "text-primary" : "text-muted-foreground hover:text-foreground")}>
+                <Link href={link.href}>{link.label}</Link>
+             </Button>
+          ))}
+        </nav>
+
       </div>
 
-      {isUserLoading ? (
+      <div className="flex items-center gap-4">
+        {isUserLoading ? (
          <Avatar className="h-9 w-9 animate-pulse bg-muted rounded-full" />
-      ) : user ? (
+        ) : user ? (
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" className="relative h-9 w-9 rounded-full">
@@ -77,11 +106,11 @@ export default function Header() {
               </div>
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
-            <DropdownMenuItem asChild>
-              <Link href="/settings">
-                <User className="mr-2 h-4 w-4" />
-                <span>Profile</span>
-              </Link>
+             <DropdownMenuItem asChild>
+                <Link href={adminLink.href}>
+                    <adminLink.icon className="mr-2 h-4 w-4" />
+                    <span>{adminLink.label}</span>
+                </Link>
             </DropdownMenuItem>
             <DropdownMenuItem asChild>
               <Link href="/settings">
@@ -96,14 +125,15 @@ export default function Header() {
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
-      ) : (
-        <Button asChild variant="outline" size="sm">
-          <Link href="/auth">
-            <LogIn className="mr-2 h-4 w-4" />
-            Sign In
-          </Link>
-        </Button>
-      )}
+        ) : (
+          <Button asChild variant="outline" size="sm">
+            <Link href="/auth">
+              <LogIn className="mr-2 h-4 w-4" />
+              Sign In
+            </Link>
+          </Button>
+        )}
+      </div>
     </header>
   );
 }

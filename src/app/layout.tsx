@@ -36,12 +36,12 @@ export default function RootLayout({
             <Sidebar>
               <SidebarNav />
             </Sidebar>
-            <SidebarInset>
+            <div className="flex min-h-svh w-full flex-col">
               <Header />
-              <main className="min-h-[calc(100vh-4rem)] p-4 md:p-6 lg:p-8">
+              <main className="flex-1 p-4 md:p-6 lg:p-8">
                 {children}
               </main>
-            </SidebarInset>
+            </div>
           </SidebarProvider>
         </FirebaseClientProvider>
         <Toaster />

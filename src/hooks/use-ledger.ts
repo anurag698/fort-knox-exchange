@@ -1,7 +1,6 @@
 
 'use client';
 
-import { useMemo } from 'react';
 import { collection, query, orderBy } from 'firebase/firestore';
 import { useCollection, useFirestore, useUser, useMemoFirebase } from '@/firebase';
 import type { LedgerEntry } from '@/lib/types';

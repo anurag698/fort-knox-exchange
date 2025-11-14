@@ -1,7 +1,6 @@
 
 'use client';
 
-import { useMemo } from 'react';
 import { collection, query } from 'firebase/firestore';
 import { useCollection, useFirestore, useUser, useMemoFirebase } from '@/firebase';
 import type { Balance } from '@/lib/types';

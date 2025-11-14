@@ -1,7 +1,6 @@
 
 'use client';
 
-import { useMemo } from 'react';
 import { collection, query } from 'firebase/firestore';
 import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
 import type { Market } from '@/lib/types';
@@ -12,7 +11,7 @@ export function useMarkets() {
     () => (firestore ? collection(firestore, 'markets') : null),
     [firestore]
   );
-  const marketsQuery = useMemo(
+  const marketsQuery = useMemoFirebase(
     () => (marketsCollection ? query(marketsCollection) : null),
     [marketsCollection]
   );

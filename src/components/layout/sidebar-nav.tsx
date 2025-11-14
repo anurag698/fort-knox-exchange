@@ -14,7 +14,6 @@ import {
 import {
   Landmark,
   Database,
-  ShieldCheck,
   CandlestickChart,
   ArrowRightLeft,
   Settings,
@@ -25,7 +24,6 @@ import { cn } from "@/lib/utils";
 
 const mainLinks = [
   { href: "/", label: "Firestore Setup", icon: Database },
-  { href: "/moderate-withdrawal", label: "AI Moderation", icon: ShieldCheck },
   { href: "/markets", label: "Markets", icon: CandlestickChart },
   { href: "/trade", label: "Trade", icon: ArrowRightLeft },
   { href: "/ledger", label: "Ledger", icon: BookText },

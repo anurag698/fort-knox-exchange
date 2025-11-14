@@ -66,6 +66,28 @@ export async function seedInitialData(firestore: Firestore) {
       });
     }
 
+    const maticDoc = await assetsCol.doc('MATIC').get();
+    if (!maticDoc.exists) {
+        console.log("Seeding MATIC asset...");
+      await assetsCol.doc('MATIC').set({
+        id: 'MATIC',
+        name: 'Polygon',
+        symbol: 'MATIC',
+        createdAt: new Date(),
+      });
+    }
+
+    const dogeDoc = await assetsCol.doc('DOGE').get();
+    if (!dogeDoc.exists) {
+        console.log("Seeding DOGE asset...");
+      await assetsCol.doc('DOGE').set({
+        id: 'DOGE',
+        name: 'Dogecoin',
+        symbol: 'DOGE',
+        createdAt: new Date(),
+      });
+    }
+
 
     const btcUsdtMarket = await marketsCol.doc('BTC-USDT').get();
     if (!btcUsdtMarket.exists) {
@@ -124,6 +146,38 @@ export async function seedInitialData(firestore: Firestore) {
         quoteAssetId: 'USDT',
         minOrderSize: 1,
         pricePrecision: 4,
+        quantityPrecision: 0,
+        makerFee: 0.001,
+        takerFee: 0.001,
+        createdAt: new Date(),
+      });
+    }
+
+    const maticUsdtMarket = await marketsCol.doc('MATIC-USDT').get();
+    if (!maticUsdtMarket.exists) {
+        console.log("Seeding MATIC-USDT market...");
+      await marketsCol.doc('MATIC-USDT').set({
+        id: 'MATIC-USDT',
+        baseAssetId: 'MATIC',
+        quoteAssetId: 'USDT',
+        minOrderSize: 1,
+        pricePrecision: 4,
+        quantityPrecision: 2,
+        makerFee: 0.001,
+        takerFee: 0.001,
+        createdAt: new Date(),
+      });
+    }
+
+    const dogeUsdtMarket = await marketsCol.doc('DOGE-USDT').get();
+    if (!dogeUsdtMarket.exists) {
+        console.log("Seeding DOGE-USDT market...");
+      await marketsCol.doc('DOGE-USDT').set({
+        id: 'DOGE-USDT',
+        baseAssetId: 'DOGE',
+        quoteAssetId: 'USDT',
+        minOrderSize: 10,
+        pricePrecision: 6,
         quantityPrecision: 0,
         makerFee: 0.001,
         takerFee: 0.001,

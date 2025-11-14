@@ -329,6 +329,26 @@ export async function createSession(token: string) {
         createdAt: new Date(),
         updatedAt: new Date(),
       });
+      const dogeBalanceRef = balancesRef.doc('DOGE');
+      batch.set(dogeBalanceRef, {
+        id: dogeBalanceRef.id,
+        userId: decodedToken.uid,
+        assetId: 'DOGE',
+        available: 50000,
+        locked: 0,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      });
+      const maticBalanceRef = balancesRef.doc('MATIC');
+      batch.set(maticBalanceRef, {
+        id: maticBalanceRef.id,
+        userId: decodedToken.uid,
+        assetId: 'MATIC',
+        available: 2000,
+        locked: 0,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      });
 
       await batch.commit();
     }

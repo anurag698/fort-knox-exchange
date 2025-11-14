@@ -23,7 +23,7 @@
  * - /assets/{assetId}: Stores information about tradable assets. Publicly readable, writeable by admins only.
  *
  * Key Security Decisions:
- * - No user listing: The rules do not allow listing all users in the 'users' collection.
+ * - No user listing: The rules do not allow listing all users in the 'users' collection for non-admins.
  * - Backend-only writes for financial data: Balances, deposits, and withdrawals can only be modified by the backend.
  * - Public read access for market data: Markets and trades are publicly readable.
  * - Strict ownership checks: All user-specific data is protected by ownership checks based on the authenticated user's UID.
@@ -78,20 +78,19 @@ service cloud.firestore {
      * @description Rules for the /users/{userId} collection.
      * @path /users/{userId}
      * @allow (create) - Authenticated user creates their own profile with matching userId.
-     * @allow (get, delete) - Authenticated user can read or delete their own profile.
-     * @allow (update) - User can update their own non-critical data. Admin can update KYC status.
-     * @deny (list) - Listing users is not allowed for clients, but allowed for admins.
+     * @allow (get) - Authenticated user can read their own profile, admins can read any.
+     * @allow (list) - Listing users is allowed only for admins.
+     * @allow (update) - User can update their own username. Admin can update KYC status.
+     * @allow (delete) - User can delete their own profile.
      * @principle Enforces user-ownership and immutability of critical fields.
      */
     match /users/{userId} {
       allow create: if isOwner(userId) && request.resource.data.id == userId;
       allow get: if isOwner(userId) || isAdmin();
       allow list: if isAdmin();
-      allow update: if (isExistingOwner(userId) 
-                      && request.resource.data.id == resource.data.id
-                      && request.resource.data.email == resource.data.email
-                      && request.resource.data.kycStatus == resource.data.kycStatus)
-                      || (isAdmin() && request.resource.data.keys().hasOnly(['kycStatus', 'updatedAt']));
+      allow update: if (isOwner(userId) && request.resource.data.keys().hasOnly(['username', 'updatedAt']) && request.resource.data.id == resource.data.id)
+                      || (isAdmin() && request.resource.data.keys().hasOnly(['kycStatus', 'updatedAt']))
+                      || (isOwner(userId) && request.resource.data.kycStatus == 'PENDING' && resource.data.kycStatus != 'VERIFIED');
       allow delete: if isExistingOwner(userId);
     }
 
@@ -106,8 +105,8 @@ service cloud.firestore {
       allow create: if isOwner(userId) && request.resource.data.userId == userId;
       allow get: if isOwner(userId);
       allow list: if isOwner(userId);
-      allow update: if isExistingOwner(userId) && request.resource.data.userId == userId;
-      allow delete: if isExistingOwner(userId);
+      allow update: if isOwner(userId) && request.resource.data.userId == userId;
+      allow delete: if isOwner(userId);
     }
 
     /**
@@ -266,3 +265,5 @@ service cloud.firestore {
     }
   }
 }
+
+    

@@ -178,7 +178,7 @@ export default function SettingsPage() {
     return (
       <Form {...form}>
         <form action={profileFormAction} className="h-full flex flex-col">
-          <CardContent className="space-y-8 flex-grow">
+          <CardContent className="space-y-8 flex-grow pt-6">
             <div className="flex items-center space-x-6">
               <Avatar className="h-24 w-24">
                 {authUser?.photoURL ? (
@@ -244,7 +244,7 @@ export default function SettingsPage() {
           <kycInfo.icon className={`h-8 w-8 text-${kycInfo.variant === 'default' ? 'primary' : kycInfo.variant}`} />
         </div>
         <h3 className="text-xl font-semibold">{kycInfo.title}</h3>
-        <p className="text-muted-foreground mt-1">{kycInfo.description}</p>
+        <p className="text-muted-foreground mt-1 text-sm">{kycInfo.description}</p>
         <Badge variant={getKYCBadgeVariant(kycStatus)} className="mt-4">{kycStatus}</Badge>
       </CardContent>
     )
@@ -283,7 +283,7 @@ export default function SettingsPage() {
               <div className="flex-grow">
                 {renderKycContent()}
               </div>
-              <CardFooter className="border-t">
+              <CardFooter className="border-t pt-6">
                   <KycSubmitButton kycStatus={userProfile?.kycStatus} />
               </CardFooter>
             </Card>

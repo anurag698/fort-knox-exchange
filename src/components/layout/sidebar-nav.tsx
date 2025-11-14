@@ -19,7 +19,8 @@ import {
   Settings,
   UserCog,
   BookText,
-  Wallet
+  Wallet,
+  Users
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -39,7 +40,7 @@ const bottomLinks = [
 export default function SidebarNav() {
   const pathname = usePathname();
 
-  const renderLink = (link: typeof mainLinks[0], isBottom = false) => (
+  const renderLink = (link: typeof mainLinks[0]) => (
     <SidebarMenuItem key={link.href}>
       <SidebarMenuButton
         asChild
@@ -68,11 +69,43 @@ export default function SidebarNav() {
       </SidebarHeader>
       <SidebarContent className="flex-1 p-2">
         <SidebarMenu>{mainLinks.map(link => renderLink(link))}</SidebarMenu>
+         <SidebarMenu className="mt-4 border-t border-sidebar-border pt-4">
+            <SidebarMenuButton
+                asChild
+                isActive={pathname.startsWith('/admin')}
+                tooltip={{ children: "Admin", side: 'right', align: 'center' }}
+                className="justify-start"
+            >
+                <Link href="/admin">
+                    <UserCog className={cn("shrink-0 size-4", pathname.startsWith('/admin') && "text-sidebar-primary-foreground")}/>
+                    <span className={cn("truncate", pathname.startsWith('/admin') && "text-sidebar-primary-foreground font-semibold")}>Admin</span>
+                </Link>
+            </SidebarMenuButton>
+             {pathname.startsWith('/admin') && (
+                <div className="ml-4 mt-2 flex flex-col gap-1 border-l border-sidebar-border pl-4">
+                     <SidebarMenuButton
+                        asChild
+                        size="sm"
+                        isActive={pathname === '/admin'}
+                        className="justify-start"
+                     >
+                        <Link href="/admin">Dashboard</Link>
+                    </SidebarMenuButton>
+                     <SidebarMenuButton
+                        asChild
+                        size="sm"
+                        isActive={pathname === '/admin/users'}
+                        className="justify-start"
+                     >
+                        <Link href="/admin/users">Users</Link>
+                    </SidebarMenuButton>
+                </div>
+            )}
+        </SidebarMenu>
       </SidebarContent>
       <SidebarFooter className="border-t border-sidebar-border p-2">
-        <SidebarMenu>{bottomLinks.map(link => renderLink(link, true))}</SidebarMenu>
+        <SidebarMenu>{bottomLinks.filter(l => l.href !== '/admin').map(link => renderLink(link))}</SidebarMenu>
       </SidebarFooter>
     </>
   );
 }
-

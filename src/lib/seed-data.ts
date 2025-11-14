@@ -185,6 +185,85 @@ export async function seedInitialData(firestore: Firestore) {
       });
     }
 
+    const ethBtcMarket = await marketsCol.doc('ETH-BTC').get();
+    if (!ethBtcMarket.exists) {
+        console.log("Seeding ETH-BTC market...");
+      await marketsCol.doc('ETH-BTC').set({
+        id: 'ETH-BTC',
+        baseAssetId: 'ETH',
+        quoteAssetId: 'BTC',
+        minOrderSize: 0.001,
+        pricePrecision: 6,
+        quantityPrecision: 4,
+        makerFee: 0.001,
+        takerFee: 0.001,
+        createdAt: new Date(),
+      });
+    }
+
+    const solBtcMarket = await marketsCol.doc('SOL-BTC').get();
+    if (!solBtcMarket.exists) {
+        console.log("Seeding SOL-BTC market...");
+      await marketsCol.doc('SOL-BTC').set({
+        id: 'SOL-BTC',
+        baseAssetId: 'SOL',
+        quoteAssetId: 'BTC',
+        minOrderSize: 0.1,
+        pricePrecision: 8,
+        quantityPrecision: 2,
+        makerFee: 0.001,
+        takerFee: 0.001,
+        createdAt: new Date(),
+      });
+    }
+
+    const adaBtcMarket = await marketsCol.doc('ADA-BTC').get();
+    if (!adaBtcMarket.exists) {
+        console.log("Seeding ADA-BTC market...");
+      await marketsCol.doc('ADA-BTC').set({
+        id: 'ADA-BTC',
+        baseAssetId: 'ADA',
+        quoteAssetId: 'BTC',
+        minOrderSize: 10,
+        pricePrecision: 8,
+        quantityPrecision: 0,
+        makerFee: 0.001,
+        takerFee: 0.001,
+        createdAt: new Date(),
+      });
+    }
+
+    const maticBtcMarket = await marketsCol.doc('MATIC-BTC').get();
+    if (!maticBtcMarket.exists) {
+        console.log("Seeding MATIC-BTC market...");
+      await marketsCol.doc('MATIC-BTC').set({
+        id: 'MATIC-BTC',
+        baseAssetId: 'MATIC',
+        quoteAssetId: 'BTC',
+        minOrderSize: 10,
+        pricePrecision: 8,
+        quantityPrecision: 2,
+        makerFee: 0.001,
+        takerFee: 0.001,
+        createdAt: new Date(),
+      });
+    }
+
+    const dogeBtcMarket = await marketsCol.doc('DOGE-BTC').get();
+    if (!dogeBtcMarket.exists) {
+        console.log("Seeding DOGE-BTC market...");
+      await marketsCol.doc('DOGE-BTC').set({
+        id: 'DOGE-BTC',
+        baseAssetId: 'DOGE',
+        quoteAssetId: 'BTC',
+        minOrderSize: 100,
+        pricePrecision: 8,
+        quantityPrecision: 0,
+        makerFee: 0.001,
+        takerFee: 0.001,
+        createdAt: new Date(),
+      });
+    }
 
   } catch (error) {
     console.error("Error during data seeding:", error);

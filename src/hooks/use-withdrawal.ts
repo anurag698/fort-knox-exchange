@@ -42,7 +42,7 @@ export function useWithdrawal(withdrawalId: string) {
             if (!querySnapshot.empty) {
                 // There should only be one document with a unique withdrawalId
                 const doc = querySnapshot.docs[0];
-                setData({ id: doc.id, ...doc.data() } as Withdrawal);
+                setData({ ...(doc.data() as Omit<Withdrawal, 'id'>), id: doc.id });
             } else {
                 setData(null);
             }
@@ -61,7 +61,5 @@ export function useWithdrawal(withdrawalId: string) {
 
   return { data, isLoading, error };
 }
-
-    
 
     

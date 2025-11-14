@@ -14,6 +14,7 @@ export function useWithdrawals(status: Withdrawal['status'] = 'PENDING') {
 
   useEffect(() => {
     const checkAdmin = async () => {
+      setIsLoadingAdmin(true);
       if (user && firestore) {
         try {
           const userDoc = await getDoc(doc(firestore, 'users', user.uid));
@@ -53,9 +54,13 @@ export function useWithdrawals(status: Withdrawal['status'] = 'PENDING') {
 
   const { data, isLoading, error } = useCollection<Withdrawal>(withdrawalsQuery);
   
+  const finalIsLoading = isLoading || isLoadingAdmin;
+
   return { 
-      data: isAdmin ? data : [], 
-      isLoading: isLoading || isLoadingAdmin, 
-      error: isAdmin ? error : (user ? new Error("You do not have permission to view withdrawals.") : null)
+      data: !finalIsLoading && isAdmin ? data : [], 
+      isLoading: finalIsLoading, 
+      error: !finalIsLoading && !isAdmin ? new Error("You do not have permission to view withdrawals.") : error
   };
 }
+
+    

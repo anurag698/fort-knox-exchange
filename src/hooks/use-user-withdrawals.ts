@@ -1,7 +1,7 @@
 
 'use client';
 
-import { collection, query, where, orderBy } from 'firebase/firestore';
+import { collection, query, orderBy } from 'firebase/firestore';
 import { useCollection, useFirestore, useUser, useMemoFirebase } from '@/firebase';
 import type { Withdrawal } from '@/lib/types';
 
@@ -30,3 +30,5 @@ export function useUserWithdrawals(userId?: string) {
 
   return useCollection<Withdrawal>(withdrawalsQuery);
 }
+
+    

@@ -10,7 +10,6 @@ import { useUsers } from '@/hooks/use-users';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import Link from 'next/link';
-import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from '@/components/ui/tooltip';
 
 export default function AdminUsersPage() {
   const { data: users, isLoading, error } = useUsers();
@@ -149,3 +148,5 @@ export default function AdminUsersPage() {
     </div>
   );
 }
+
+    

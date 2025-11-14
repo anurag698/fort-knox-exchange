@@ -64,9 +64,11 @@ export function UserDeposits({ userId }: UserDepositsProps) {
                 <TableBody>
                     {deposits.map(deposit => {
                         const asset = assetsMap.get(deposit.assetId);
+                        const depositDate = deposit.createdAt?.toDate ? deposit.createdAt.toDate() : new Date();
+
                         return (
                             <TableRow key={deposit.id}>
-                                <TableCell>{deposit.createdAt.toDate().toLocaleDateString()}</TableCell>
+                                <TableCell>{depositDate.toLocaleDateString()}</TableCell>
                                 <TableCell>{asset?.symbol ?? 'N/A'}</TableCell>
                                 <TableCell>{deposit.amount}</TableCell>
                                 <TableCell><Badge variant="secondary">{deposit.status}</Badge></TableCell>
@@ -91,3 +93,5 @@ export function UserDeposits({ userId }: UserDepositsProps) {
     </Card>
   );
 }
+
+    

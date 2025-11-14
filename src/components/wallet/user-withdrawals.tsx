@@ -65,9 +65,10 @@ export function UserWithdrawals({ userId }: UserWithdrawalsProps) {
                 <TableBody>
                     {withdrawals.map(withdrawal => {
                         const asset = assetsMap.get(withdrawal.assetId);
+                        const withdrawalDate = withdrawal.createdAt?.toDate ? withdrawal.createdAt.toDate() : new Date();
                         return (
                             <TableRow key={withdrawal.id}>
-                                <TableCell>{withdrawal.createdAt.toDate().toLocaleDateString()}</TableCell>
+                                <TableCell>{withdrawalDate.toLocaleDateString()}</TableCell>
                                 <TableCell>{asset?.symbol ?? 'N/A'}</TableCell>
                                 <TableCell>{withdrawal.amount}</TableCell>
                                 <TableCell><Badge variant="secondary">{withdrawal.status}</Badge></TableCell>
@@ -93,3 +94,5 @@ export function UserWithdrawals({ userId }: UserWithdrawalsProps) {
     </Card>
   );
 }
+
+    

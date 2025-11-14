@@ -10,21 +10,32 @@ import { Badge } from '@/components/ui/badge';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { approveKyc, rejectKyc } from '@/app/actions';
-import { useActionState } from 'react';
+import { useActionState, useTransition } from 'react';
 import { useFormStatus } from 'react-dom';
 
 function KycButtons({ disabled }: { disabled: boolean }) {
-  const { pending: approvePending } = useFormStatus();
-  const { pending: rejectPending } = useFormStatus();
-  const pending = approvePending || rejectPending;
+  const [approvePending, startApproveTransition] = useTransition();
+  const [rejectPending, startRejectTransition] = useTransition();
+
+  const formStatus = useFormStatus();
+  const pending = formStatus.pending || approvePending || rejectPending;
 
   return (
     <div className="flex gap-2 w-full">
-      <Button className="w-full" disabled={disabled || pending} formAction={approveKyc}>
+       <Button 
+        className="w-full" 
+        disabled={disabled || pending}
+        onClick={() => startApproveTransition(() => (document.getElementById('approve-kyc-form') as HTMLFormElement | null)?.requestSubmit())}
+      >
         {approvePending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
         Approve KYC
       </Button>
-      <Button variant="destructive" className="w-full" disabled={disabled || pending} formAction={rejectKyc}>
+      <Button 
+        variant="destructive" 
+        className="w-full" 
+        disabled={disabled || pending}
+        onClick={() => startRejectTransition(() => (document.getElementById('reject-kyc-form') as HTMLFormElement | null)?.requestSubmit())}
+      >
         {rejectPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
         Reject KYC
       </Button>
@@ -35,7 +46,9 @@ function KycButtons({ disabled }: { disabled: boolean }) {
 
 export default function ManageUserPage({ params }: { params: { id: string } }) {
   const { data: user, isLoading, error } = useUserById(params.id);
-  const [_, formAction] = useActionState(approveKyc, { status: 'idle', message: '' });
+  const [approveState, approveAction] = useActionState(approveKyc, { status: 'idle', message: '' });
+  const [rejectState, rejectAction] = useActionState(rejectKyc, { status: 'idle', message: '' });
+
 
   const getKYCBadgeVariant = (status?: string) => {
     switch (status) {
@@ -133,23 +146,29 @@ export default function ManageUserPage({ params }: { params: { id: string } }) {
         </div>
       </div>
 
-        <form action={formAction}>
-            <Card>
-                <CardHeader>
-                <CardTitle>User Details</CardTitle>
-                <CardDescription>
-                    Review user information and manage their KYC status.
-                </CardDescription>
-                </CardHeader>
-                <CardContent>
-                    {renderContent()}
-                </CardContent>
-                <CardFooter className="flex flex-col gap-2 border-t pt-6">
+        
+        <Card>
+            <CardHeader>
+            <CardTitle>User Details</CardTitle>
+            <CardDescription>
+                Review user information and manage their KYC status.
+            </CardDescription>
+            </CardHeader>
+            <CardContent>
+                {renderContent()}
+            </CardContent>
+            <CardFooter className="flex flex-col gap-2 border-t pt-6">
+                 <form id="approve-kyc-form" action={approveAction} className="hidden">
                     <input type="hidden" name="userId" value={user?.id} />
-                    <KycButtons disabled={!user || user.kycStatus !== 'PENDING'} />
-                </CardFooter>
-            </Card>
-        </form>
+                </form>
+                <form id="reject-kyc-form" action={rejectAction} className="hidden">
+                    <input type="hidden" name="userId" value={user?.id} />
+                </form>
+                <KycButtons disabled={!user || user.kycStatus !== 'PENDING'} />
+            </CardFooter>
+        </Card>
     </div>
   );
 }
+
+    

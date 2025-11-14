@@ -14,6 +14,7 @@ export function useUsers() {
 
   useEffect(() => {
     const checkAdmin = async () => {
+      setIsLoadingAdmin(true);
       if (user && firestore) {
         try {
           const userDoc = await getDoc(doc(firestore, 'users', user.uid));
@@ -46,9 +47,13 @@ export function useUsers() {
   
   const { data, isLoading, error } = useCollection<UserProfile>(usersQuery);
 
+  const finalIsLoading = isLoading || isLoadingAdmin;
+
   return {
-      data: isAdmin ? data : [],
-      isLoading: isLoading || isLoadingAdmin,
-      error: isAdmin ? error : (user ? new Error("You do not have permission to view users.") : null)
+      data: !finalIsLoading && isAdmin ? data : [],
+      isLoading: finalIsLoading,
+      error: !finalIsLoading && !isAdmin ? new Error("You do not have permission to view users.") : error
   }
 }
+
+    

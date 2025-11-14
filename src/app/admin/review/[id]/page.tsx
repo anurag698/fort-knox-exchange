@@ -12,7 +12,7 @@ import { Badge } from '@/components/ui/badge';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { approveWithdrawal, rejectWithdrawal } from '@/app/actions';
-import { useActionState } from 'react';
+import { useActionState, useTransition } from 'react';
 import { useFormStatus } from 'react-dom';
 import { useAssets } from '@/hooks/use-assets';
 import type { Withdrawal } from '@/lib/types';
@@ -21,17 +21,28 @@ import { UserWithdrawals } from '@/components/wallet/user-withdrawals';
 
 
 function ModerationButtons({ disabled }: { disabled: boolean }) {
-  const { pending: approvePending } = useFormStatus();
-  const { pending: rejectPending } = useFormStatus();
-  const pending = approvePending || rejectPending;
+  const [approvePending, startApproveTransition] = useTransition();
+  const [rejectPending, startRejectTransition] = useTransition();
+  
+  const formStatus = useFormStatus();
+  const pending = formStatus.pending || approvePending || rejectPending;
 
   return (
     <div className="flex gap-2 w-full">
-      <Button className="w-full" disabled={disabled || pending} formAction={approveWithdrawal}>
+      <Button 
+        className="w-full" 
+        disabled={disabled || pending} 
+        onClick={() => startApproveTransition(() => (document.getElementById('approve-form') as HTMLFormElement | null)?.requestSubmit())}
+      >
         {approvePending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
         Approve
       </Button>
-      <Button variant="destructive" className="w-full" disabled={disabled || pending} formAction={rejectWithdrawal}>
+      <Button 
+        variant="destructive" 
+        className="w-full" 
+        disabled={disabled || pending}
+        onClick={() => startRejectTransition(() => (document.getElementById('reject-form') as HTMLFormElement | null)?.requestSubmit())}
+      >
         {rejectPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
         Reject
       </Button>
@@ -53,7 +64,8 @@ export default function ReviewWithdrawalPage({ params }: { params: { id: string 
   const { data: assets, isLoading: assetsLoading } = useAssets();
   const asset = assets?.find(a => a.id === withdrawal?.assetId);
 
-  const [_, formAction] = useActionState(approveWithdrawal, { status: 'idle', message: '' });
+  const [approveState, approveAction] = useActionState(approveWithdrawal, { status: 'idle', message: '' });
+  const [rejectState, rejectAction] = useActionState(rejectWithdrawal, { status: 'idle', message: '' });
 
 
   const isLoading = isWithdrawalLoading || isProfileLoading || assetsLoading;
@@ -183,21 +195,25 @@ export default function ReviewWithdrawalPage({ params }: { params: { id: string 
             </Card>
         </div>
         <div className="lg:col-span-1">
-             <form action={formAction} className="flex flex-col h-full">
-                <Card className="flex flex-col flex-grow">
-                    <CardHeader>
-                        <CardTitle>AI Risk Analysis</CardTitle>
-                        <CardDescription>AI-powered assessment of this request.</CardDescription>
-                    </CardHeader>
-                    <CardContent className="flex-grow">
-                      {renderAnalysis()}
-                    </CardContent>
-                    <CardFooter className="flex flex-col gap-2">
-                        <input type="hidden" name="withdrawalId" value={withdrawal?.id} />
-                        <ModerationButtons disabled={!withdrawal || withdrawal.status !== 'PENDING' } />
-                    </CardFooter>
-                </Card>
-            </form>
+            <Card className="flex flex-col h-full">
+                <CardHeader>
+                    <CardTitle>AI Risk Analysis</CardTitle>
+                    <CardDescription>AI-powered assessment of this request.</CardDescription>
+                </CardHeader>
+                <CardContent className="flex-grow">
+                  {renderAnalysis()}
+                </CardContent>
+                <CardFooter className="flex flex-col gap-2">
+                    {/* Hidden forms for actions */}
+                    <form id="approve-form" action={approveAction} className="hidden">
+                         <input type="hidden" name="withdrawalId" value={withdrawal?.id} />
+                    </form>
+                     <form id="reject-form" action={rejectAction} className="hidden">
+                         <input type="hidden" name="withdrawalId" value={withdrawal?.id} />
+                    </form>
+                    <ModerationButtons disabled={!withdrawal || withdrawal.status !== 'PENDING' } />
+                </CardFooter>
+            </Card>
         </div>
        </div>
        
@@ -209,3 +225,5 @@ export default function ReviewWithdrawalPage({ params }: { params: { id: string 
     </div>
   );
 }
+
+    

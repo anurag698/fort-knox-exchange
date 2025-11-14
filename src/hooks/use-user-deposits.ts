@@ -1,7 +1,7 @@
 
 'use client';
 
-import { collection, query, where, orderBy } from 'firebase/firestore';
+import { collection, query, orderBy } from 'firebase/firestore';
 import { useCollection, useFirestore, useUser, useMemoFirebase } from '@/firebase';
 import type { Deposit } from '@/lib/types';
 
@@ -30,3 +30,5 @@ export function useUserDeposits(userId?: string) {
 
   return useCollection<Deposit>(depositsQuery);
 }
+
+    

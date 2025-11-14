@@ -3,6 +3,7 @@ import { initializeApp, getApps, getApp, App } from 'firebase-admin/app';
 import { getAuth } from 'firebase-admin/auth';
 import { getFirestore } from 'firebase-admin/firestore';
 import { cookies } from 'next/headers';
+import { seedInitialData } from '@/lib/seed-data';
 
 const appName = 'firebase-admin-app-singleton';
 
@@ -54,7 +55,9 @@ export async function getUserIdFromSession() {
     return null;
   }
   try {
-    const { auth } = getFirebaseAdmin();
+    const { auth, firestore } = getFirebaseAdmin();
+    // Seed data on session verification as a robust check
+    await seedInitialData(firestore);
     const decodedToken = await auth.verifySessionCookie(sessionCookie, true);
     return decodedToken.uid;
   } catch (error) {

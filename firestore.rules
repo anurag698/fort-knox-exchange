@@ -116,14 +116,17 @@ service cloud.firestore {
      * @path /orders/{orderId}
      * @allow (create) - Authenticated user creates a new order. Must check if the `userId` is equal to the authenticated user id.
      * @allow (get, list) - Anyone can read order data.
-     * @deny (update, delete) - Only the backend can update or delete order data.
-     * @principle Allows public read access for order books.
+     * @allow (update) - The user who created the order can cancel it (by updating status to 'CANCELED').
+     * @deny (delete) - Only the backend can delete order data.
+     * @principle Allows public read access for order books and user-only cancellation.
      */
     match /orders/{orderId} {
       allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
       allow get: if true;
       allow list: if true;
-      allow update: if false;
+      allow update: if isSignedIn() 
+                      && request.auth.uid == resource.data.userId
+                      && request.resource.data.status == 'CANCELED';
       allow delete: if false;
     }
 

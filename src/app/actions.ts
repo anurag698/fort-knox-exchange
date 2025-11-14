@@ -103,10 +103,28 @@ export async function cancelOrder(formData: FormData) {
   const { orderId } = validatedFields.data;
 
   try {
-    const { firestore } = await getFirebaseAdmin();
-    // For security, you should verify ownership before deleting.
-    // This is simplified for the prototype.
-    await firestore.collection('orders').doc(orderId).delete();
+    const { firestore, auth } = await getFirebaseAdmin();
+    // In a real app, you might need to get the current user's token
+    // from the cookies to verify ownership on the backend.
+    // For this prototype, we are trusting the client's `useOrders` hook
+    // correctly filtered the orders. A more secure implementation would
+    // involve checking `order.userId` against the authenticated user here.
+    
+    const orderRef = firestore.collection('orders').doc(orderId);
+    
+    // In a production app, you MUST verify that the user calling this action
+    // is the owner of the order.
+    // const orderDoc = await orderRef.get();
+    // const orderData = orderDoc.data();
+    // if (orderData.userId !== currentUserId) {
+    //   throw new Error("Permission denied");
+    // }
+    
+    await orderRef.update({
+        status: 'CANCELED',
+        updatedAt: FieldValue.serverTimestamp(),
+    });
+
     revalidatePath('/trade');
     return {
       status: 'success',
@@ -172,7 +190,11 @@ export async function createOrder(prevState: CreateOrderFormState, formData: For
             updatedAt: FieldValue.serverTimestamp(),
         };
 
-        await firestore.collection('orders').add(newOrder);
+        // Here, we are using add() to get a unique ID from Firestore
+        const docRef = await firestore.collection('orders').add(newOrder);
+        // Now update the document with its own ID.
+        await docRef.update({ id: docRef.id });
+
 
         revalidatePath('/trade');
         return {

@@ -314,8 +314,8 @@ export async function seedInitialData(firestore: Firestore) {
       });
     }
 
-    const dogeEthMarket = await marketsCol.doc('DOGE-ETH').get();
-    if (!dogeEthMarket.exists) {
+    const finalDogeEthMarket = await marketsCol.doc('DOGE-ETH').get();
+    if (!finalDogeEthMarket.exists) {
         console.log("Seeding DOGE-ETH market...");
       await marketsCol.doc('DOGE-ETH').set({
         id: 'DOGE-ETH',

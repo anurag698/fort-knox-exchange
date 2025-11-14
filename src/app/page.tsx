@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { PopularCoins } from '@/components/home/popular-coins';
 import { NewsFeed } from '@/components/home/news-feed';
 import { DownloadApp } from '@/components/home/download-app';
+import { Faq } from '@/components/home/faq';
 import { ArrowRight, BookOpen } from 'lucide-react';
 import { useUser, useFirestore, useDoc, useMemoFirebase } from '@/firebase';
 import { doc } from 'firebase/firestore';
@@ -67,6 +68,7 @@ export default function Home() {
           </div>
       </div>
       <DownloadApp />
+      <Faq />
     </div>
   );
 }

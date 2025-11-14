@@ -45,7 +45,10 @@ export function usePrices() {
       return;
     }
     if (!assets || assets.length === 0) {
+      // If there are no assets, we can't fetch prices, but it's not an error state.
+      // We can just set loading to false and data to an empty object.
       setIsLoading(false);
+      setData({});
       return;
     }
 
@@ -63,6 +66,11 @@ export function usePrices() {
       }
 
       for (const asset of assets) {
+        if (asset.symbol === 'USDT') {
+          newPrices['USDT'] = 1.0;
+          continue;
+        }
+
         const fromTokenAddress = tokenAddresses[asset.symbol];
         if (!fromTokenAddress) {
             // If we don't have an address, we can't get a price. Skip it.
@@ -92,19 +100,27 @@ export function usePrices() {
           const price = parseFloat(formatUnits(quote.toTokenAmount, quote.toToken.decimals));
           newPrices[asset.symbol] = price;
 
-        } catch (e) {
+        } catch (e)
+        {
           console.error(`Error fetching price for ${asset.symbol}:`, e);
         }
       }
       
-      // Ensure USDT is always priced at 1.0
-      newPrices['USDT'] = 1.0;
+      // Ensure USDT is always priced at 1.0, even if assets list is empty
+      if (!newPrices['USDT']) {
+        newPrices['USDT'] = 1.0;
+      }
 
       setData(newPrices);
       setIsLoading(false);
     };
 
     fetchPrices();
+    // Set up an interval to refetch prices every 30 seconds
+    const intervalId = setInterval(fetchPrices, 30000); 
+
+    // Cleanup interval on component unmount
+    return () => clearInterval(intervalId);
 
   }, [assets, assetsLoading, assetsError]);
 

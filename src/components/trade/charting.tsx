@@ -1,13 +1,13 @@
+
 "use client"
 
-import { TrendingUp } from "lucide-react"
+import { useMemo } from "react";
 import { CartesianGrid, Line, LineChart, XAxis, YAxis } from "recharts"
-
+import { usePrices } from "@/hooks/use-prices";
 import {
   Card,
   CardContent,
   CardDescription,
-  CardFooter,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
@@ -17,8 +17,9 @@ import {
   ChartTooltip,
   ChartTooltipContent,
 } from "@/components/ui/chart"
+import { Skeleton } from "@/components/ui/skeleton";
 
-const chartData = [
+const initialChartData = [
   { date: "2024-05-01", price: 63500 },
   { date: "2024-05-02", price: 62800 },
   { date: "2024-05-03", price: 64100 },
@@ -38,20 +39,42 @@ const chartData = [
 
 const chartConfig = {
   price: {
-    label: "Price",
+    label: "Price (USDT)",
     color: "hsl(var(--chart-1))",
   },
 } satisfies ChartConfig
 
 export function Charting() {
-  return (
-    <Card className="flex-grow">
-      <CardHeader>
-        <CardTitle>BTC/USDT</CardTitle>
-        <CardDescription>May 2024 Price History</CardDescription>
-      </CardHeader>
-      <CardContent>
-        <ChartContainer config={chartConfig} className="h-96 w-full">
+  const { data: prices, isLoading, error } = usePrices();
+  const btcPrice = prices?.['BTC'];
+
+  const chartData = useMemo(() => {
+    if (!btcPrice) return initialChartData;
+    const newData = [...initialChartData];
+    // Replace the last point with the live price
+    newData[newData.length - 1] = {
+      date: new Date().toISOString().split('T')[0],
+      price: btcPrice,
+    };
+    return newData;
+  }, [btcPrice]);
+
+
+  const renderContent = () => {
+    if (isLoading) {
+      return <Skeleton className="h-96 w-full" />;
+    }
+
+    if (error) {
+      return (
+        <div className="h-96 flex items-center justify-center text-muted-foreground">
+          Error loading price chart.
+        </div>
+      );
+    }
+    
+    return (
+       <ChartContainer config={chartConfig} className="h-96 w-full">
           <LineChart
             accessibilityLayer
             data={chartData}
@@ -66,7 +89,7 @@ export function Charting() {
               tickLine={false}
               axisLine={false}
               tickMargin={8}
-              tickFormatter={(value) => `$${value / 1000}k`}
+              tickFormatter={(value) => `$${(value / 1000).toFixed(1)}k`}
               domain={['dataMin - 1000', 'dataMax + 1000']}
             />
             <XAxis
@@ -91,10 +114,24 @@ export function Charting() {
               type="monotone"
               stroke="hsl(var(--chart-1))"
               strokeWidth={2}
-              dot={false}
+              dot={true}
             />
           </LineChart>
         </ChartContainer>
+    );
+  }
+
+
+  return (
+    <Card className="flex-grow">
+      <CardHeader>
+        <CardTitle>BTC/USDT</CardTitle>
+        {isLoading && <CardDescription>Fetching live price...</CardDescription>}
+        {btcPrice && !isLoading && <CardDescription>Live Price: ${btcPrice.toLocaleString()}</CardDescription>}
+        {!isLoading && !btcPrice && <CardDescription>Price data unavailable</CardDescription>}
+      </CardHeader>
+      <CardContent>
+        {renderContent()}
       </CardContent>
     </Card>
   )

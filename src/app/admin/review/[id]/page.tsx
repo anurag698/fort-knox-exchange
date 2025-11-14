@@ -14,9 +14,11 @@ import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { checkWithdrawal, approveWithdrawal, rejectWithdrawal } from '@/app/actions';
 import { useFormState, useFormStatus } from 'react-dom';
-import { useEffect } from 'react';
+import { useEffect, useMemo } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { useAssets } from '@/hooks/use-assets';
+import { useUserWithdrawals } from '@/hooks/use-user-withdrawals';
+import type { Withdrawal } from '@/lib/types';
 
 function AnalyzeButton() {
   const { pending } = useFormStatus();
@@ -62,12 +64,38 @@ export default function ReviewWithdrawalPage({ params }: { params: { id: string 
   const { data: userProfile, isLoading: isProfileLoading, error: profileError } = useDoc(userDocRef);
   const { data: assets, isLoading: assetsLoading } = useAssets();
   const asset = assets?.find(a => a.id === withdrawal?.assetId);
+  const { data: withdrawalHistory, isLoading: isHistoryLoading } = useUserWithdrawals(withdrawal?.userId);
 
   const [state, formAction] = useFormState(checkWithdrawal, {
     status: 'idle',
     message: '',
     result: null,
   });
+
+   const withdrawalHistorySummary = useMemo(() => {
+    if (isHistoryLoading) return "Loading withdrawal history...";
+    if (!withdrawalHistory || withdrawalHistory.length === 0) {
+      return "No prior withdrawal history found for this user.";
+    }
+
+    const completed = withdrawalHistory.filter(w => w.status === 'COMPLETED' || w.status === 'SENT');
+    const pending = withdrawalHistory.filter(w => w.status === 'PENDING');
+    const rejected = withdrawalHistory.filter(w => w.status === 'REJECTED');
+
+    let summary = `User has a history of ${withdrawalHistory.length} withdrawal(s).`;
+    if (completed.length > 0) {
+      const totalAmount = completed.reduce((sum, w) => sum + w.amount, 0);
+      summary += ` ${completed.length} completed (approx. total ${totalAmount.toFixed(2)}),`;
+    }
+    if (pending.length > 1) { // > 1 to exclude the current one
+      summary += ` ${pending.length -1 } other pending,`;
+    }
+     if (rejected.length > 0) {
+      summary += ` ${rejected.length} rejected.`;
+    }
+
+    return summary.trim().replace(/,$/, '.');
+  }, [withdrawalHistory, isHistoryLoading]);
 
   useEffect(() => {
     if (state.status === 'error') {
@@ -80,7 +108,7 @@ export default function ReviewWithdrawalPage({ params }: { params: { id: string 
   }, [state, toast]);
 
 
-  const isLoading = isWithdrawalLoading || isProfileLoading || assetsLoading;
+  const isLoading = isWithdrawalLoading || isProfileLoading || assetsLoading || isHistoryLoading;
   const error = withdrawalError || profileError;
 
   const renderContent = () => {
@@ -207,7 +235,7 @@ export default function ReviewWithdrawalPage({ params }: { params: { id: string 
             </Card>
         </div>
         <div className="lg:col-span-1">
-             <form className="flex flex-col h-full">
+             <form action={formAction} className="flex flex-col h-full">
                 <Card className="flex flex-col flex-grow">
                     <CardHeader>
                         <CardTitle>AI Risk Analysis</CardTitle>
@@ -225,7 +253,7 @@ export default function ReviewWithdrawalPage({ params }: { params: { id: string 
                         <input type="hidden" name="withdrawalAddress" value={withdrawal?.withdrawalAddress} />
                         <input type="hidden" name="userKYCStatus" value={userProfile?.kycStatus} />
                         <input type="hidden" name="userAccountCreationDate" value={userProfile?.createdAt?.toDate().toISOString().split('T')[0]} />
-                        <input type="hidden" name="userWithdrawalHistory" value="User has made 2 small withdrawals in the past 6 months, both to verified addresses." />
+                        <input type="hidden" name="userWithdrawalHistory" value={withdrawalHistorySummary} />
 
                         <AnalyzeButton />
                         <ModerationButtons disabled={state.status !== 'success'} />

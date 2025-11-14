@@ -120,8 +120,8 @@ export function usePrices() {
     };
 
     fetchPrices();
-    // Set up an interval to refetch prices every 15 seconds
-    const intervalId = setInterval(fetchPrices, 15000); 
+    // Set up an interval to refetch prices every 5 seconds
+    const intervalId = setInterval(fetchPrices, 5000); 
 
     // Cleanup interval on component unmount
     return () => clearInterval(intervalId);

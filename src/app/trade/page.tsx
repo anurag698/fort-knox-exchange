@@ -1,3 +1,5 @@
+
+import { Balances } from "@/components/trade/balances";
 import { Charting } from "@/components/trade/charting";
 import { OrderBook } from "@/components/trade/order-book";
 import { OrderForm } from "@/components/trade/order-form";
@@ -12,6 +14,7 @@ export default function TradePage() {
       </div>
       <div className="lg:col-span-1 flex flex-col gap-4">
         <OrderBook />
+        <Balances />
         <OrderForm />
       </div>
     </div>

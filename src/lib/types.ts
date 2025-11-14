@@ -65,3 +65,13 @@ export type LedgerEntry = {
   description?: string;
   createdAt: any;
 };
+
+export type Balance = {
+  id: string;
+  userId: string;
+  assetId: string;
+  available: number;
+  locked: number;
+  createdAt: any;
+  updatedAt: any;
+};

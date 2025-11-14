@@ -6,7 +6,7 @@ class OneInchConfig {
   private readonly baseUrls: { [chainId: number]: string };
 
   constructor() {
-    this.apiKey = process.env.ONEINCH_API_KEY || '';
+    this.apiKey = process.env.ONEINCH_API_KEY || 'n7vYfn4JWkisRdkbfycph7OLW36YWp4l';
     if (!this.apiKey) {
       console.warn('1inch API key not found. Please set ONEINCH_API_KEY in your .env file.');
     }

@@ -10,6 +10,8 @@ export type Market = {
   makerFee: number;
   takerFee: number;
   createdAt: string;
+  change: number; // For mock data
+  volume: number; // For mock data
 };
 
 export type Asset = {

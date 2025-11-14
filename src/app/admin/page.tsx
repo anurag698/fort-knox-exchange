@@ -13,19 +13,24 @@ import { useMemo } from 'react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import Link from 'next/link';
-
-// Placeholder data - in a real app, this would be fetched from your backend.
-const summaryStats = [
-  { title: "Total Users", value: "1,234", icon: Users },
-  { title: "Active Markets", value: "5", icon: CandlestickChart },
-  { title: "Pending Withdrawals", value: "12", icon: ShieldAlert },
-];
+import { useUsersCount } from '@/hooks/use-users-count';
+import { useMarketsCount } from '@/hooks/use-markets-count';
+import { useWithdrawalsCount } from '@/hooks/use-withdrawals-count';
 
 
 export default function AdminPage() {
   useAuthGate();
   const { data: withdrawals, isLoading, error } = useWithdrawals('PENDING');
   const { data: assets, isLoading: assetsLoading } = useAssets();
+  const { count: usersCount, isLoading: usersLoading } = useUsersCount();
+  const { count: marketsCount, isLoading: marketsLoading } = useMarketsCount();
+  const { count: withdrawalsCount, isLoading: withdrawalsCountLoading } = useWithdrawalsCount('PENDING');
+
+  const summaryStats = [
+    { title: "Total Users", value: usersCount, isLoading: usersLoading, icon: Users },
+    { title: "Active Markets", value: marketsCount, isLoading: marketsLoading, icon: CandlestickChart },
+    { title: "Pending Withdrawals", value: withdrawalsCount, isLoading: withdrawalsCountLoading, icon: ShieldAlert },
+  ];
 
   const assetsMap = useMemo(() => {
     if (!assets) return new Map();
@@ -126,7 +131,11 @@ export default function AdminPage() {
               <stat.icon className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{stat.value}</div>
+              {stat.isLoading ? (
+                 <Skeleton className="h-8 w-20" />
+              ) : (
+                <div className="text-2xl font-bold">{stat.value}</div>
+              )}
             </CardContent>
           </Card>
         ))}

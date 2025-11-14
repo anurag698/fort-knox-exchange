@@ -415,3 +415,37 @@ export async function rejectKyc(prevState: any, formData: FormData) {
     revalidatePath(`/admin/users/${userId}`);
     redirect(`/admin/users/${userId}`);
 }
+
+export async function submitKyc(prevState: any, formData: FormData): Promise<FormState> {
+  const userId = await getUserIdFromSession();
+  if (!userId) {
+     return { status: 'error', message: 'Authentication required.' };
+  }
+
+  try {
+    // In a real app, you would upload documents to Cloud Storage and
+    // then update the user's status. For this demo, we just confirm
+    // that the status is PENDING and provide feedback.
+    const { firestore } = getFirebaseAdmin();
+    const userRef = firestore.collection('users').doc(userId);
+    const userDoc = await userRef.get();
+
+    if (!userDoc.exists || userDoc.data()?.kycStatus !== 'PENDING') {
+      return { status: 'error', message: 'KYC status is not eligible for submission.' };
+    }
+    
+    // No actual state change, just revalidating path to reflect any potential updates
+    // and giving success feedback.
+    revalidatePath('/settings');
+    return {
+      status: 'success',
+      message: 'Your KYC information has been submitted for review.',
+    };
+  } catch (error) {
+    console.error("KYC Submission Error:", error);
+    return {
+      status: 'error',
+      message: 'Failed to submit KYC information.',
+    };
+  }
+}

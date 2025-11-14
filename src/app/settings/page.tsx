@@ -12,14 +12,16 @@ import { useToast } from '@/hooks/use-toast';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { AlertCircle, User as UserIcon, Loader2 } from 'lucide-react';
+import { AlertCircle, User as UserIcon, Loader2, ShieldCheck, ShieldAlert, Shield } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
-import { updateUserProfile } from '@/app/actions';
+import { updateUserProfile, submitKyc } from '@/app/actions';
+import type { UserProfile } from '@/lib/types';
+
 
 const profileSchema = z.object({
   username: z.string().min(3, "Username must be at least 3 characters."),
@@ -37,6 +39,17 @@ function SubmitButton() {
   );
 }
 
+function KycSubmitButton({ disabled } : { disabled: boolean }) {
+  const { pending } = useFormStatus();
+  return (
+    <Button type="submit" disabled={disabled || pending}>
+      {pending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+      Submit for Verification
+    </Button>
+  );
+}
+
+
 export default function SettingsPage() {
   const { user: authUser, isUserLoading: isAuthLoading } = useUser();
   const firestore = useFirestore();
@@ -47,9 +60,11 @@ export default function SettingsPage() {
     [firestore, authUser]
   );
 
-  const { data: userProfile, isLoading: isProfileLoading, error } = useDoc(userDocRef);
+  const { data: userProfile, isLoading: isProfileLoading, error } = useDoc<UserProfile>(userDocRef);
 
-  const [formState, formAction] = useFormState(updateUserProfile, { status: "idle", message: "" });
+  const [profileFormState, profileFormAction] = useFormState(updateUserProfile, { status: "idle", message: "" });
+  const [kycFormState, kycFormAction] = useFormState(submitKyc, { status: "idle", message: "" });
+
 
   const form = useForm<ProfileFormValues>({
     resolver: zodResolver(profileSchema),
@@ -65,12 +80,20 @@ export default function SettingsPage() {
   }, [userProfile, form]);
   
   useEffect(() => {
-    if (formState.status === 'success') {
-      toast({ title: "Success", description: formState.message });
-    } else if (formState.status === 'error') {
-      toast({ variant: "destructive", title: "Error", description: formState.message });
+    if (profileFormState.status === 'success') {
+      toast({ title: "Success", description: profileFormState.message });
+    } else if (profileFormState.status === 'error') {
+      toast({ variant: "destructive", title: "Error", description: profileFormState.message });
     }
-  }, [formState, toast]);
+  }, [profileFormState, toast]);
+
+  useEffect(() => {
+    if (kycFormState.status === 'success') {
+      toast({ title: "KYC Submitted", description: kycFormState.message });
+    } else if (kycFormState.status === 'error') {
+      toast({ variant: "destructive", title: "KYC Error", description: kycFormState.message });
+    }
+  }, [kycFormState, toast]);
 
   const isLoading = isAuthLoading || isProfileLoading;
   const userAvatar = PlaceHolderImages.find(img => img.id === 'user-avatar');
@@ -85,7 +108,7 @@ export default function SettingsPage() {
     return 'U';
   };
 
-  const getKYCBadgeVariant = (status: string) => {
+  const getKYCBadgeVariant = (status?: string) => {
     switch (status) {
       case 'VERIFIED':
         return 'default';
@@ -98,7 +121,7 @@ export default function SettingsPage() {
     }
   };
 
-  const renderContent = () => {
+  const renderProfileContent = () => {
     if (isLoading) {
       return (
         <div className="space-y-6">
@@ -149,7 +172,7 @@ export default function SettingsPage() {
 
     return (
       <Form {...form}>
-        <form action={formAction}>
+        <form action={profileFormAction}>
           <CardContent className="space-y-8">
             <div className="flex items-center space-x-6">
               <Avatar className="h-24 w-24">
@@ -164,8 +187,10 @@ export default function SettingsPage() {
                 <h2 className="text-2xl font-bold">{userProfile.username}</h2>
                 <p className="text-muted-foreground">{userProfile.email}</p>
                 <div className="flex items-center gap-2 pt-1">
-                    <span className="font-medium text-sm">KYC Status:</span>
-                    <Badge variant={getKYCBadgeVariant(userProfile.kycStatus)}>{userProfile.kycStatus}</Badge>
+                    <span className="font-medium text-sm">Member since:</span>
+                    <p className="text-sm text-muted-foreground">
+                        {creationDate ? creationDate.toLocaleDateString() : 'N/A'}
+                    </p>
                 </div>
               </div>
             </div>
@@ -184,9 +209,6 @@ export default function SettingsPage() {
               )}
             />
             
-            <p className="text-sm text-muted-foreground">
-              Member since: {creationDate ? creationDate.toLocaleDateString() : 'N/A'}
-            </p>
           </CardContent>
           <CardFooter className="border-t px-6 py-4">
             <SubmitButton />
@@ -195,6 +217,33 @@ export default function SettingsPage() {
       </Form>
     );
   };
+
+  const renderKycContent = () => {
+    if(isLoading) {
+      return <Skeleton className="h-24 w-full" />;
+    }
+
+    if(!userProfile) return null;
+
+    const { kycStatus } = userProfile;
+
+    const kycInfo = {
+      VERIFIED: { icon: ShieldCheck, title: "KYC Verified", description: "Your identity has been successfully verified. You have full access to all features.", variant: "default" },
+      PENDING: { icon: ShieldAlert, title: "KYC Pending", description: "Your information is under review. This may take 1-3 business days.", variant: "secondary" },
+      REJECTED: { icon: ShieldAlert, title: "KYC Rejected", description: "There was an issue with your verification. Please contact support.", variant: "destructive" },
+    }[kycStatus] || { icon: Shield, title: "KYC Required", description: "Please submit your information for verification to access all features.", variant: "outline" };
+
+    return (
+       <CardContent className="flex flex-col items-center justify-center text-center pt-6">
+        <div className={`flex h-16 w-16 items-center justify-center rounded-full bg-${kycInfo.variant}/20 mb-4`}>
+          <kycInfo.icon className={`h-8 w-8 text-${kycInfo.variant === 'default' ? 'primary' : kycInfo.variant}`} />
+        </div>
+        <h3 className="text-xl font-semibold">{kycInfo.title}</h3>
+        <p className="text-muted-foreground mt-1">{kycInfo.description}</p>
+        <Badge variant={getKYCBadgeVariant(kycStatus)} className="mt-4">{kycStatus}</Badge>
+      </CardContent>
+    )
+  }
 
   return (
     <div className="flex flex-col gap-8">
@@ -206,15 +255,36 @@ export default function SettingsPage() {
           Manage your account and security settings.
         </p>
       </div>
-      <Card>
-        <CardHeader>
-          <CardTitle>My Profile</CardTitle>
-          <CardDescription>
-            Update your personal information on Fort Knox Exchange.
-          </CardDescription>
-        </CardHeader>
-        {renderContent()}
-      </Card>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <div className="lg:col-span-2">
+          <Card>
+            <CardHeader>
+              <CardTitle>My Profile</CardTitle>
+              <CardDescription>
+                Update your personal information on Fort Knox Exchange.
+              </CardDescription>
+            </CardHeader>
+            {renderProfileContent()}
+          </Card>
+        </div>
+        <div className="lg:col-span-1">
+          <form action={kycFormAction}>
+            <Card className="h-full flex flex-col">
+              <CardHeader>
+                <CardTitle>KYC Verification</CardTitle>
+                <CardDescription>Verify your identity to unlock full features.</CardDescription>
+              </CardHeader>
+              <div className="flex-grow">
+                {renderKycContent()}
+              </div>
+              <CardFooter className="border-t">
+                  <KycSubmitButton disabled={isLoading || userProfile?.kycStatus !== 'PENDING'} />
+              </CardFooter>
+            </Card>
+          </form>
+        </div>
+      </div>
     </div>
   );
 }

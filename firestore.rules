@@ -28,6 +28,7 @@
  * - Public read access for market data: Markets and trades are publicly readable.
  * - Strict ownership checks: All user-specific data is protected by ownership checks based on the authenticated user's UID.
  * - Immutable Fields: Certain fields like user ID and email cannot be changed after creation.
+ * - KYC for withdrawals: Users must have a 'VERIFIED' KYC status to create withdrawal requests.
  *
  * Denormalization for Authorization:
  *  - User ID is included in all user-owned documents, enabling direct ownership checks without additional reads.
@@ -62,6 +63,13 @@ service cloud.firestore {
      */
     function isAdmin() {
         return isSignedIn() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true;
+    }
+
+    /**
+      * @description Checks if the user's KYC status is verified.
+      */
+    function isKycVerified(userId) {
+        return get(/databases/$(database)/documents/users/$(userId)).data.kycStatus == 'VERIFIED';
     }
 
     /**
@@ -192,14 +200,14 @@ service cloud.firestore {
      * @description Rules for the /users/{userId}/withdrawals/{withdrawalId} collection.
      * @path /users/{userId}/withdrawals/{withdrawalId}
      * @allow (get, list) - Authenticated user reads their own withdrawal data.
-     * @allow (create) - Authenticated user can create their own withdrawal request.
+     * @allow (create) - Authenticated user can create their own withdrawal request if KYC is verified.
      * @deny (update, delete) - Only the backend can update, or delete withdrawal data.
-     * @principle Restricts write access to backend only for financial data.
+     * @principle Restricts write access to backend only for financial data and requires KYC.
      */
     match /users/{userId}/withdrawals/{withdrawalId} {
       allow get: if isOwner(userId) || isAdmin();
       allow list: if isOwner(userId) || isAdmin();
-      allow create: if isOwner(userId) && request.resource.data.userId == userId;
+      allow create: if isOwner(userId) && request.resource.data.userId == userId && isKycVerified(userId);
       allow update: if false;
       allow delete: if false;
     }

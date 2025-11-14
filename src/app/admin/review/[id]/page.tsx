@@ -12,7 +12,7 @@ import { AlertCircle, ArrowLeft, ShieldAlert, ShieldCheck, Loader2 } from 'lucid
 import { Badge } from '@/components/ui/badge';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
-import { checkWithdrawal } from '@/app/actions';
+import { checkWithdrawal, approveWithdrawal, rejectWithdrawal } from '@/app/actions';
 import { useFormState, useFormStatus } from 'react-dom';
 import { useEffect } from 'react';
 import { useToast } from '@/hooks/use-toast';
@@ -25,6 +25,22 @@ function AnalyzeButton() {
       {pending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <ShieldCheck className="mr-2 h-4 w-4" />}
       Analyze Now
     </Button>
+  );
+}
+
+function ModerationButtons({ disabled }: { disabled: boolean }) {
+  const { pending } = useFormStatus();
+  return (
+    <div className="flex gap-2 w-full">
+      <Button className="w-full" disabled={disabled || pending} formAction={approveWithdrawal}>
+        {pending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+        Approve
+      </Button>
+      <Button variant="destructive" className="w-full" disabled={disabled || pending} formAction={rejectWithdrawal}>
+        {pending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+        Reject
+      </Button>
+    </div>
   );
 }
 
@@ -188,16 +204,17 @@ export default function ReviewWithdrawalPage({ params }: { params: { id: string 
             </Card>
         </div>
         <div className="lg:col-span-1">
-             <Card>
-                <CardHeader>
-                    <CardTitle>AI Risk Analysis</CardTitle>
-                    <CardDescription>AI-powered assessment of this request.</CardDescription>
-                </CardHeader>
-                <CardContent>
-                   {renderAnalysis()}
-                </CardContent>
-                <CardFooter className="flex flex-col gap-2">
-                    <form action={formAction} className="w-full">
+             <form action={formAction} className="flex flex-col h-full">
+                <Card className="flex flex-col flex-grow">
+                    <CardHeader>
+                        <CardTitle>AI Risk Analysis</CardTitle>
+                        <CardDescription>AI-powered assessment of this request.</CardDescription>
+                    </CardHeader>
+                    <CardContent className="flex-grow">
+                      {renderAnalysis()}
+                    </CardContent>
+                    <CardFooter className="flex flex-col gap-2">
+                        {/* Hidden fields for all actions */}
                         <input type="hidden" name="userId" value={withdrawal?.userId} />
                         <input type="hidden" name="withdrawalId" value={withdrawal?.id} />
                         <input type="hidden" name="amount" value={withdrawal?.amount} />
@@ -206,19 +223,15 @@ export default function ReviewWithdrawalPage({ params }: { params: { id: string 
                         <input type="hidden" name="userKYCStatus" value={userProfile?.kycStatus} />
                         <input type="hidden" name="userAccountCreationDate" value={userProfile?.createdAt?.toDate().toISOString().split('T')[0]} />
                         <input type="hidden" name="userWithdrawalHistory" value="User has made 2 small withdrawals in the past 6 months, both to verified addresses." />
+
                         <AnalyzeButton />
-                    </form>
-                   <div className="flex gap-2 w-full">
-                    <Button className="w-full" disabled={state.status !== 'success'}>Approve</Button>
-                    <Button variant="destructive" className="w-full" disabled={state.status !== 'success'}>Reject</Button>
-                   </div>
-                </CardFooter>
-            </Card>
+                        <ModerationButtons disabled={state.status !== 'success'} />
+                    </CardFooter>
+                </Card>
+            </form>
         </div>
        </div>
 
     </div>
   );
 }
-
-    

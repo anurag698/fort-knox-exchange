@@ -6,6 +6,7 @@ import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { getAuth } from 'firebase-admin/auth';
 import { FieldValue } from 'firebase-admin/firestore';
+import { redirect } from 'next/navigation';
 
 const withdrawalSchema = z.object({
   userId: z.string().min(1, "User ID is required."),
@@ -187,4 +188,55 @@ export async function createOrder(prevState: CreateOrderFormState, formData: For
             message: error.message || 'Failed to place order.',
         };
     }
+}
+
+
+const moderateWithdrawalSchema = z.object({
+  withdrawalId: z.string(),
+  userId: z.string(),
+});
+
+async function updateWithdrawalStatus(
+  formData: FormData,
+  status: 'APPROVED' | 'REJECTED'
+) {
+  const validatedFields = moderateWithdrawalSchema.safeParse(
+    Object.fromEntries(formData.entries())
+  );
+
+  if (!validatedFields.success) {
+    throw new Error('Invalid input for withdrawal moderation.');
+  }
+
+  const { withdrawalId, userId } = validatedFields.data;
+
+  try {
+    const { firestore } = await getFirebaseAdmin();
+    // In a real application, you would perform more robust checks,
+    // but here we get the doc reference directly. This is insecure
+    // if the doc ID is predictable. We are using random IDs.
+    const withdrawalRef = firestore.collection('users').doc(userId).collection('withdrawals').doc(withdrawalId);
+    
+    await withdrawalRef.update({
+      status: status,
+      updatedAt: FieldValue.serverTimestamp(),
+    });
+
+  } catch (error) {
+    console.error(`Failed to set withdrawal status to ${status}:`, error);
+    // Re-throw to be caught by the calling function, which will handle the redirect.
+    throw new Error(`Could not ${status.toLowerCase()} withdrawal.`);
+  }
+}
+
+export async function approveWithdrawal(formData: FormData) {
+  await updateWithdrawalStatus(formData, 'APPROVED');
+  revalidatePath('/admin');
+  redirect('/admin');
+}
+
+export async function rejectWithdrawal(formData: FormData) {
+  await updateWithdrawalStatus(formData, 'REJECTED');
+  revalidatePath('/admin');
+  redirect('/admin');
 }

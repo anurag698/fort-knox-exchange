@@ -36,9 +36,6 @@ export function getFirebaseAdmin() {
 
         const adminApp = initializeApp({ credential }, appName);
         
-        // Seed data on initial app initialization
-        seedInitialData(getFirestore(adminApp)).catch(console.error);
-
         return { 
             firestore: getFirestore(adminApp), 
             auth: getAuth(adminApp), 
@@ -58,9 +55,7 @@ export async function getUserIdFromSession() {
     return null;
   }
   try {
-    const { auth, firestore } = getFirebaseAdmin();
-    // Seed data on session verification as a robust check
-    await seedInitialData(firestore);
+    const { auth } = getFirebaseAdmin();
     const decodedToken = await auth.verifySessionCookie(sessionCookie, true);
     return decodedToken.uid;
   } catch (error) {

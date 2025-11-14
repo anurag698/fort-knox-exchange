@@ -47,26 +47,37 @@ function hslToHex(h: number, s: number, l: number) {
 
 /**
  * Gets a computed CSS variable from the document root and returns it as a Hex color string.
- * @param varName The name of the CSS variable (e.g., '--primary').
+ * @param varName The name of the CSS variable (e.g., 'foreground' or 'destructive').
  * @returns The computed color value as a Hex string (e.g., '#ffffff').
  */
 export function getThemeColor(varName: string): string {
     if (typeof window === 'undefined') {
         // Return a default/fallback color for SSR
-        if (varName.includes('foreground')) return '#f8fafc';
-        if (varName.includes('border')) return '#3f3f46';
-        return '#09090b';
+        switch (varName) {
+            case 'foreground': return '#f8fafc';
+            case 'border': return '#3f3f46';
+            case 'success': return '#10b981';
+            case 'destructive': return '#ef4444';
+            default: return '#09090b';
+        }
     }
 
-    const hslValue = getComputedStyle(document.documentElement).getPropertyValue(varName).trim();
+    // Special cases for non-theme colors
+    if (varName === 'success') return '#10b981';
+    if (varName === 'destructive') return '#ef4444';
+
+    const hslValue = getComputedStyle(document.documentElement).getPropertyValue(`--${varName}`).trim();
     if (!hslValue) {
-      console.warn(`CSS variable ${varName} not found.`);
+      console.warn(`CSS variable --${varName} not found.`);
       return '#000000';
     }
 
     const [h, s, l] = hslValue.split(' ').map(val => parseFloat(val.replace('%', '')));
     if (isNaN(h) || isNaN(s) || isNaN(l)) {
-      console.warn(`Could not parse HSL value for ${varName}: ${hslValue}`);
+      // It might be a direct hex value already
+      if (hslValue.startsWith('#')) return hslValue;
+
+      console.warn(`Could not parse HSL value for --${varName}: ${hslValue}`);
       return '#000000';
     }
 

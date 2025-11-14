@@ -1,7 +1,7 @@
 
 "use client"
 
-import { useMemo } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { CartesianGrid, Line, LineChart, XAxis, YAxis } from "recharts"
 import { usePrices } from "@/hooks/use-prices";
 import {
@@ -19,23 +19,10 @@ import {
 } from "@/components/ui/chart"
 import { Skeleton } from "@/components/ui/skeleton";
 
-const initialChartData = [
-  { date: "2024-05-01", price: 63500 },
-  { date: "2024-05-02", price: 62800 },
-  { date: "2024-05-03", price: 64100 },
-  { date: "2024-05-04", price: 63900 },
-  { date: "2024-05-05", price: 65200 },
-  { date: "2024-05-06", price: 66100 },
-  { date: "2024-05-07", price: 65500 },
-  { date: "2024-05-08", price: 67000 },
-  { date: "2024-05-09", price: 67800 },
-  { date: "2024-05-10", price: 68500 },
-  { date: "2024-05-11", price: 69200 },
-  { date: "2024-05-12", price: 68800 },
-  { date: "2024-05-13", price: 70100 },
-  { date: "2024-05-14", price: 71200 },
-  { date: "2024-05-15", price: 70500 },
-]
+type ChartDataPoint = {
+  time: string;
+  price: number;
+};
 
 const chartConfig = {
   price: {
@@ -44,28 +31,39 @@ const chartConfig = {
   },
 } satisfies ChartConfig
 
+const MAX_DATA_POINTS = 30; // Keep the last 30 data points for a rolling window
+
 export function Charting() {
-  const { data: prices, isLoading, error } = usePrices();
+  const { data: prices, isLoading: pricesLoading, error: pricesError } = usePrices();
+  const [chartData, setChartData] = useState<ChartDataPoint[]>([]);
   const btcPrice = prices?.['BTC'];
 
-  const chartData = useMemo(() => {
-    if (!btcPrice) return initialChartData;
-    const newData = [...initialChartData];
-    // Replace the last point with the live price
-    newData[newData.length - 1] = {
-      date: new Date().toISOString().split('T')[0],
-      price: btcPrice,
-    };
-    return newData;
-  }, [btcPrice]);
+  useEffect(() => {
+    if (btcPrice !== undefined) {
+      const now = new Date();
+      const newPoint: ChartDataPoint = {
+        time: now.toLocaleTimeString(),
+        price: btcPrice,
+      };
 
+      setChartData(prevData => {
+        const newData = [...prevData, newPoint];
+        // Keep only the last MAX_DATA_POINTS
+        if (newData.length > MAX_DATA_POINTS) {
+          return newData.slice(newData.length - MAX_DATA_POINTS);
+        }
+        return newData;
+      });
+    }
+  }, [btcPrice]); // This effect runs every time btcPrice changes
 
   const renderContent = () => {
-    if (isLoading) {
+    // Show skeleton if prices are loading for the first time AND there's no chart data yet
+    if (pricesLoading && chartData.length === 0) {
       return <Skeleton className="h-96 w-full" />;
     }
 
-    if (error) {
+    if (pricesError && chartData.length === 0) {
       return (
         <div className="h-96 flex items-center justify-center text-muted-foreground">
           Error loading price chart.
@@ -73,6 +71,14 @@ export function Charting() {
       );
     }
     
+    if(chartData.length === 0){
+       return (
+         <div className="h-96 flex items-center justify-center text-muted-foreground">
+          Waiting for live price data...
+        </div>
+      );
+    }
+
     return (
        <ChartContainer config={chartConfig} className="h-96 w-full">
           <LineChart
@@ -81,6 +87,8 @@ export function Charting() {
             margin={{
               left: 12,
               right: 12,
+              top: 10,
+              bottom: 10,
             }}
           >
             <CartesianGrid vertical={false} />
@@ -89,25 +97,18 @@ export function Charting() {
               tickLine={false}
               axisLine={false}
               tickMargin={8}
-              tickFormatter={(value) => `$${(value / 1000).toFixed(1)}k`}
-              domain={['dataMin - 1000', 'dataMax + 1000']}
+              tickFormatter={(value) => `$${(value).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+              domain={['dataMin - 100', 'dataMax + 100']}
             />
             <XAxis
-              dataKey="date"
+              dataKey="time"
               tickLine={false}
               axisLine={false}
               tickMargin={8}
-              tickFormatter={(value) => {
-                 const date = new Date(value)
-                 return date.toLocaleDateString("en-US", {
-                    month: "short",
-                    day: "numeric",
-                 })
-              }}
             />
             <ChartTooltip
               cursor={false}
-              content={<ChartTooltipContent indicator="line" />}
+              content={<ChartTooltipContent indicator="line" labelKey="time" />}
             />
             <Line
               dataKey="price"
@@ -121,14 +122,15 @@ export function Charting() {
     );
   }
 
+  const latestPrice = chartData.length > 0 ? chartData[chartData.length-1].price : btcPrice;
 
   return (
     <Card className="flex-grow">
       <CardHeader>
         <CardTitle>BTC/USDT</CardTitle>
-        {isLoading && <CardDescription>Fetching live price...</CardDescription>}
-        {btcPrice && !isLoading && <CardDescription>Live Price: ${btcPrice.toLocaleString()}</CardDescription>}
-        {!isLoading && !btcPrice && <CardDescription>Price data unavailable</CardDescription>}
+        {(pricesLoading && !latestPrice) && <CardDescription>Fetching live price...</CardDescription>}
+        {latestPrice && <CardDescription>Live Price: ${latestPrice.toLocaleString()}</CardDescription>}
+        {(!pricesLoading && !latestPrice) && <CardDescription>Price data unavailable</CardDescription>}
       </CardHeader>
       <CardContent>
         {renderContent()}

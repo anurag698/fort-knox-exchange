@@ -53,7 +53,11 @@ export function usePrices() {
     }
 
     const fetchPrices = async () => {
-      setIsLoading(true);
+      // We only set loading to true on the very first fetch.
+      // Subsequent fetches will happen in the background.
+      if (!data) {
+        setIsLoading(true);
+      }
       setError(null);
       
       const newPrices: Prices = {};
@@ -116,13 +120,13 @@ export function usePrices() {
     };
 
     fetchPrices();
-    // Set up an interval to refetch prices every 30 seconds
-    const intervalId = setInterval(fetchPrices, 30000); 
+    // Set up an interval to refetch prices every 15 seconds
+    const intervalId = setInterval(fetchPrices, 15000); 
 
     // Cleanup interval on component unmount
     return () => clearInterval(intervalId);
 
-  }, [assets, assetsLoading, assetsError]);
+  }, [assets, assetsLoading, assetsError, data]); // Add `data` to dependency array to control initial loading state
 
   return { data, isLoading, error };
 }

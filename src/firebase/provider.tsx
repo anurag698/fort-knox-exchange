@@ -3,10 +3,10 @@
 
 import React, { DependencyList, createContext, useContext, ReactNode, useMemo, useState, useEffect } from 'react';
 import { FirebaseApp } from 'firebase/app';
-import { Firestore, doc, getDoc, serverTimestamp } from 'firebase/firestore';
+import { Firestore } from 'firebase/firestore';
 import { Auth, User, onAuthStateChanged } from 'firebase/auth';
 import { FirebaseErrorListener } from '@/components/FirebaseErrorListener'
-import { setDocumentNonBlocking } from './non-blocking-updates';
+import { createNewUserDocument } from './non-blocking-updates';
 import { createSession, clearSession } from '@/app/actions';
 
 interface FirebaseProviderProps {
@@ -84,21 +84,8 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
       async (firebaseUser) => { // Auth state determined
         if (firebaseUser) {
           // User is signed in, check for user document
-          const userRef = doc(firestore, 'users', firebaseUser.uid);
-          const userSnap = await getDoc(userRef);
-          if (!userSnap.exists()) {
-            // New user, create user document
-            const newUser = {
-              id: firebaseUser.uid,
-              email: firebaseUser.email,
-              username: firebaseUser.email?.split('@')[0], // Default username
-              kycStatus: 'PENDING',
-              referralCode: Math.random().toString(36).substring(2, 8).toUpperCase(),
-              createdAt: serverTimestamp(),
-              updatedAt: serverTimestamp(),
-            };
-            setDocumentNonBlocking(userRef, newUser, {});
-          }
+          await createNewUserDocument(firestore, firebaseUser);
+          
           // Set session cookie by calling the server action
           try {
             const token = await firebaseUser.getIdToken();

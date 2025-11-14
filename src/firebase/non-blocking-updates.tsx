@@ -1,3 +1,4 @@
+
 'use client';
     
 import {
@@ -5,10 +6,15 @@ import {
   addDoc,
   updateDoc,
   deleteDoc,
+  getDoc,
+  doc,
+  serverTimestamp,
   CollectionReference,
   DocumentReference,
   SetOptions,
+  Firestore,
 } from 'firebase/firestore';
+import { User } from 'firebase/auth';
 import { errorEmitter } from '@/firebase/error-emitter';
 import {FirestorePermissionError} from '@/firebase/errors';
 
@@ -86,4 +92,29 @@ export function deleteDocumentNonBlocking(docRef: DocumentReference) {
         })
       )
     });
+}
+
+/**
+ * Checks if a user document exists and creates it if it doesn't.
+ * This is an async function but is typically not awaited in the auth flow.
+ */
+export async function createNewUserDocument(firestore: Firestore, firebaseUser: User) {
+    if (!firestore || !firebaseUser) return;
+
+    const userRef = doc(firestore, 'users', firebaseUser.uid);
+    const userSnap = await getDoc(userRef);
+
+    if (!userSnap.exists()) {
+        const newUser = {
+            id: firebaseUser.uid,
+            email: firebaseUser.email,
+            username: firebaseUser.email?.split('@')[0] ?? `user_${Math.random().toString(36).substring(2, 8)}`,
+            kycStatus: 'PENDING',
+            referralCode: Math.random().toString(36).substring(2, 8).toUpperCase(),
+            createdAt: serverTimestamp(),
+            updatedAt: serverTimestamp(),
+        };
+        // Use a non-blocking write to avoid delaying the auth flow.
+        setDocumentNonBlocking(userRef, newUser, {});
+    }
 }

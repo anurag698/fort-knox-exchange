@@ -23,6 +23,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(tokens);
   } catch (error) {
     const e = error as Error;
+    console.error(`Tokens API Error for chain ${searchParams.get('chainId')}:`, e.message);
     return NextResponse.json({ error: 'Failed to get tokens', message: e.message }, { status: 500 });
   }
 }

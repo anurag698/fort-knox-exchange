@@ -25,6 +25,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(txData);
   } catch (error) {
     const e = error as Error;
+    console.error(`Build TX API Error:`, e.message);
     // Handle JSON parsing errors or other unexpected errors
     if (e.name === 'SyntaxError') {
         return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });

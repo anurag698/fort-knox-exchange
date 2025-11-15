@@ -32,10 +32,10 @@ export const useUser = (): UserHookResult => {
                 email: user.email,
                 username: user.email?.split('@')[0] ?? `user_${Math.random().toString(36).substring(2, 8)}`,
                 kycStatus: 'NOT_STARTED',
+                role: user.email === 'admin@fortknox.exchange' ? 'ADMIN' : 'USER',
                 referralCode: Math.random().toString(36).substring(2, 8).toUpperCase(),
                 createdAt: serverTimestamp(),
                 updatedAt: serverTimestamp(),
-                isAdmin: user.email === 'admin@fortknox.exchange'
             };
             batch.set(userRef, newUser);
 

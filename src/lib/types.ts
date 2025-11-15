@@ -74,11 +74,10 @@ export type UserProfile = {
     email: string;
     username: string;
     kycStatus: 'PENDING' | 'VERIFIED' | 'REJECTED' | 'NOT_STARTED';
+    role?: 'USER' | 'ADMIN';
     createdAt: any;
     updatedAt: any;
     referralCode?: string;
-    isAdmin?: boolean;
-    role?: 'USER' | 'ADMIN';
 };
 
 export type LedgerEntry = {

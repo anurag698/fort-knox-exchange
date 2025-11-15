@@ -27,9 +27,11 @@ export async function GET(request: NextRequest) {
   
   if (validation.data.fromTokenAddress.toLowerCase() === validation.data.toTokenAddress.toLowerCase()) {
     const amount = validation.data.amount;
+    // In a real app, you might want to fetch token info from your DB
+    // For this mock, we create a plausible structure.
     const tokenInfo = {
         address: validation.data.fromTokenAddress,
-        symbol: 'USDT',
+        symbol: 'USDT', // This is a simplification
         name: 'Tether',
         decimals: 6,
         logoURI: `https://tokens.1inch.io/${validation.data.fromTokenAddress.toLowerCase()}.png`,
@@ -38,7 +40,7 @@ export async function GET(request: NextRequest) {
     const mockResponse: OneInchQuoteResponse = {
         fromToken: tokenInfo,
         toToken: tokenInfo,
-        toAmount: amount,
+        toAmount: amount, // 1:1 swap for same token
         gas: 0,
     }
     return NextResponse.json(mockResponse);

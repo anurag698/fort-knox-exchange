@@ -16,8 +16,8 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { User, LogOut, Settings, LogIn, Landmark, Home, CandlestickChart, ArrowRightLeft, Wallet, BookText, Repeat, UserCog, Database, Menu } from "lucide-react";
 import { PlaceHolderImages } from "@/lib/placeholder-images";
 import Link from 'next/link';
-import { useUser, useAuth, useFirestore } from '@/firebase';
-import { doc, getDoc } from 'firebase/firestore';
+import { useUser, useAuth, useFirestore, useMemoFirebase } from '@/firebase';
+import { doc, onSnapshot } from 'firebase/firestore';
 import { signOut } from 'firebase/auth';
 import { useRouter, usePathname } from "next/navigation";
 import { clearSession } from "@/app/actions";
@@ -48,23 +48,25 @@ export default function Header() {
   const firestore = useFirestore();
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
 
+  const userDocRef = useMemoFirebase(
+    () => (firestore && user?.uid ? doc(firestore, 'users', user.uid) : null),
+    [firestore, user?.uid]
+  );
+  
   useEffect(() => {
-    if (firestore && user?.uid) {
-        const fetchProfile = async () => {
-          const userDocRef = doc(firestore, 'users', user.uid);
-          const docSnap = await getDoc(userDocRef);
-          if (docSnap.exists()) {
-              const data = docSnap.data();
-              if (data) {
-                 setUserProfile({ ...data, id: docSnap.id } as UserProfile);
-              }
-          } else {
-              setUserProfile(null);
-          }
-        };
-        fetchProfile();
+    if (userDocRef) {
+      const unsubscribe = onSnapshot(userDocRef, (docSnap) => {
+        if (docSnap.exists()) {
+          setUserProfile({ ...docSnap.data(), id: docSnap.id } as UserProfile);
+        } else {
+          setUserProfile(null);
+        }
+      });
+      return () => unsubscribe();
+    } else {
+      setUserProfile(null);
     }
-  }, [firestore, user?.uid]);
+  }, [userDocRef]);
 
 
   const handleSignOut = async () => {
@@ -81,6 +83,8 @@ export default function Header() {
     }
     return 'FK';
   }
+
+  const isAdmin = userProfile?.role === 'ADMIN';
 
   return (
     <header className="sticky top-0 z-20 flex h-16 shrink-0 items-center justify-between border-b bg-background/80 px-4 backdrop-blur-sm sm:px-6">
@@ -99,7 +103,7 @@ export default function Header() {
                 <Link href={link.href}>{link.label}</Link>
              </Button>
           ))}
-          {userProfile?.isAdmin && (
+          {isAdmin && (
                <Button asChild variant="link" className={cn("text-sm font-medium", pathname.startsWith(adminLink.href) ? "text-primary" : "text-muted-foreground hover:text-foreground")}>
                   <Link href={adminLink.href}>{adminLink.label}</Link>
                </Button>
@@ -137,7 +141,7 @@ export default function Header() {
               </div>
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
-             {userProfile?.isAdmin && (
+             {isAdmin && (
                 <>
                 <DropdownMenuItem asChild>
                     <Link href={adminLink.href}>
@@ -194,7 +198,7 @@ export default function Header() {
                   {link.label}
                 </Link>
               ))}
-               {userProfile?.isAdmin && (
+               {isAdmin && (
                  <Link
                     href={adminLink.href}
                     onClick={() => setIsMobileMenuOpen(false)}

@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useMemo, useState, useEffect } from 'react';
@@ -23,9 +22,18 @@ export function OrderBook({ onPriceSelect, marketId }: OrderBookProps) {
   const [asks, setAsks] = useState<[string, string][]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
-  const [baseAsset, quoteAsset] = marketId.split('-');
+
+  // Add a check to ensure marketId exists before splitting
+  const [baseAsset, quoteAsset] = marketId ? marketId.split('-') : ['', ''];
 
   useEffect(() => {
+    // Do not proceed if marketId is not available
+    if (!marketId) {
+      setIsLoading(false);
+      setError(new Error("Market ID is not specified."));
+      return;
+    }
+    
     setIsLoading(true);
     setError(null);
     setBids([]);

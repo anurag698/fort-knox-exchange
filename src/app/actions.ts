@@ -461,9 +461,9 @@ export async function createSession(token: string) {
     });
     
     return { status: 'success' };
-  } catch (error) {
+  } catch (error: any) {
     console.error('Failed to create session:', error);
-    return { status: 'error', message: 'Failed to create session.' };
+    return { status: 'error', message: `Failed to create session. Server error: ${error.message}` };
   }
 }
 
@@ -722,5 +722,3 @@ export async function submitKyc(prevState: any, formData: FormData): Promise<For
     };
   }
 }
-
-    

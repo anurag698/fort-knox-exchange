@@ -3,6 +3,7 @@ import { initializeApp, getApps, getApp, applicationDefault } from 'firebase-adm
 import { getAuth } from 'firebase-admin/auth';
 import { getFirestore, FieldValue } from 'firebase-admin/firestore';
 import { cookies } from 'next/headers';
+import { firebaseConfig } from '@/firebase/config';
 
 const appName = 'firebase-admin-app-singleton';
 
@@ -26,6 +27,7 @@ export function getFirebaseAdmin() {
         // Initialize the app with default credentials from the environment.
         const adminApp = initializeApp({
             credential: applicationDefault(),
+            projectId: firebaseConfig.projectId,
         }, appName);
         
         return { 

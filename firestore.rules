@@ -20,6 +20,7 @@ service cloud.firestore {
     }
     
     function isCreatingOwnDocument() {
+      // Allow creation if the new document's ID matches the user's UID.
       return request.auth.uid == request.resource.data.id;
     }
 
@@ -38,8 +39,10 @@ service cloud.firestore {
       // Writes are allowed ONLY if the user is creating their own account for the first time.
       match /balances/{balanceId} {
           allow get, list: if isOwner(userId);
+          // Allow creation of initial balances ONLY when creating the user document itself.
           allow create: if isCreatingOwnDocument();
-          allow update, delete: if false; // All subsequent balance changes must be from the server.
+          // Prevent any client-side updates or deletes to balances after creation.
+          allow update, delete: if false; 
       }
       
       // Deposits can only be read by the owner or an admin. Writes are server-only.

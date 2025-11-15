@@ -11,37 +11,42 @@ function TradingViewChart({ marketId }: { marketId: string }) {
   useEffect(() => {
     // This effect now only runs when the component mounts.
     // The key change will handle re-initialization.
-    if (container.current) {
-        // Clear any previous widget
-        container.current.innerHTML = '';
-        
-        const script = document.createElement("script");
-        script.src = "https://s3.tradingview.com/tv.js";
-        script.type = "text/javascript";
-        script.async = true;
-        script.onload = () => {
-            if (typeof (window as any).TradingView !== 'undefined') {
-                new (window as any).TradingView.widget({
-                    autosize: true,
-                    symbol: `BINANCE:${marketId.replace('-', '')}`,
-                    interval: "D",
-                    timezone: "Etc/UTC",
-                    theme: "dark",
-                    style: "1",
-                    locale: "en",
-                    enable_publishing: false,
-                    withdateranges: true,
-                    hide_side_toolbar: false,
-                    allow_symbol_change: true,
-                    details: true,
-                    hotlist: true,
-                    calendar: true,
-                    container_id: container.current?.id,
-                });
-            }
-        };
-        container.current.appendChild(script);
+    
+    // Add a guard clause to ensure marketId is defined.
+    if (!container.current || !marketId) {
+      return;
     }
+
+    // Clear any previous widget
+    container.current.innerHTML = '';
+    
+    const script = document.createElement("script");
+    script.src = "https://s3.tradingview.com/tv.js";
+    script.type = "text/javascript";
+    script.async = true;
+    script.onload = () => {
+        if (typeof (window as any).TradingView !== 'undefined') {
+            new (window as any).TradingView.widget({
+                autosize: true,
+                symbol: `BINANCE:${marketId.replace('-', '')}`,
+                interval: "D",
+                timezone: "Etc/UTC",
+                theme: "dark",
+                style: "1",
+                locale: "en",
+                enable_publishing: false,
+                withdateranges: true,
+                hide_side_toolbar: false,
+                allow_symbol_change: true,
+                details: true,
+                hotlist: true,
+                calendar: true,
+                container_id: container.current?.id,
+            });
+        }
+    };
+    container.current.appendChild(script);
+    
   }, [marketId]);
 
   return (

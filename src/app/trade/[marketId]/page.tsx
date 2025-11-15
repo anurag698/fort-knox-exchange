@@ -27,7 +27,8 @@ function TradePageClient({ marketId }: { marketId: string }) {
 }
 
 // The default export is a Server Component that handles params.
-// It destructures the marketId directly from params.
 export default function TradePage({ params }: { params: { marketId: string } }) {
-  return <TradePageClient marketId={params.marketId} />;
+  // Although not using React.use() is allowed for now, it's best practice to destructure directly.
+  const { marketId } = params;
+  return <TradePageClient marketId={marketId} />;
 }

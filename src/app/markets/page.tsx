@@ -1,7 +1,10 @@
 
 'use client';
 
-import { useMarkets } from '@/hooks/use-markets';
+import { useState, useEffect } from 'react';
+import { useFirestore } from '@/firebase';
+import { collection, getDocs, query } from 'firebase/firestore';
+import type { Market } from '@/lib/types';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { MarketsTable } from '@/components/markets/markets-table';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -9,7 +12,36 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { AlertCircle, CandlestickChart } from 'lucide-react';
 
 export default function MarketsPage() {
-  const { data: markets, isLoading, error } = useMarkets();
+  const firestore = useFirestore();
+  const [markets, setMarkets] = useState<Market[] | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<Error | null>(null);
+
+  useEffect(() => {
+    if (!firestore) {
+        setIsLoading(false);
+        return;
+    };
+
+    const fetchMarkets = async () => {
+        setIsLoading(true);
+        try {
+            const marketsQuery = query(collection(firestore, 'markets'));
+            const querySnapshot = await getDocs(marketsQuery);
+            const marketsData = querySnapshot.docs.map(doc => ({ ...doc.data() as Omit<Market, 'id'>, id: doc.id }));
+            setMarkets(marketsData);
+            setError(null);
+        } catch (err) {
+            console.error(err);
+            setError(err instanceof Error ? err : new Error('Failed to fetch markets'));
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    fetchMarkets();
+  }, [firestore]);
+
 
   const renderContent = () => {
     if (isLoading) {
@@ -29,7 +61,7 @@ export default function MarketsPage() {
           <AlertCircle className="h-4 w-4" />
           <AlertTitle>Error</AlertTitle>
           <AlertDescription>
-            Failed to load market data. Please try again later.
+            {error.message || "Failed to load market data. Please try again later."}
           </AlertDescription>
         </Alert>
       );

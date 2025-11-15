@@ -28,6 +28,6 @@ function TradePageClient({ marketId }: { marketId: string }) {
 
 // The default export is a Server Component that handles params.
 // It destructures the marketId directly from params.
-export default function TradePage({ params: { marketId } }: { params: { marketId: string } }) {
-  return <TradePageClient marketId={marketId} />;
+export default function TradePage({ params }: { params: { marketId: string } }) {
+  return <TradePageClient marketId={params.marketId} />;
 }

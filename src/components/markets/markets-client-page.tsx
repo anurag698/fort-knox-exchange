@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
@@ -6,6 +7,8 @@ import { MarketsTable } from '@/components/markets/markets-table';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { AlertCircle, CandlestickChart } from 'lucide-react';
+import { useMarkets } from '@/hooks/use-markets';
+import { useAssets } from '@/hooks/use-assets';
 
 type EnrichedMarket = Market & {
   baseAsset?: Asset;
@@ -13,20 +16,22 @@ type EnrichedMarket = Market & {
   price: number;
 };
 
-interface MarketsClientPageProps {
-  initialMarkets: EnrichedMarket[];
-}
-
-export function MarketsClientPage({ initialMarkets }: MarketsClientPageProps) {
-  const [markets, setMarkets] = useState(initialMarkets);
+export function MarketsClientPage() {
+  const { data: marketsData, isLoading: marketsLoading, error: marketsError } = useMarkets();
+  const { data: assetsData, isLoading: assetsLoading, error: assetsError } = useAssets();
   const [prices, setPrices] = useState<Record<string, number>>({});
-  const [error, setError] = useState<string | null>(null);
+  const [wsError, setWsError] = useState<string | null>(null);
+
+  const assetsMap = useMemo(() => {
+    if (!assetsData) return new Map();
+    return new Map(assetsData.map(asset => [asset.id, asset]));
+  }, [assetsData]);
 
   useEffect(() => {
-    const marketSymbols = initialMarkets.map(m => `${m.baseAssetId}${m.quoteAssetId}`);
-    if (marketSymbols.length === 0) {
-        return;
-    }
+    if (!marketsData || marketsData.length === 0) return;
+
+    const marketSymbols = marketsData.map(m => `${m.baseAssetId}${m.quoteAssetId}`);
+    if (marketSymbols.length === 0) return;
 
     const ws = new WebSocket(`wss://stream.binance.com:9443/ws/${marketSymbols.map(s => `${s.toLowerCase()}@trade`).join('/')}`);
     
@@ -42,30 +47,48 @@ export function MarketsClientPage({ initialMarkets }: MarketsClientPageProps) {
     
     ws.onerror = (err) => {
         console.error("Markets WebSocket error:", err);
-        setError("Failed to connect to live price feed.");
+        setWsError("Failed to connect to live price feed.");
     }
 
     return () => {
       ws.close();
     };
-  }, [initialMarkets]);
+  }, [marketsData]);
 
   const enrichedMarkets = useMemo(() => {
-    return markets.map(market => {
+    if (!marketsData || !assetsData) return [];
+    
+    return marketsData.map(market => {
       const price = prices[`${market.baseAssetId}${market.quoteAssetId}`] ?? 0;
       return {
         ...market,
         price,
+        baseAsset: assetsMap.get(market.baseAssetId),
+        quoteAsset: assetsMap.get(market.quoteAssetId),
       };
-    });
-  }, [markets, prices]);
+    }).filter(m => m.baseAsset && m.quoteAsset);
+  }, [marketsData, assetsData, assetsMap, prices]);
+  
+  const isLoading = marketsLoading || assetsLoading;
+  const error = marketsError || assetsError || wsError;
+
+  if (isLoading) {
+    return (
+      <div className="w-full space-y-2">
+        <Skeleton className="h-12 w-full" />
+        <Skeleton className="h-12 w-full" />
+        <Skeleton className="h-12 w-full" />
+        <Skeleton className="h-12 w-full" />
+      </div>
+    );
+  }
 
   if (error) {
     return (
       <Alert variant="destructive">
         <AlertCircle className="h-4 w-4" />
         <AlertTitle>Error Loading Market Data</AlertTitle>
-        <AlertDescription>{error}</AlertDescription>
+        <AlertDescription>{typeof error === 'string' ? error : (error as Error).message}</AlertDescription>
       </Alert>
     );
   }

@@ -28,7 +28,7 @@ import type { UserProfile } from "@/lib/types";
 
 const mainLinks = [
   { href: "/markets", label: "Markets", icon: CandlestickChart },
-  { href: "/trade", label: "Trade", icon: ArrowRightLeft },
+  { href: "/trade/BTC-USDT", label: "Trade", icon: ArrowRightLeft },
   { href: "/swap", label: "Swap", icon: Repeat },
   { href: "/portfolio", label: "Wallet", icon: Wallet },
   { href: "/ledger", label: "Ledger", icon: BookText },
@@ -97,7 +97,7 @@ export default function Header() {
         
         <nav className="hidden items-center gap-2 md:flex">
           {mainLinks.map((link) => (
-             <Button key={link.label} asChild variant="link" className={cn("text-sm font-medium", pathname === link.href ? "text-primary" : "text-muted-foreground hover:text-foreground")}>
+             <Button key={link.label} asChild variant="link" className={cn("text-sm font-medium", pathname.startsWith(link.href) ? "text-primary" : "text-muted-foreground hover:text-foreground")}>
                 <Link href={link.href}>{link.label}</Link>
              </Button>
           ))}
@@ -180,5 +180,4 @@ export default function Header() {
     </header>
   );
 }
-
     

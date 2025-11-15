@@ -16,7 +16,7 @@ import type { UserProfile } from '@/lib/types';
 
 const mainLinks = [
   { href: "/markets", label: "Markets", icon: CandlestickChart },
-  { href: "/trade", label: "Trade", icon: ArrowRightLeft },
+  { href: "/trade/BTC-USDT", label: "Trade", icon: ArrowRightLeft },
   { href: "/swap", label: "Swap", icon: Repeat },
   { href: "/portfolio", label: "Wallet", icon: Wallet },
   { href: "/ledger", label: "Ledger", icon: BookText },
@@ -92,5 +92,4 @@ export default function SidebarNav() {
         </div>
     );
 }
-
     

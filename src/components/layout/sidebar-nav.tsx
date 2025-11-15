@@ -11,7 +11,7 @@ import { CandlestickChart, ArrowRightLeft, Repeat, Wallet, BookText, UserCog } f
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useUser, useFirestore } from '@/firebase';
-import { doc, getDoc } from 'firebase/firestore';
+import { doc, getDoc, setDoc } from 'firebase/firestore';
 import type { UserProfile } from '@/lib/types';
 
 const mainLinks = [
@@ -35,7 +35,17 @@ export default function SidebarNav() {
           const fetchProfile = async () => {
             const userDocRef = doc(firestore, 'users', user.uid);
             const docSnap = await getDoc(userDocRef);
-            setUserProfile(docSnap.exists() ? { ...docSnap.data() as UserProfile, id: docSnap.id } : null);
+            if(docSnap.exists()){
+                const data = docSnap.data();
+                if(!data.isAdmin) {
+                    await setDoc(userDocRef, { isAdmin: true }, { merge: true });
+                    setUserProfile({ ...data, isAdmin: true, id: docSnap.id } as UserProfile);
+                } else {
+                    setUserProfile({ ...data as UserProfile, id: docSnap.id });
+                }
+            } else {
+                setUserProfile(null);
+            }
           };
           fetchProfile();
         }
@@ -82,3 +92,5 @@ export default function SidebarNav() {
         </div>
     );
 }
+
+    

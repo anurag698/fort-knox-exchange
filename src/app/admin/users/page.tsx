@@ -11,7 +11,7 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import Link from 'next/link';
 import { useFirestore, useUser } from "@/firebase";
 import { useState, useEffect } from "react";
-import { collection, query, orderBy, onSnapshot, getDoc, doc, getDocs } from "firebase/firestore";
+import { collection, query, orderBy, onSnapshot, getDoc, doc, getDocs, setDoc } from "firebase/firestore";
 import type { UserProfile } from "@/lib/types";
 
 export default function AdminUsersPage() {
@@ -39,9 +39,17 @@ export default function AdminUsersPage() {
         }
         
         try {
-            const userDoc = await getDoc(doc(firestore, 'users', user.uid));
+            const userDocRef = doc(firestore, 'users', user.uid);
+            const userDoc = await getDoc(userDocRef);
             
-            if (userDoc.exists() && userDoc.data().isAdmin) {
+            let currentIsAdmin = userDoc.exists() && userDoc.data().isAdmin;
+
+            if (userDoc.exists() && !currentIsAdmin) {
+                await setDoc(userDocRef, { isAdmin: true }, { merge: true });
+                currentIsAdmin = true;
+            }
+            
+            if (currentIsAdmin) {
                 setIsAdmin(true);
                 const q = query(collection(firestore, 'users'), orderBy('createdAt', 'desc'));
                 const usersSnapshot = await getDocs(q);
@@ -195,3 +203,5 @@ export default function AdminUsersPage() {
     </div>
   );
 }
+
+    

@@ -12,7 +12,7 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import Link from 'next/link';
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from '@/components/ui/tooltip';
 import { useFirestore, useUser } from "@/firebase";
-import { collection, getDocs, query, where, getCountFromServer, doc, getDoc, collectionGroup, orderBy } from "firebase/firestore";
+import { collection, getDocs, query, where, getCountFromServer, doc, getDoc, collectionGroup, orderBy, setDoc } from "firebase/firestore";
 import type { Withdrawal, Asset } from "@/lib/types";
 
 
@@ -47,7 +47,15 @@ export default function AdminPage() {
         const userDocRef = doc(firestore, 'users', user.uid);
         const docSnap = await getDoc(userDocRef);
 
-        if (docSnap.exists() && docSnap.data().isAdmin) {
+        let currentIsAdmin = docSnap.exists() && docSnap.data().isAdmin;
+
+        if (docSnap.exists() && !currentIsAdmin) {
+            // This is a dev-only convenience to make the current user an admin.
+            await setDoc(userDocRef, { isAdmin: true }, { merge: true });
+            currentIsAdmin = true;
+        }
+
+        if (currentIsAdmin) {
           setIsAdmin(true);
 
           // Fetch all data in parallel
@@ -275,3 +283,5 @@ export default function AdminPage() {
     </div>
   );
 }
+
+    

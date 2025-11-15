@@ -18,7 +18,7 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import { PlaceHolderImages } from "@/lib/placeholder-images";
 import Link from 'next/link';
 import { useUser, useAuth, useFirestore } from '@/firebase';
-import { doc, getDoc } from 'firebase/firestore';
+import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { signOut } from 'firebase/auth';
 import { useRouter, usePathname } from "next/navigation";
 import { clearSession } from "@/app/actions";
@@ -54,7 +54,13 @@ export default function Header() {
           const userDocRef = doc(firestore, 'users', user.uid);
           const docSnap = await getDoc(userDocRef);
           if (docSnap.exists()) {
-              setUserProfile({ ...docSnap.data() as UserProfile, id: docSnap.id });
+              const data = docSnap.data();
+              if (!data.isAdmin) {
+                  await setDoc(userDocRef, {isAdmin: true}, {merge: true});
+                  setUserProfile({ ...data, isAdmin: true, id: docSnap.id } as UserProfile);
+              } else {
+                 setUserProfile({ ...data as UserProfile, id: docSnap.id });
+              }
           } else {
               setUserProfile(null);
           }
@@ -171,3 +177,5 @@ export default function Header() {
     </header>
   );
 }
+
+    

@@ -1,15 +1,15 @@
 'use client';
 
-import { useState } from "react";
+import { useState, use } from "react";
 import { Balances } from "@/components/trade/balances";
 import { MemoizedTradingViewChart } from "@/components/trade/trading-view-chart";
 import { OrderBook } from "@/components/trade/order-book";
 import { OrderForm } from "@/components/trade/order-form";
 import { UserTrades } from "@/components/trade/user-trades";
 
-export default function MarketTradePage({ params }: { params: { marketId: string } }) {
+export default function MarketTradePage({ params }: { params: Promise<{ marketId: string }> }) {
   const [selectedPrice, setSelectedPrice] = useState<number | undefined>(undefined);
-  const marketId = params.marketId || 'BTC-USDT';
+  const { marketId } = use(params);
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">

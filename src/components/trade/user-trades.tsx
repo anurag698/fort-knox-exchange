@@ -40,13 +40,11 @@ function CancelOrderButton({ orderId, userId }: { orderId: string, userId: strin
     );
 }
 
-export function UserTrades({ marketId }: { marketId: string }) {
-    const { user, isUserLoading } = useUser();
-    // Pass the marketId directly to the hook
-    // The hook is now safe and will not run a query until the user is loaded.
+function OrdersTable({ marketId }: { marketId: string }) {
+    const { user } = useUser();
     const { data: orders, isLoading, error } = useOrders(marketId);
 
-    const getStatusBadgeVariant = (status: Order['status']) => {
+     const getStatusBadgeVariant = (status: Order['status']) => {
         switch (status) {
             case 'OPEN':
             case 'PARTIAL':
@@ -63,27 +61,88 @@ export function UserTrades({ marketId }: { marketId: string }) {
         }
     }
 
+    if (isLoading) {
+        return (
+            <div className="space-y-2">
+                <Skeleton className="h-10 w-full" />
+                <Skeleton className="h-10 w-full" />
+                <Skeleton className="h-10 w-full" />
+            </div>
+        );
+    }
+
+    if (error) {
+        return (
+            <Alert variant="destructive">
+                <AlertCircle className="h-4 w-4" />
+                <AlertTitle>Error Loading Orders</AlertTitle>
+                <AlertDescription>
+                    {error.message || "There was a problem fetching your open orders. Please try again later."}
+                </AlertDescription>
+            </Alert>
+        );
+    }
+    
+    if (!orders || orders.length === 0) {
+        return (
+            <div className="text-center py-12 text-muted-foreground">
+                <p>You have no open orders for this market.</p>
+            </div>
+        );
+    }
+
+    return (
+         <Table>
+            <TableHeader>
+                <TableRow>
+                    <TableHead>Market</TableHead>
+                    <TableHead>Side</TableHead>
+                    <TableHead>Price</TableHead>
+                    <TableHead>Amount</TableHead>
+                    <TableHead>Filled</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead className="text-right">Action</TableHead>
+                </TableRow>
+            </TableHeader>
+            <TableBody>
+                {orders.map(order => {
+                    const canCancel = (order.status === 'OPEN' || order.status === 'PARTIAL') && user;
+                    return (
+                        <TableRow key={order.id}>
+                            <TableCell>{order.marketId}</TableCell>
+                            <TableCell>
+                                <span className={order.side === 'BUY' ? 'text-green-600 font-semibold' : 'text-red-600 font-semibold'}>{order.side}</span>
+                            </TableCell>
+                            <TableCell>{order.price?.toFixed(2) ?? 'Market'}</TableCell>
+                            <TableCell>{order.quantity}</TableCell>
+                            <TableCell>{order.filledAmount}</TableCell>
+                            <TableCell>
+                                <Badge variant={getStatusBadgeVariant(order.status)}>{order.status}</Badge>
+                            </TableCell>
+                            <TableCell className="text-right">
+                                {canCancel && <CancelOrderButton orderId={order.id} userId={user.uid} />}
+                            </TableCell>
+                        </TableRow>
+                    )
+                })}
+            </TableBody>
+        </Table>
+    )
+}
+
+export function UserTrades({ marketId }: { marketId: string }) {
+    const { user, isUserLoading } = useUser();
 
     const renderContent = () => {
-        if (isLoading || isUserLoading) {
+        // This is the critical guard. If the user's auth status is still loading,
+        // or if they are logged out, we do not proceed to call the hook that fetches data.
+        if (isUserLoading) {
             return (
                 <div className="space-y-2">
                     <Skeleton className="h-10 w-full" />
                     <Skeleton className="h-10 w-full" />
                     <Skeleton className="h-10 w-full" />
                 </div>
-            );
-        }
-
-        if (error) {
-            return (
-                <Alert variant="destructive">
-                    <AlertCircle className="h-4 w-4" />
-                    <AlertTitle>Error Loading Orders</AlertTitle>
-                    <AlertDescription>
-                        {error.message || "There was a problem fetching your open orders. Please try again later."}
-                    </AlertDescription>
-                </Alert>
             );
         }
 
@@ -96,51 +155,9 @@ export function UserTrades({ marketId }: { marketId: string }) {
             )
         }
         
-        if (!orders || orders.length === 0) {
-            return (
-                <div className="text-center py-12 text-muted-foreground">
-                    <p>You have no open orders for this market.</p>
-                </div>
-            );
-        }
-
-        return (
-             <Table>
-                <TableHeader>
-                    <TableRow>
-                        <TableHead>Market</TableHead>
-                        <TableHead>Side</TableHead>
-                        <TableHead>Price</TableHead>
-                        <TableHead>Amount</TableHead>
-                        <TableHead>Filled</TableHead>
-                        <TableHead>Status</TableHead>
-                        <TableHead className="text-right">Action</TableHead>
-                    </TableRow>
-                </TableHeader>
-                <TableBody>
-                    {orders.map(order => {
-                        const canCancel = (order.status === 'OPEN' || order.status === 'PARTIAL') && user;
-                        return (
-                            <TableRow key={order.id}>
-                                <TableCell>{order.marketId}</TableCell>
-                                <TableCell>
-                                    <span className={order.side === 'BUY' ? 'text-green-600 font-semibold' : 'text-red-600 font-semibold'}>{order.side}</span>
-                                </TableCell>
-                                <TableCell>{order.price?.toFixed(2) ?? 'Market'}</TableCell>
-                                <TableCell>{order.quantity}</TableCell>
-                                <TableCell>{order.filledAmount}</TableCell>
-                                <TableCell>
-                                    <Badge variant={getStatusBadgeVariant(order.status)}>{order.status}</Badge>
-                                </TableCell>
-                                <TableCell className="text-right">
-                                    {canCancel && <CancelOrderButton orderId={order.id} userId={user.uid} />}
-                                </TableCell>
-                            </TableRow>
-                        )
-                    })}
-                </TableBody>
-            </Table>
-        )
+        // Only if the user is authenticated do we render the component
+        // that actually fetches and displays the orders.
+        return <OrdersTable marketId={marketId} />;
     }
 
   return (

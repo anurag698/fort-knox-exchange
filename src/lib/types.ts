@@ -73,7 +73,7 @@ export type UserProfile = {
     id: string;
     email: string;
     username: string;
-    kycStatus: 'PENDING' | 'VERIFIED' | 'REJECTED';
+    kycStatus: 'PENDING' | 'VERIFIED' | 'REJECTED' | 'NOT_STARTED';
     createdAt: any;
     updatedAt: any;
     referralCode?: string;

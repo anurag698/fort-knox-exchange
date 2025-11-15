@@ -2,8 +2,8 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useUser, useFirestore, useMemoFirebase } from '@/firebase';
-import { doc, getDoc } from 'firebase/firestore';
+import { useUser, useFirestore } from '@/firebase';
+import { doc, onSnapshot } from 'firebase/firestore';
 import { useActionState } from 'react';
 import { useFormStatus } from 'react-dom';
 import { useForm } from 'react-hook-form';
@@ -13,7 +13,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { AlertCircle, User as UserIcon, Loader2, ShieldCheck, ShieldAlert, Shield } from 'lucide-react';
+import { AlertCircle, User as UserIcon, Loader2, ShieldCheck, ShieldAlert, Shield, HelpCircle } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -43,7 +43,13 @@ function SubmitButton() {
 function KycSubmitButton({ kycStatus } : { kycStatus?: UserProfile['kycStatus'] }) {
   const { pending } = useFormStatus();
   const isDisabled = kycStatus === 'VERIFIED' || kycStatus === 'PENDING';
-  const buttonText = kycStatus === 'PENDING' ? 'Verification Pending' : (kycStatus === 'VERIFIED' ? 'Verified' : 'Start Verification');
+  
+  const buttonText = {
+    'VERIFIED': 'KYC Verified',
+    'PENDING': 'Verification Pending',
+    'REJECTED': 'Resubmit KYC',
+    'NOT_STARTED': 'Start Verification',
+  }[kycStatus || 'NOT_STARTED'];
 
 
   return (
@@ -71,20 +77,24 @@ export default function SettingsPage() {
       return;
     }
     
-    const fetchProfile = async () => {
-      setIsProfileLoading(true);
-      setError(null);
-      try {
-        const docSnap = await getDoc(doc(firestore, 'users', authUser.uid));
-        setUserProfile(docSnap.exists() ? {...docSnap.data() as UserProfile, id: docSnap.id} : null);
-      } catch (err) {
-        setError(err as Error);
-      } finally {
-        setIsProfileLoading(false);
-      }
-    };
+    setIsProfileLoading(true);
+    const userDocRef = doc(firestore, 'users', authUser.uid);
     
-    fetchProfile();
+    const unsubscribe = onSnapshot(userDocRef, (docSnap) => {
+      if (docSnap.exists()) {
+        setUserProfile({ ...docSnap.data() as UserProfile, id: docSnap.id });
+      } else {
+        setUserProfile(null);
+      }
+      setError(null);
+      setIsProfileLoading(false);
+    }, (err) => {
+      console.error("Settings page profile fetch error:", err);
+      setError(err);
+      setIsProfileLoading(false);
+    });
+
+    return () => unsubscribe();
 
   }, [firestore, authUser?.uid, isAuthLoading]);
 
@@ -235,6 +245,12 @@ export default function SettingsPage() {
                 </FormItem>
               )}
             />
+
+            <div className="space-y-2">
+                <FormLabel>Your Referral Code</FormLabel>
+                <Input readOnly value={userProfile.referralCode || 'N/A'} className="font-mono" />
+                 <p className="text-xs text-muted-foreground">Share this code to earn rewards.</p>
+            </div>
             
           </CardContent>
           <CardFooter className="border-t px-6 py-4">
@@ -247,7 +263,13 @@ export default function SettingsPage() {
 
   const renderKycContent = () => {
     if(isLoading) {
-      return <Skeleton className="h-24 w-full" />;
+      return (
+        <div className="flex flex-col items-center justify-center text-center pt-6">
+          <Skeleton className="h-16 w-16 rounded-full mb-4" />
+          <Skeleton className="h-6 w-32 mb-2" />
+          <Skeleton className="h-4 w-48" />
+        </div>
+      );
     }
 
     if(!userProfile) return null;
@@ -255,19 +277,20 @@ export default function SettingsPage() {
     const { kycStatus } = userProfile;
 
     const kycInfo = {
-      VERIFIED: { icon: ShieldCheck, title: "KYC Verified", description: "Your identity has been successfully verified. You have full access to all features.", variant: "default" },
-      PENDING: { icon: ShieldAlert, title: "KYC Pending", description: "Your information is under review. This may take 1-3 business days.", variant: "secondary" },
-      REJECTED: { icon: ShieldAlert, title: "KYC Rejected", description: "There was an issue with your verification. Please contact support or try again.", variant: "destructive" },
-    }[kycStatus] || { icon: Shield, title: "KYC Required", description: "Please submit your information for verification to access all features.", variant: "outline" };
+      'VERIFIED': { icon: ShieldCheck, title: "KYC Verified", description: "Your identity has been successfully verified. You have full access to all features.", variant: "default" },
+      'PENDING': { icon: ShieldAlert, title: "KYC Pending", description: "Your information is under review. This may take 1-3 business days.", variant: "secondary" },
+      'REJECTED': { icon: ShieldAlert, title: "KYC Rejected", description: "There was an issue with your verification. Please contact support or try again.", variant: "destructive" },
+      'NOT_STARTED': { icon: Shield, title: "KYC Required", description: "Please submit your information for verification to access all features.", variant: "outline" }
+    }[kycStatus] || { icon: HelpCircle, title: "KYC Status Unknown", description: "Could not determine your KYC status.", variant: "outline" };
 
     return (
        <CardContent className="flex flex-col items-center justify-center text-center pt-6">
-        <div className={`flex h-16 w-16 items-center justify-center rounded-full bg-${kycInfo.variant}/20 mb-4`}>
-          <kycInfo.icon className={`h-8 w-8 text-${kycInfo.variant === 'default' ? 'primary' : kycInfo.variant}`} />
+        <div className={`flex h-16 w-16 items-center justify-center rounded-full bg-${kycInfo.variant === 'destructive' ? 'destructive' : 'accent'}/10 mb-4`}>
+          <kycInfo.icon className={`h-8 w-8 text-${kycInfo.variant === 'destructive' ? 'destructive' : 'accent-foreground'}`} />
         </div>
         <h3 className="text-xl font-semibold">{kycInfo.title}</h3>
         <p className="text-muted-foreground mt-1 text-sm">{kycInfo.description}</p>
-        <Badge variant={getKYCBadgeVariant(kycStatus)} className="mt-4">{kycStatus}</Badge>
+        <Badge variant={getKYCBadgeVariant(kycStatus)} className="mt-4">{kycStatus.replace('_', ' ')}</Badge>
       </CardContent>
     )
   }
@@ -296,7 +319,7 @@ export default function SettingsPage() {
           </Card>
         </div>
         <div className="lg:col-span-1">
-          <form action={kycFormAction}>
+          <form action={kycFormAction} className="h-full">
             <Card className="h-full flex flex-col">
               <CardHeader>
                 <CardTitle>KYC Verification</CardTitle>

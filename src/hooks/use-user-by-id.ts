@@ -6,7 +6,7 @@ import { useDoc, useFirestore, useMemoFirebase } from '@/firebase';
 import type { UserProfile } from '@/lib/types';
 
 /**
- * Fetches a single user profile document by its ID.
+ * Fetches a single user profile document by its ID in real-time.
  * @param userId The unique ID of the user to fetch.
  */
 export function useUserById(userId?: string) {
@@ -17,5 +17,6 @@ export function useUserById(userId?: string) {
     [firestore, userId]
   );
 
+  // useDoc is already real-time
   return useDoc<UserProfile>(userDocRef);
 }

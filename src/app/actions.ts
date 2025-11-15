@@ -371,7 +371,7 @@ export async function createSession(token: string) {
         id: decodedToken.uid,
         email: decodedToken.email,
         username: decodedToken.email?.split('@')[0] ?? `user_${Math.random().toString(36).substring(2, 8)}`,
-        kycStatus: 'PENDING',
+        kycStatus: 'NOT_STARTED',
         referralCode: Math.random().toString(36).substring(2, 8).toUpperCase(),
         createdAt: FieldValue.serverTimestamp(),
         updatedAt: FieldValue.serverTimestamp(),

@@ -15,7 +15,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import type { Asset, Balance, UserProfile } from "@/lib/types";
-import { doc, getDoc } from "firebase/firestore";
+import { doc, onSnapshot } from "firebase/firestore";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { ShieldAlert } from "lucide-react";
 import Link from "next/link";
@@ -37,13 +37,12 @@ export function WithdrawalForm({ assets, balances }: { assets: Asset[], balances
   
   useEffect(() => {
     if (user?.uid && firestore) {
-        const fetchProfile = async () => {
-          const userDoc = await getDoc(doc(firestore, 'users', user.uid));
-          if (userDoc.exists()) {
-              setUserProfile(userDoc.data() as UserProfile);
-          }
-        }
-        fetchProfile();
+        const unsub = onSnapshot(doc(firestore, 'users', user.uid), (doc) => {
+             if (doc.exists()) {
+                setUserProfile(doc.data() as UserProfile);
+            }
+        });
+        return () => unsub();
     }
   }, [user?.uid, firestore]);
 
@@ -156,5 +155,3 @@ export function WithdrawalForm({ assets, balances }: { assets: Asset[], balances
     </Card>
   );
 }
-
-    

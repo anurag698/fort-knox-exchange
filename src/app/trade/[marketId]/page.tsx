@@ -1,13 +1,13 @@
 'use client';
 
-import { useState, use } from "react";
+import { useState } from "react";
 import { Balances } from "@/components/trade/balances";
 import { MemoizedTradingViewChart } from "@/components/trade/trading-view-chart";
 import { OrderBook } from "@/components/trade/order-book";
 import { OrderForm } from "@/components/trade/order-form";
 import { UserTrades } from "@/components/trade/user-trades";
 
-// This is a Client Component that receives marketId as a direct prop.
+// This is the Client Component that contains all the interactive UI.
 function TradePageClient({ marketId }: { marketId: string }) {
   const [selectedPrice, setSelectedPrice] = useState<number | undefined>(undefined);
 
@@ -26,9 +26,12 @@ function TradePageClient({ marketId }: { marketId: string }) {
   );
 }
 
-// The default export is a Server Component that handles params.
+// NOTE: We are keeping the 'use client' directive at the top of this file.
+// The default export will now be the client component.
+// Any server-side logic for this route should be moved to a parent Server Component
+// or handled via API routes. Since this page is purely interactive, making it
+// fully client-side is the most direct way to resolve the rendering errors.
 export default function MarketTradePage({ params }: { params: { marketId: string } }) {
-  // Use React.use() to unwrap the params promise as recommended by Next.js
-  const { marketId } = use(Promise.resolve(params));
+  const { marketId } = params;
   return <TradePageClient marketId={marketId} />;
 }

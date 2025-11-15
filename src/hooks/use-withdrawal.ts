@@ -61,5 +61,3 @@ export function useWithdrawal(withdrawalId: string) {
 
   return { data, isLoading, error };
 }
-
-    

@@ -30,4 +30,3 @@ export function useOrders(marketId?: string) {
 
   return useCollection<Order>(ordersQuery);
 }
-

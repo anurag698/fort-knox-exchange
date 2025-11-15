@@ -62,5 +62,3 @@ export function useWithdrawals(status: Withdrawal['status'] = 'PENDING') {
       error: !finalIsLoading && !isAdmin ? new Error("You do not have permission to view withdrawals.") : error
   };
 }
-
-    

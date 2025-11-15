@@ -17,10 +17,29 @@ service cloud.firestore {
     match /users/{userId} {
       allow read, update, delete: if isSignedIn() && isOwner(userId);
       allow create: if isSignedIn();
+
+      // Balances are read-only for the user. Writes must come from the backend.
+      match /balances/{balanceId} {
+        allow read: if isSignedIn() && isOwner(userId);
+        allow write: if false;
+      }
+
+      // Deposits are read-only for the user. Writes must come from the backend.
+      match /deposits/{depositId} {
+         allow read: if isSignedIn() && isOwner(userId);
+         allow write: if false;
+      }
+
+      // Withdrawals are read-only for the user. Writes must come from the backend.
+       match /withdrawals/{withdrawalId} {
+         allow read: if isSignedIn() && isOwner(userId);
+         allow write: if false;
+      }
       
-      // User subcollections are private to the owner
-      match /{allPaths=**} {
-        allow read, write: if isSignedIn() && isOwner(userId);
+      // Ledger entries are read-only for the user. Writes must come from the backend.
+      match /ledgerEntries/{ledgerEntryId} {
+        allow read: if isSignedIn() && isOwner(userId);
+        allow write: if false;
       }
     }
     

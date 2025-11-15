@@ -44,11 +44,7 @@ export async function updateMarketData(prevState: any, formData: FormData) {
     // As per prompt, use the provided key directly
     const apiKey = 'n7vYfn4JWkisRdkbfycph7OLW36YWp4l';
 
-    const response = await axios.get(`https://api.binance.com/api/v3/ticker/24hr`, {
-      headers: {
-        'X-MBX-APIKEY': apiKey,
-      },
-    });
+    const response = await axios.get(`https://api.binance.com/api/v3/ticker/24hr`);
 
     const tickers: any[] = response.data;
     const tickerMap = new Map(tickers.map(t => [t.symbol, t]));
@@ -620,3 +616,5 @@ export async function submitKyc(prevState: any, formData: FormData): Promise<For
     };
   }
 }
+
+    

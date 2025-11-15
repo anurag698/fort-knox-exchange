@@ -1,3 +1,4 @@
+
 'use client';
 
 import { collectionGroup, getCountFromServer, query, where } from 'firebase/firestore';
@@ -40,3 +41,5 @@ export function useWithdrawalsCount(status: 'PENDING' | 'APPROVED' | 'REJECTED' 
 
   return { count, isLoading, error };
 }
+
+    

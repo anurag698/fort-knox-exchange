@@ -1,3 +1,4 @@
+
 'use client';
 
 import { collection, getCountFromServer } from 'firebase/firestore';
@@ -40,3 +41,5 @@ export function useMarketsCount() {
 
   return { count, isLoading, error };
 }
+
+    

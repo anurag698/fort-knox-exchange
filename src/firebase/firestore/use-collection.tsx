@@ -49,10 +49,10 @@ export function useCollection<T = any>(
   const [error, setError] = useState<FirestoreError | Error | null>(null);
 
   useEffect(() => {
-    // If the query is not ready, set loading to true and clear data/error.
+    // If the query is not ready, set loading to false and clear data/error.
     // The hook will re-run when the query becomes available.
     if (!memoizedTargetRefOrQuery) {
-      setIsLoading(true);
+      setIsLoading(false);
       setData(null);
       setError(null);
       return;

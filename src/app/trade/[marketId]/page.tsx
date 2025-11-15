@@ -7,10 +7,9 @@ import { OrderBook } from "@/components/trade/order-book";
 import { OrderForm } from "@/components/trade/order-form";
 import { UserTrades } from "@/components/trade/user-trades";
 
-export default function TradePage() {
+export default function MarketTradePage({ params }: { params: { marketId: string } }) {
   const [selectedPrice, setSelectedPrice] = useState<number | undefined>(undefined);
-  // Default to BTC-USDT for the main /trade route
-  const [marketId, setMarketId] = useState<string>('BTC-USDT');
+  const [marketId, setMarketId] = useState<string>(params.marketId || 'BTC-USDT');
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">

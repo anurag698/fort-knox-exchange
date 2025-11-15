@@ -15,7 +15,6 @@ import { AlertCircle } from 'lucide-react';
 type EnrichedMarket = Market & {
   baseAsset?: Asset;
   quoteAsset?: Asset;
-  price: number;
 };
 
 export default function MarketsPage() {

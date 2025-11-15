@@ -20,7 +20,6 @@ import { AlertCircle } from 'lucide-react';
 type EnrichedMarket = Market & {
   baseAsset?: Asset;
   quoteAsset?: Asset;
-  price: number;
 };
 
 type MarketsTableProps = {
@@ -61,7 +60,6 @@ export function MarketsTable({ initialMarkets }: MarketsTableProps) {
   }, [initialMarkets]);
 
   useEffect(() => {
-    // Update market prices when the `prices` state changes
     setMarkets(prevMarkets => 
         prevMarkets.map(market => ({
             ...market,
@@ -92,6 +90,7 @@ export function MarketsTable({ initialMarkets }: MarketsTableProps) {
         <TableBody>
           {markets.map((market) => {
             const isPositive = market.change >= 0;
+            const currentPrice = prices[`${market.baseAssetId}${market.quoteAssetId}`];
 
             return (
               <TableRow key={market.id}>
@@ -102,8 +101,8 @@ export function MarketsTable({ initialMarkets }: MarketsTableProps) {
                     <span className="text-muted-foreground">{market.quoteAsset?.symbol ?? '...'}</span>
                   </div>
                 </TableCell>
-                <TableCell className={cn("font-mono", market.price > 0 ? (isPositive ? 'text-green-600' : 'text-red-600') : 'text-muted-foreground')}>
-                  {market.price > 0 ? `$${market.price.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: market.pricePrecision})}` : <Skeleton className="h-4 w-20" />}
+                <TableCell className={cn("font-mono", currentPrice ? (isPositive ? 'text-green-600' : 'text-red-600') : 'text-muted-foreground')}>
+                  {currentPrice ? `$${currentPrice.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: market.pricePrecision})}` : <Skeleton className="h-4 w-20" />}
                 </TableCell>
                 <TableCell className={cn("flex items-center gap-1", isPositive ? 'text-green-600' : 'text-red-600')}>
                   {isPositive ? <ArrowUp className="h-4 w-4" /> : <ArrowDown className="h-4 w-4" />}

@@ -1,5 +1,5 @@
 
-import { initializeApp, getApps, getApp, App } from 'firebase-admin/app';
+import { initializeApp, getApps, getApp } from 'firebase-admin/app';
 import { getAuth } from 'firebase-admin/auth';
 import { getFirestore, FieldValue } from 'firebase-admin/firestore';
 import { cookies } from 'next/headers';
@@ -22,21 +22,10 @@ export function getFirebaseAdmin() {
         };
     }
 
-    const serviceAccountString = process.env.FIREBASE_SERVICE_ACCOUNT;
-    if (!serviceAccountString) {
-        throw new Error('FIREBASE_SERVICE_ACCOUNT environment variable is not set.');
-    }
-
     try {
-        const serviceAccount = JSON.parse(serviceAccountString);
-
-        const credential = {
-            projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
-            clientEmail: serviceAccount.client_email,
-            privateKey: serviceAccount.private_key.replace(/\\n/g, '\n'),
-        };
-
-        const adminApp = initializeApp({ credential }, appName);
+        // Initialize the app without any credentials.
+        // The Admin SDK will automatically discover the credentials from the environment.
+        const adminApp = initializeApp({}, appName);
         
         return { 
             firestore: getFirestore(adminApp), 
@@ -47,7 +36,7 @@ export function getFirebaseAdmin() {
 
     } catch (error: any) {
         console.error("Firebase Admin Initialization Error:", error);
-        throw new Error(`Failed to initialize Firebase Admin SDK. Please check your FIREBASE_SERVICE_ACCOUNT environment variable. Original error: ${error.message}`);
+        throw new Error(`Failed to initialize Firebase Admin SDK. Original error: ${error.message}`);
     }
 }
 

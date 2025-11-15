@@ -31,45 +31,92 @@ export default function AdminPage() {
   const [isAdmin, setIsAdmin] = useState(false);
   
   useEffect(() => {
-    if (!firestore) return;
+    if (!firestore || !user) {
+      setIsLoading(false);
+      return;
+    };
     
-    if (user) {
+    let isMounted = true;
+
+    const checkAdminStatus = async () => {
       const userDocRef = doc(firestore, 'users', user.uid);
-      getDoc(userDocRef).then(docSnap => {
-        if(docSnap.exists() && docSnap.data().isAdmin) {
-          setIsAdmin(true);
+      try {
+        const docSnap = await getDoc(userDocRef);
+        if (isMounted) {
+          if (docSnap.exists() && docSnap.data().isAdmin) {
+            setIsAdmin(true);
+          } else {
+            setIsAdmin(false);
+            setIsLoading(false);
+          }
         }
-      });
-    }
+      } catch (e) {
+         if (isMounted) {
+            setError(e as Error);
+            setIsLoading(false);
+         }
+      }
+    };
 
-    if (isAdmin) {
-        const q = query(collectionGroup(firestore, 'withdrawals'), where('status', '==', 'PENDING'), orderBy('createdAt', 'desc'));
-        const unsubWithdrawals = onSnapshot(q, snapshot => {
-            setWithdrawals(snapshot.docs.map(doc => ({...doc.data() as Withdrawal, id: doc.id})));
-            if(assets && usersCount && marketsCount) setIsLoading(false);
-        }, setError);
-        
-        const unsubAssets = onSnapshot(collection(firestore, 'assets'), snapshot => {
-            setAssets(snapshot.docs.map(doc => ({...doc.data() as Asset, id: doc.id})));
-            if(withdrawals && usersCount && marketsCount) setIsLoading(false);
-        }, setError);
-
-        getCountFromServer(collection(firestore, 'users')).then(snap => setUsersCount(snap.data().count));
-        getCountFromServer(collection(firestore, 'markets')).then(snap => setMarketsCount(snap.data().count));
-        getCountFromServer(query(collectionGroup(firestore, 'withdrawals'), where('status', '==', 'PENDING'))).then(snap => setWithdrawalsCount(snap.data().count));
-
-        return () => {
-            unsubWithdrawals();
-            unsubAssets();
-        }
-    } else if (user) {
-        setIsLoading(false);
-    }
+    checkAdminStatus();
     
+    return () => { isMounted = false; }
+  }, [firestore, user]);
 
-  }, [firestore, user, isAdmin, assets, withdrawals, usersCount, marketsCount]);
+  useEffect(() => {
+    if (!firestore || !isAdmin) return;
 
+    let isMounted = true;
+    const initialLoad = [true, true, true, true, true]; // withdrawals, assets, users, markets, withdrawalsCount
+    const doneLoading = () => initialLoad.every(v => !v) && setIsLoading(false);
 
+    const q = query(collectionGroup(firestore, 'withdrawals'), where('status', '==', 'PENDING'), orderBy('createdAt', 'desc'));
+    const unsubWithdrawals = onSnapshot(q, snapshot => {
+        if(isMounted) {
+          setWithdrawals(snapshot.docs.map(doc => ({...doc.data() as Withdrawal, id: doc.id})));
+          initialLoad[0] = false;
+          doneLoading();
+        }
+    }, e => isMounted && setError(e));
+    
+    const unsubAssets = onSnapshot(collection(firestore, 'assets'), snapshot => {
+        if(isMounted) {
+          setAssets(snapshot.docs.map(doc => ({...doc.data() as Asset, id: doc.id})));
+          initialLoad[1] = false;
+          doneLoading();
+        }
+    }, e => isMounted && setError(e));
+
+    getCountFromServer(collection(firestore, 'users')).then(snap => {
+        if(isMounted) {
+            setUsersCount(snap.data().count);
+            initialLoad[2] = false;
+            doneLoading();
+        }
+    }).catch(e => isMounted && setError(e));
+
+    getCountFromServer(collection(firestore, 'markets')).then(snap => {
+        if(isMounted) {
+            setMarketsCount(snap.data().count);
+            initialLoad[3] = false;
+            doneLoading();
+        }
+    }).catch(e => isMounted && setError(e));
+    
+    getCountFromServer(query(collectionGroup(firestore, 'withdrawals'), where('status', '==', 'PENDING'))).then(snap => {
+        if(isMounted) {
+            setWithdrawalsCount(snap.data().count);
+            initialLoad[4] = false;
+            doneLoading();
+        }
+    }).catch(e => isMounted && setError(e));
+
+    return () => {
+        isMounted = false;
+        unsubWithdrawals();
+        unsubAssets();
+    }
+  }, [firestore, isAdmin])
 
   const summaryStats = [
     { title: "Total Users", value: usersCount, isLoading: isLoading, icon: Users, href: "/admin/users" },
@@ -220,7 +267,7 @@ export default function AdminPage() {
               {stat.isLoading ? (
                  <Skeleton className="h-8 w-20" />
               ) : (
-                <div className="text-2xl font-bold">{stat.value}</div>
+                <div className="text-2xl font-bold">{stat.value ?? '...'}</div>
               )}
                <Button variant="link" size="sm" className="p-0 h-auto -ml-1 text-xs" asChild>
                   <Link href={stat.href ?? '#'}>

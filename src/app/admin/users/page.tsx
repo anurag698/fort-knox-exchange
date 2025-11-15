@@ -23,26 +23,52 @@ export default function AdminUsersPage() {
   const [isAdmin, setIsAdmin] = useState(false);
 
   useEffect(() => {
-    if (!firestore) return;
-    
-    if (user) {
-      getDoc(doc(firestore, 'users', user.uid)).then(docSnap => {
-        if(docSnap.exists() && docSnap.data().isAdmin) {
-          setIsAdmin(true);
-          const q = query(collection(firestore, 'users'), orderBy('createdAt', 'desc'));
-          const unsubscribe = onSnapshot(q, snapshot => {
-            setUsers(snapshot.docs.map(doc => ({...doc.data() as UserProfile, id: doc.id})));
-            setIsLoading(false);
-          }, setError);
-          return () => unsubscribe();
-        } else {
-            setIsLoading(false);
-        }
-      });
-    } else {
-      setIsLoading(false);
+    if (!firestore || !user) {
+        setIsLoading(false);
+        return;
     }
-  }, [firestore, user]);
+
+    let isMounted = true;
+
+    const checkAdminAndFetchUsers = async () => {
+        try {
+            const userDoc = await getDoc(doc(firestore, 'users', user.uid));
+            if (!isMounted) return;
+
+            if (userDoc.exists() && userDoc.data().isAdmin) {
+                setIsAdmin(true);
+                const q = query(collection(firestore, 'users'), orderBy('createdAt', 'desc'));
+                const unsubscribe = onSnapshot(q, snapshot => {
+                    if (isMounted) {
+                        setUsers(snapshot.docs.map(doc => ({...doc.data() as UserProfile, id: doc.id})));
+                        setIsLoading(false);
+                    }
+                }, e => {
+                    if (isMounted) setError(e);
+                });
+                return unsubscribe;
+            } else {
+                setIsAdmin(false);
+                setIsLoading(false);
+            }
+        } catch (e) {
+            if (isMounted) {
+                setError(e as Error);
+                setIsLoading(false);
+            }
+        }
+    };
+    
+    let unsubscribe: (() => void) | undefined;
+    checkAdminAndFetchUsers().then(unsub => {
+        if(unsub) unsubscribe = unsub;
+    });
+
+    return () => {
+        isMounted = false;
+        if(unsubscribe) unsubscribe();
+    };
+}, [firestore, user]);
 
 
   const getKYCBadgeVariant = (status: string) => {

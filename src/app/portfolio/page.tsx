@@ -32,25 +32,32 @@ export default function WalletPage() {
   const [error, setError] = useState<Error | null>(null);
 
   useEffect(() => {
-    if (!firestore) return;
-    
-    if (user) {
-        const unsubBalances = onSnapshot(collection(firestore, 'users', user.uid, 'balances'), (snapshot) => {
-            setBalances(snapshot.docs.map(doc => ({...doc.data() as Balance, id: doc.id})));
-            setBalancesLoading(false);
-        }, setError);
-        return () => unsubBalances();
-    } else {
+    if (!firestore || !user?.uid) {
         setBalancesLoading(false);
+        return;
     }
-  }, [firestore, user]);
+    const unsubBalances = onSnapshot(collection(firestore, 'users', user.uid, 'balances'), (snapshot) => {
+        setBalances(snapshot.docs.map(doc => ({...doc.data() as Balance, id: doc.id})));
+        setBalancesLoading(false);
+    }, (e) => {
+        setError(e);
+        setBalancesLoading(false);
+    });
+    return () => unsubBalances();
+  }, [firestore, user?.uid]);
 
   useEffect(() => {
-      if(!firestore) return;
+      if(!firestore) {
+          setAssetsLoading(false);
+          return;
+      }
       const unsubAssets = onSnapshot(query(collection(firestore, 'assets'), orderBy('name', 'asc')), (snapshot) => {
         setAssets(snapshot.docs.map(doc => ({...doc.data() as Asset, id: doc.id})));
         setAssetsLoading(false);
-      }, setError);
+      }, (e) => {
+          setError(e);
+          setAssetsLoading(false);
+      });
       return () => unsubAssets();
   }, [firestore]);
 

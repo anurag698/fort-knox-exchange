@@ -51,43 +51,57 @@ export function UserTrades({ marketId }: { marketId: string }) {
     const [error, setError] = useState<Error | null>(null);
     
     useEffect(() => {
-        if (!firestore || !user) {
+        if (!firestore) {
             setIsLoading(false);
             return;
         }
 
-        const constraints = [
-            where('userId', '==', user.uid),
-            where('status', 'in', ['OPEN', 'PARTIAL']),
-            orderBy('createdAt', 'desc')
-        ];
-        if (marketId) {
-            constraints.splice(1, 0, where('marketId', '==', marketId));
-        }
-        const ordersQuery = query(collection(firestore, 'orders'), ...constraints);
+        let isMounted = true;
 
-        const unsubOrders = onSnapshot(ordersQuery, (snapshot) => {
-            setOrders(snapshot.docs.map(doc => ({...doc.data() as Order, id: doc.id})));
-            if(assets && market) setIsLoading(false);
-        }, setError);
-        
         const unsubAssets = onSnapshot(collection(firestore, 'assets'), (snapshot) => {
-            setAssets(snapshot.docs.map(doc => ({...doc.data() as Asset, id: doc.id})));
-            if(orders && market) setIsLoading(false);
+            if (isMounted) setAssets(snapshot.docs.map(doc => ({...doc.data() as Asset, id: doc.id})));
         }, setError);
 
         const unsubMarket = onSnapshot(doc(firestore, 'markets', marketId), (doc) => {
-            setMarket(doc.exists() ? {...doc.data() as Market, id: doc.id} : null);
-            if(orders && assets) setIsLoading(false);
+            if (isMounted) setMarket(doc.exists() ? {...doc.data() as Market, id: doc.id} : null);
         }, setError);
 
+        let unsubOrders = () => {};
+        if (user?.uid) {
+            const constraints = [
+                where('userId', '==', user.uid),
+                where('status', 'in', ['OPEN', 'PARTIAL']),
+                orderBy('createdAt', 'desc')
+            ];
+            if (marketId) {
+                constraints.splice(1, 0, where('marketId', '==', marketId));
+            }
+            const ordersQuery = query(collection(firestore, 'orders'), ...constraints);
+
+            unsubOrders = onSnapshot(ordersQuery, (snapshot) => {
+                if (isMounted) {
+                    setOrders(snapshot.docs.map(doc => ({...doc.data() as Order, id: doc.id})));
+                    setIsLoading(false);
+                }
+            }, (e) => {
+                if(isMounted) {
+                    setError(e);
+                    setIsLoading(false);
+                }
+            });
+        } else {
+            setOrders([]);
+            setIsLoading(false);
+        }
+
         return () => {
+            isMounted = false;
             unsubOrders();
             unsubAssets();
             unsubMarket();
         }
 
-    }, [firestore, user, marketId, orders, assets, market]);
+    }, [firestore, user?.uid, marketId]);
 
 
     const assetsMap = useMemo(() => {
@@ -119,6 +133,14 @@ export function UserTrades({ marketId }: { marketId: string }) {
             );
         }
 
+        if (!user) {
+            return (
+                <div className="text-center py-12 text-muted-foreground">
+                    <p>Please sign in to see your orders.</p>
+                </div>
+            );
+        }
+        
         if (!orders || orders.length === 0) {
             return (
                 <div className="text-center py-12 text-muted-foreground">

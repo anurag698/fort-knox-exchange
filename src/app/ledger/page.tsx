@@ -19,7 +19,7 @@ export default function LedgerPage() {
   const [error, setError] = useState<Error | null>(null);
 
   useEffect(() => {
-    if (!firestore || !user) {
+    if (!firestore || !user?.uid) {
       setIsLoading(false);
       return;
     }
@@ -28,10 +28,13 @@ export default function LedgerPage() {
     const unsubscribe = onSnapshot(ledgerQuery, (snapshot) => {
         setLedgerEntries(snapshot.docs.map(doc => ({...doc.data() as LedgerEntry, id: doc.id})));
         setIsLoading(false);
-    }, setError);
+    }, (e) => {
+        setError(e);
+        setIsLoading(false);
+    });
 
     return () => unsubscribe();
-  }, [firestore, user]);
+  }, [firestore, user?.uid]);
 
 
   const renderContent = () => {

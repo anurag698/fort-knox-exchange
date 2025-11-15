@@ -9,17 +9,18 @@ import { UserTrades } from "@/components/trade/user-trades";
 
 export default function MarketTradePage({ params }: { params: { marketId: string } }) {
   const [selectedPrice, setSelectedPrice] = useState<number | undefined>(undefined);
+  const marketId = params.marketId || 'BTC-USDT';
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
       <div className="lg:col-span-9 flex flex-col gap-4">
-        <MemoizedTradingViewChart marketId={params.marketId || 'BTC-USDT'} />
-        <UserTrades marketId={params.marketId || 'BTC-USDT'} />
+        <MemoizedTradingViewChart marketId={marketId} />
+        <UserTrades marketId={marketId} />
       </div>
       <div className="lg:col-span-3 flex flex-col gap-4">
-        <OrderBook marketId={params.marketId || 'BTC-USDT'} onPriceSelect={setSelectedPrice} />
-        <Balances marketId={params.marketId || 'BTC-USDT'} />
-        <OrderForm marketId={params.marketId || 'BTC-USDT'} selectedPrice={selectedPrice} />
+        <OrderBook marketId={marketId} onPriceSelect={setSelectedPrice} />
+        <Balances marketId={marketId} />
+        <OrderForm marketId={marketId} selectedPrice={selectedPrice} />
       </div>
     </div>
   );

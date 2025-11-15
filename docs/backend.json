@@ -355,7 +355,6 @@
         "id",
         "orderId",
         "chainId",
-        "oneinchPayload",
         "status"
       ]
     },

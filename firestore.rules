@@ -36,6 +36,20 @@ service cloud.firestore {
           allow list: if isOwner(userId);
           allow write: if false;
       }
+      match /deposits/{depositId} {
+          allow get: if isOwner(userId) || isAdmin();
+          allow list: if isOwner(userId) || isAdmin();
+          allow write: if false; // Server-only
+      }
+      match /withdrawals/{withdrawalId} {
+          allow get: if isOwner(userId) || isAdmin();
+          allow list: if isOwner(userId) || isAdmin();
+          allow write: if false; // Server-only
+      }
+      match /ledgerEntries/{ledgerEntryId} {
+          allow get, list: if isOwner(userId);
+          allow write: if false; // server-only
+      }
     }
 
     // ORDERS & TRADES
@@ -73,6 +87,11 @@ service cloud.firestore {
       allow get, list: if true;
       allow write: if false; // Server-only
     }
+    // Public assets collection
+    match /assets/{assetId} { 
+        allow get, list: if true;
+        allow write: if false;
+    }
 
     // SERVER-ONLY COLLECTIONS
     // These collections should never be accessed directly by a client.
@@ -88,13 +107,9 @@ service cloud.firestore {
     
     // LEGACY COLLECTIONS (to be removed or migrated)
     // Deny access to old data structures to enforce new schema.
-    match /assets/{assetId} { allow read, write: if false; }
     match /trades/{tradeId} { allow read, write: if false; }
     match /publicData/{docId} { allow read, write: if false; }
     match /adminUsers/{adminId} { allow read, write: if false; }
     match /{path=**}/sessions/{sessionId} { allow read, write: if false; }
-    match /{path=**}/deposits/{depositId} { allow read, write: if false; }
-    match /{path=**}/withdrawals/{withdrawalId} { allow read, write: if false; }
-    match /{path=**}/ledgerEntries/{ledgerEntryId} { allow read, write: if false; }
   }
 }

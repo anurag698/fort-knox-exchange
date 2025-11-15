@@ -36,7 +36,7 @@ export type Order = {
   marketId: string;
   side: 'BUY' | 'SELL';
   type: 'LIMIT' | 'MARKET';
-  price?: number;
+  price: number;
   quantity: number;
   status: 'OPEN' | 'PARTIAL' | 'FILLED' | 'CANCELED';
   filledAmount: number;

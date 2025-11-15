@@ -1,9 +1,9 @@
 'use client';
 
-import { collection, query, orderBy, getDoc, doc } from 'firebase/firestore';
-import { useCollection, useFirestore, useUser } from '@/firebase';
+import { collection, query, orderBy, doc, getDoc } from 'firebase/firestore';
+import { useCollection, useFirestore, useUser, useMemoFirebase } from '@/firebase';
 import type { UserProfile } from '@/lib/types';
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect } from 'react';
 
 export function useUsers() {
   const firestore = useFirestore();
@@ -34,7 +34,7 @@ export function useUsers() {
     checkAdmin();
   }, [user, firestore]);
 
-  const usersQuery = useMemo(
+  const usersQuery = useMemoFirebase(
     () => {
       if (!firestore || !isAdmin) return null;
       return query(collection(firestore, 'users'), orderBy('createdAt', 'desc'));
@@ -42,15 +42,14 @@ export function useUsers() {
     [firestore, isAdmin]
   );
 
-  const { data, isLoading: isLoadingCollection, error: collectionError } = useCollection<UserProfile>(usersQuery);
-  
-  const finalIsLoading = isCheckingAdmin || (isAdmin && isLoadingCollection);
-  
-  const finalError = adminCheckError || collectionError || (!isCheckingAdmin && !isAdmin ? new Error("You do not have permission to view this page.") : null);
+  const { data, isLoading, error: collectionError } = useCollection<UserProfile>(usersQuery);
 
-  return { 
-      data: finalIsLoading || finalError ? null : data, 
-      isLoading: finalIsLoading, 
-      error: finalError
+  const isInitialLoading = isCheckingAdmin || (isAdmin && isLoading);
+  const finalError = adminCheckError || collectionError || (!isCheckingAdmin && !isAdmin ? new Error("You do not have permission to view this page.") : null);
+  
+  return {
+    data: isInitialLoading || finalError ? null : data,
+    isLoading: isInitialLoading,
+    error: finalError,
   };
 }

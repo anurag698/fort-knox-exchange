@@ -7,12 +7,10 @@ import { OrderBook } from "@/components/trade/order-book";
 import { OrderForm } from "@/components/trade/order-form";
 import { UserTrades } from "@/components/trade/user-trades";
 
-// The default export is the page, which now receives params directly
-export default function TradePage({ params }: { params: { marketId: string } }) {
-  const { marketId } = params;
+// This is the Client Component that contains all the interactive UI.
+function TradePageClient({ marketId }: { marketId: string }) {
   const [selectedPrice, setSelectedPrice] = useState<number | undefined>(undefined);
 
-  // All UI is now within this single client component structure
   return (
     <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
       <div className="lg:col-span-9 flex flex-col gap-4">
@@ -26,4 +24,10 @@ export default function TradePage({ params }: { params: { marketId: string } }) 
       </div>
     </div>
   );
+}
+
+// The default export is a Server Component that handles params.
+// It destructures the marketId directly from params.
+export default function TradePage({ params: { marketId } }: { params: { marketId: string } }) {
+  return <TradePageClient marketId={marketId} />;
 }

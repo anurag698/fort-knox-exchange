@@ -32,14 +32,13 @@ service cloud.firestore {
     
     // ORDERS can only be managed by the user who owns them
     match /orders/{orderId} {
-      // Allow user to create and read their own orders.
+      // A user can only list orders if the query is filtered by their userId.
+      allow list: if request.auth != null && request.query.where.userId == request.auth.uid;
+      // Allow user to read, create, and update their own orders under specific conditions.
       allow read, create: if request.auth.uid == request.resource.data.userId;
-      // Allow a user to update their own order only to cancel it.
       allow update: if request.auth.uid == resource.data.userId && request.resource.data.status == 'CANCELED';
       // A user cannot delete orders.
       allow delete: if false;
-      // Allow a user to list only their own orders.
-      allow list: if request.auth != null && request.query.filters.userId == request.auth.uid;
     }
 
 

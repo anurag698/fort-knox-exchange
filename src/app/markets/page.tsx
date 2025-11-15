@@ -3,6 +3,7 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import type { Market, Asset, MarketData } from '@/lib/types';
+import Link from 'next/link';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { MarketsTable } from '@/components/markets/markets-table';
 import { AlertCircle, DatabaseZap } from 'lucide-react';
@@ -213,7 +214,3 @@ export default function MarketsPage() {
     </div>
   );
 }
-
-
-
-    

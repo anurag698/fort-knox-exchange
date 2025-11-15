@@ -1,110 +1,67 @@
 'use client';
 
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
-import type { LedgerEntry, Asset } from '@/lib/types';
-import { useMemo, useState, useEffect } from 'react';
-import { Skeleton } from '@/components/ui/skeleton';
-import { Badge } from '@/components/ui/badge';
-import { cn } from '@/lib/utils';
-import { ArrowUpRight, ArrowDownLeft, ReceiptText } from 'lucide-react';
-import { useFirestore } from '@/firebase';
-import { collection, onSnapshot, query, orderBy } from 'firebase/firestore';
+import { useState, useEffect } from 'react';
+import { onSnapshot, type Query, type DocumentData } from 'firebase/firestore';
+import { errorEmitter } from '@/firebase/error-emitter';
+import { FirestorePermissionError } from '@/firebase/errors';
 
-type LedgerTableProps = {
-  entries: LedgerEntry[];
-};
-
-const getTransactionIcon = (type: string) => {
-    switch (type.toUpperCase()) {
-        case 'DEPOSIT':
-        case 'TRADE_BUY':
-            return <ArrowDownLeft className="h-4 w-4 text-green-500" />;
-        case 'WITHDRAWAL':
-        case 'TRADE_SELL':
-            return <ArrowUpRight className="h-4 w-4 text-red-500" />;
-        case 'FEE':
-            return <ReceiptText className="h-4 w-4 text-muted-foreground" />;
-        default:
-            return null;
-    }
+export interface UseCollectionResult<T> {
+  data: T[] | null;
+  isLoading: boolean;
+  error: Error | null;
 }
 
-export function LedgerTable({ entries }: LedgerTableProps) {
-    const firestore = useFirestore();
-    const [assets, setAssets] = useState<Asset[] | null>(null);
-    const [isLoading, setIsLoading] = useState(true);
+/**
+ * A hook to fetch and listen to a Firestore collection in real-time.
+ * @param query The Firestore query to execute.
+ * @returns An object containing the data, loading state, and any error.
+ */
+export function useCollection<T extends DocumentData>(
+  query: Query<DocumentData> | null
+): UseCollectionResult<T> {
+  const [data, setData] = useState<T[] | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<Error | null>(null);
 
-    useEffect(() => {
-        if (!firestore) return;
-        const unsub = onSnapshot(query(collection(firestore, 'assets')), snapshot => {
-            setAssets(snapshot.docs.map(doc => ({ ...doc.data() as Asset, id: doc.id })));
-            setIsLoading(false);
-        });
-        return () => unsub();
-    }, [firestore]);
+  // The stringified query is a stable dependency for useEffect.
+  const queryKey = query ? JSON.stringify(query) : 'null';
 
-
-    const assetsMap = useMemo(() => {
-        if (!assets) return new Map();
-        return new Map(assets.map(asset => [asset.id, asset]));
-    }, [assets]);
-
-    if (isLoading) {
-      return (
-        <div className="space-y-2">
-            <Skeleton className="h-12 w-full" />
-            <Skeleton className="h-12 w-full" />
-            <Skeleton className="h-12 w-full" />
-        </div>
-      );
+  useEffect(() => {
+    if (!query) {
+      setData([]);
+      setIsLoading(false);
+      return;
     }
 
-  return (
-    <div className="rounded-md border">
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead className="w-[180px]">Date</TableHead>
-            <TableHead className="w-[150px]">Type</TableHead>
-            <TableHead>Description</TableHead>
-            <TableHead className="text-right">Amount</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {entries.map((entry) => {
-            const asset = assetsMap.get(entry.assetId);
-            const entryDate = entry.createdAt?.toDate ? entry.createdAt.toDate() : new Date();
-            const isCredit = ['DEPOSIT', 'TRADE_BUY'].includes(entry.type.toUpperCase());
-            const isFee = entry.type.toUpperCase() === 'FEE';
-            const amountColor = isCredit ? "text-green-500" : (isFee ? "text-muted-foreground" : "text-red-500");
+    setIsLoading(true);
 
-            return (
-              <TableRow key={entry.id}>
-                <TableCell className="text-muted-foreground text-xs">
-                  {entryDate.toLocaleString()}
-                </TableCell>
-                <TableCell>
-                    <div className="flex items-center gap-2">
-                        {getTransactionIcon(entry.type)}
-                        <Badge variant="secondary" className="capitalize">{entry.type.toLowerCase().replace('_', ' ')}</Badge>
-                    </div>
-                </TableCell>
-                <TableCell className="text-sm">{entry.description || 'N/A'}</TableCell>
-                <TableCell className={cn("text-right font-mono", amountColor)}>
-                    {isCredit ? '+' : '-'} {entry.amount.toFixed(asset?.symbol === 'USDT' ? 2 : 8)} {asset?.symbol ?? ''}
-                </TableCell>
-              </TableRow>
-            );
-          })}
-        </TableBody>
-      </Table>
-    </div>
-  );
+    const unsubscribe = onSnapshot(
+      query,
+      (snapshot) => {
+        const result: T[] = snapshot.docs.map(doc => ({
+          ...doc.data() as T,
+          id: doc.id,
+        }));
+        setData(result);
+        setError(null);
+        setIsLoading(false);
+      },
+      (err) => {
+        console.error("useCollection error:", err);
+        setError(err);
+        const permissionError = new FirestorePermissionError({
+          path: (query as any)._query.path.segments.join('/'),
+          operation: 'list',
+        });
+        errorEmitter.emit('permission-error', permissionError);
+        setData(null);
+        setIsLoading(false);
+      }
+    );
+
+    return () => unsubscribe();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [queryKey]); // Use the stable query key as the dependency
+
+  return { data, isLoading, error };
 }

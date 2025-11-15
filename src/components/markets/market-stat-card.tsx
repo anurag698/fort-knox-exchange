@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -28,6 +29,10 @@ const coinIcons: { [key: string]: React.ElementType | string } = {
   LTC: 'https://cdn.jsdelivr.net/gh/atomiclabs/cryptocurrency-icons@1a63530e6e374711a8de441d91584965e5441c4a/128/color/ltc.png',
   TRX: 'https://cdn.jsdelivr.net/gh/atomiclabs/cryptocurrency-icons@1a63530e6e374711a8de441d91584965e5441c4a/128/color/trx.png',
   UNI: 'https://cdn.jsdelivr.net/gh/atomiclabs/cryptocurrency-icons@1a63530e6e374711a8de441d91584965e5441c4a/128/color/uni.png',
+  BNB: 'https://cdn.jsdelivr.net/gh/atomiclabs/cryptocurrency-icons@1a63530e6e374711a8de441d91584965e5441c4a/128/color/bnb.png',
+  BCH: 'https://cdn.jsdelivr.net/gh/atomiclabs/cryptocurrency-icons@1a63530e6e374711a8de441d91584965e5441c4a/128/color/bch.png',
+  XLM: 'https://cdn.jsdelivr.net/gh/atomiclabs/cryptocurrency-icons@1a63530e6e374711a8de441d91584965e5441c4a/128/color/xlm.png',
+  ATOM: 'https://cdn.jsdelivr.net/gh/atomiclabs/cryptocurrency-icons@1a63530e6e374711a8de441d91584965e5441c4a/128/color/atom.png',
   DEFAULT: Circle,
 };
 

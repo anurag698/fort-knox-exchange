@@ -29,6 +29,10 @@ export async function seedInitialData(firestore: Firestore, FieldValue: any) {
         { id: 'LTC', name: 'Litecoin', symbol: 'LTC' },
         { id: 'TRX', name: 'TRON', symbol: 'TRX' },
         { id: 'UNI', name: 'Uniswap', symbol: 'UNI' },
+        { id: 'BNB', name: 'Binance Coin', symbol: 'BNB' },
+        { id: 'BCH', name: 'Bitcoin Cash', symbol: 'BCH' },
+        { id: 'XLM', name: 'Stellar', symbol: 'XLM' },
+        { id: 'ATOM', name: 'Cosmos', symbol: 'ATOM' },
     ];
 
     for (const asset of assetsToSeed) {
@@ -58,6 +62,11 @@ export async function seedInitialData(firestore: Firestore, FieldValue: any) {
       { id: 'LTC-USDT', base: 'LTC', quote: 'USDT', pricePrecision: 2, quantityPrecision: 3, minOrder: 0.01 },
       { id: 'TRX-USDT', base: 'TRX', quote: 'USDT', pricePrecision: 5, quantityPrecision: 0, minOrder: 10 },
       { id: 'UNI-USDT', base: 'UNI', quote: 'USDT', pricePrecision: 3, quantityPrecision: 2, minOrder: 0.1 },
+      { id: 'BNB-USDT', base: 'BNB', quote: 'USDT', pricePrecision: 2, quantityPrecision: 3, minOrder: 0.01 },
+      { id: 'BCH-USDT', base: 'BCH', quote: 'USDT', pricePrecision: 2, quantityPrecision: 3, minOrder: 0.001 },
+      { id: 'XLM-USDT', base: 'XLM', quote: 'USDT', pricePrecision: 5, quantityPrecision: 0, minOrder: 1 },
+      { id: 'ATOM-USDT', base: 'ATOM', quote: 'USDT', pricePrecision: 3, quantityPrecision: 2, minOrder: 0.1 },
+
       // BTC Pairs
       { id: 'ETH-BTC', base: 'ETH', quote: 'BTC', pricePrecision: 6, quantityPrecision: 4, minOrder: 0.001 },
       { id: 'SOL-BTC', base: 'SOL', quote: 'BTC', pricePrecision: 8, quantityPrecision: 2, minOrder: 0.1 },
@@ -71,6 +80,11 @@ export async function seedInitialData(firestore: Firestore, FieldValue: any) {
       { id: 'LTC-BTC', base: 'LTC', quote: 'BTC', pricePrecision: 6, quantityPrecision: 3, minOrder: 0.01 },
       { id: 'TRX-BTC', base: 'TRX', quote: 'BTC', pricePrecision: 8, quantityPrecision: 0, minOrder: 100 },
       { id: 'UNI-BTC', base: 'UNI', quote: 'BTC', pricePrecision: 8, quantityPrecision: 2, minOrder: 0.1 },
+      { id: 'BNB-BTC', base: 'BNB', quote: 'BTC', pricePrecision: 6, quantityPrecision: 3, minOrder: 0.01 },
+      { id: 'BCH-BTC', base: 'BCH', quote: 'BTC', pricePrecision: 6, quantityPrecision: 3, minOrder: 0.001 },
+      { id: 'XLM-BTC', base: 'XLM', quote: 'BTC', pricePrecision: 8, quantityPrecision: 0, minOrder: 10 },
+      { id: 'ATOM-BTC', base: 'ATOM', quote: 'BTC', pricePrecision: 8, quantityPrecision: 2, minOrder: 0.1 },
+
       // ETH Pairs
       { id: 'SOL-ETH', base: 'SOL', quote: 'ETH', pricePrecision: 6, quantityPrecision: 2, minOrder: 0.1 },
       { id: 'ADA-ETH', base: 'ADA', quote: 'ETH', pricePrecision: 8, quantityPrecision: 0, minOrder: 10 },
@@ -83,6 +97,10 @@ export async function seedInitialData(firestore: Firestore, FieldValue: any) {
       { id: 'LTC-ETH', base: 'LTC', quote: 'ETH', pricePrecision: 6, quantityPrecision: 3, minOrder: 0.01 },
       { id: 'TRX-ETH', base: 'TRX', quote: 'ETH', pricePrecision: 8, quantityPrecision: 0, minOrder: 100 },
       { id: 'UNI-ETH', base: 'UNI', quote: 'ETH', pricePrecision: 7, quantityPrecision: 2, minOrder: 0.1 },
+      { id: 'BNB-ETH', base: 'BNB', quote: 'ETH', pricePrecision: 6, quantityPrecision: 3, minOrder: 0.01 },
+      { id: 'BCH-ETH', base: 'BCH', quote: 'ETH', pricePrecision: 6, quantityPrecision: 3, minOrder: 0.001 },
+      { id: 'XLM-ETH', base: 'XLM', quote: 'ETH', pricePrecision: 8, quantityPrecision: 0, minOrder: 10 },
+      { id: 'ATOM-ETH', base: 'ATOM', quote: 'ETH', pricePrecision: 7, quantityPrecision: 2, minOrder: 0.1 },
     ];
 
     for (const market of marketsToSeed) {

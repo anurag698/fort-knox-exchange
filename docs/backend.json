@@ -1,3 +1,4 @@
+
 {
   "entities": {
     "User": {
@@ -550,221 +551,78 @@
     ]
   },
   "firestore": {
-    "structure": [
-      {
-        "path": "users/{userId}",
-        "definition": {
-          "entityName": "User",
-          "schema": {
-            "$ref": "#/backend/entities/User"
-          },
-          "description": "Stores user account information.  Users can only read/write their own document. Includes 'id' field for authentication purposes.",
-          "params": [
-            {
-              "name": "userId",
-              "description": "The unique identifier for the user."
-            }
-          ]
-        }
+    "reasoning": "The Firestore data structure is designed to support a centralized crypto exchange, prioritizing security, scalability, and ease of debugging. It leverages denormalization to ensure authorization independence, enabling atomic operations and simplifying security rules. Structural segregation is used to maintain a homogeneous security posture within each collection, and access modeling follows consistent patterns for private and collaborative data. The structure explicitly models the state of entities and uses semantic naming conventions for clarity.\n\nSpecifically, the structure achieves Authorization Independence (CRITICAL) by avoiding hierarchical authorization dependencies (`get()`). For example, the `orders` collection, while associated with a user, does not require fetching user data to determine access. Similarly, while balances belong to users, direct client-side writes are denied, and backend updates enforce balance consistency.  The `markets` and `publicData` collections are publicly readable, supporting the required QAPs (Rules are not Filters) without complex logic.\n\nThe membership model is not explicitly used here as roles are managed via dedicated collections (`adminUsers`) and path-based ownership is employed for user-specific data (e.g., `users/{userId}/balances/{balanceId}`). This approach simplifies rule creation and enforcement.",
+    "users/{userId}": {
+      "schema": {
+        "$ref": "#/backend/entities/User"
       },
-      {
-        "path": "users/{userId}/sessions/{sessionId}",
-        "definition": {
-          "entityName": "UserSession",
-          "schema": {
-            "$ref": "#/backend/entities/UserSession"
-          },
-          "description": "Stores user session information. Only the user can read/write their own session documents.",
-          "params": [
-            {
-              "name": "userId",
-              "description": "The unique identifier for the user."
-            },
-            {
-              "name": "sessionId",
-              "description": "The unique identifier for the session."
-            }
-          ]
-        }
+      "description": "Stores user account information.  Users can only read/write their own document. Includes 'id' field for authentication purposes."
+    },
+    "users/{userId}/sessions/{sessionId}": {
+      "schema": {
+        "$ref": "#/backend/entities/UserSession"
       },
-      {
-        "path": "users/{userId}/balances/{balanceId}",
-        "definition": {
-          "entityName": "Balance",
-          "schema": {
-            "$ref": "#/backend/entities/Balance"
-          },
-          "description": "Stores user balances for each asset.  Read access is restricted to the user. Write access is only allowed by the backend.",
-          "params": [
-            {
-              "name": "userId",
-              "description": "The unique identifier for the user."
-            },
-            {
-              "name": "balanceId",
-              "description": "The unique identifier for the balance record."
-            }
-          ]
-        }
+      "description": "Stores user session information. Only the user can read/write their own session documents."
+    },
+    "users/{userId}/balances/{balanceId}": {
+      "schema": {
+        "$ref": "#/backend/entities/Balance"
       },
-      {
-        "path": "orders/{orderId}",
-        "definition": {
-          "entityName": "Order",
-          "schema": {
-            "$ref": "#/backend/entities/Order"
-          },
-          "description": "Stores order information. Users can create orders, and read access can be configured for either public or private order books.  Write access is restricted to the backend after creation.",
-          "params": [
-            {
-              "name": "orderId",
-              "description": "The unique identifier for the order."
-            }
-          ]
-        }
+      "description": "Stores user balances for each asset.  Read access is restricted to the user. Write access is only allowed by the backend."
+    },
+    "orders/{orderId}": {
+      "schema": {
+        "$ref": "#/backend/entities/Order"
       },
-      {
-        "path": "markets/{marketId}",
-        "definition": {
-          "entityName": "Market",
-          "schema": {
-            "$ref": "#/backend/entities/Market"
-          },
-          "description": "Stores market information.  Publicly readable. Write access restricted to the backend/admin.",
-          "params": [
-            {
-              "name": "marketId",
-              "description": "The unique identifier for the market."
-            }
-          ]
-        }
+      "description": "Stores order information. Users can create orders, and read access can be configured for either public or private order books.  Write access is restricted to the backend after creation."
+    },
+    "markets/{marketId}": {
+      "schema": {
+        "$ref": "#/backend/entities/Market"
       },
-      {
-        "path": "trades/{tradeId}",
-        "definition": {
-          "entityName": "Trade",
-          "schema": {
-            "$ref": "#/backend/entities/Trade"
-          },
-          "description": "Stores trade information. Publicly readable, as trades are considered public information after execution.",
-          "params": [
-            {
-              "name": "tradeId",
-              "description": "The unique identifier for the trade."
-            }
-          ]
-        }
+      "description": "Stores market information.  Publicly readable. Write access restricted to the backend/admin."
+    },
+    "trades/{tradeId}": {
+      "schema": {
+        "$ref": "#/backend/entities/Trade"
       },
-      {
-        "path": "users/{userId}/deposits/{depositId}",
-        "definition": {
-          "entityName": "Deposit",
-          "schema": {
-            "$ref": "#/backend/entities/Deposit"
-          },
-          "description": "Stores deposit request information. Read access is restricted to the user.  Write access restricted to the backend.",
-          "params": [
-            {
-              "name": "userId",
-              "description": "The unique identifier for the user."
-            },
-            {
-              "name": "depositId",
-              "description": "The unique identifier for the deposit."
-            }
-          ]
-        }
+      "description": "Stores trade information. Publicly readable, as trades are considered public information after execution."
+    },
+    "users/{userId}/deposits/{depositId}": {
+      "schema": {
+        "$ref": "#/backend/entities/Deposit"
       },
-      {
-        "path": "users/{userId}/withdrawals/{withdrawalId}",
-        "definition": {
-          "entityName": "Withdrawal",
-          "schema": {
-            "$ref": "#/backend/entities/Withdrawal"
-          },
-          "description": "Stores withdrawal request information. Read access is restricted to the user.  Write access restricted to the backend.",
-          "params": [
-            {
-              "name": "userId",
-              "description": "The unique identifier for the user."
-            },
-            {
-              "name": "withdrawalId",
-              "description": "The unique identifier for the withdrawal."
-            }
-          ]
-        }
+      "description": "Stores deposit request information. Read access is restricted to the user.  Write access restricted to the backend."
+    },
+    "users/{userId}/withdrawals/{withdrawalId}": {
+      "schema": {
+        "$ref": "#/backend/entities/Withdrawal"
       },
-      {
-        "path": "adminUsers/{adminId}",
-        "definition": {
-          "entityName": "AdminUser",
-          "schema": {
-            "$ref": "#/backend/entities/AdminUser"
-          },
-          "description": "Stores admin user information. No direct client access.",
-          "params": [
-            {
-              "name": "adminId",
-              "description": "The unique identifier for the admin user."
-            }
-          ]
-        }
+      "description": "Stores withdrawal request information. Read access is restricted to the user.  Write access restricted to the backend."
+    },
+    "adminUsers/{adminId}": {
+      "schema": {
+        "$ref": "#/backend/entities/AdminUser"
       },
-      {
-        "path": "publicData/{docId}",
-        "definition": {
-          "entityName": "publicData",
-          "schema": {
-            "$ref": "#/backend/entities/AdminUser"
-          },
-          "description": "Stores public information. Readable by everyone, writeable by admins only.",
-          "params": [
-            {
-              "name": "docId",
-              "description": "The unique identifier for the public document."
-            }
-          ]
-        }
+      "description": "Stores admin user information. No direct client access."
+    },
+    "publicData/{docId}": {
+      "schema": {
+        "$ref": "#/backend/entities/AdminUser"
       },
-      {
-        "path": "assets/{assetId}",
-        "definition": {
-          "entityName": "Asset",
-          "schema": {
-            "$ref": "#/backend/entities/Asset"
-          },
-          "description": "Stores information about tradable assets. Publicly readable, writeable by admins only.",
-          "params": [
-            {
-              "name": "assetId",
-              "description": "The unique identifier for the asset."
-            }
-          ]
-        }
+      "description": "Stores public information. Readable by everyone, writeable by admins only."
+    },
+    "assets/{assetId}": {
+      "schema": {
+        "$ref": "#/backend/entities/Asset"
       },
-      {
-        "path": "users/{userId}/ledgerEntries/{ledgerEntryId}",
-        "definition": {
-          "entityName": "LedgerEntry",
-          "schema": {
-            "$ref": "#/backend/entities/LedgerEntry"
-          },
-          "description": "Stores ledger entries for a specific user. Only readable by the user, and only writable by the backend.",
-          "params": [
-            {
-              "name": "userId",
-              "description": "The unique identifier for the user."
-            },
-            {
-              "name": "ledgerEntryId",
-              "description": "The unique identifier for the ledger entry."
-            }
-          ]
-        }
-      }
-    ],
-    "reasoning": "The Firestore data structure is designed to support a centralized crypto exchange, prioritizing security, scalability, and ease of debugging. It leverages denormalization to ensure authorization independence, enabling atomic operations and simplifying security rules. Structural segregation is used to maintain a homogeneous security posture within each collection, and access modeling follows consistent patterns for private and collaborative data. The structure explicitly models the state of entities and uses semantic naming conventions for clarity.\n\nSpecifically, the structure achieves Authorization Independence (CRITICAL) by avoiding hierarchical authorization dependencies (`get()`). For example, the `orders` collection, while associated with a user, does not require fetching user data to determine access. Similarly, while balances belong to users, direct client-side writes are denied, and backend updates enforce balance consistency.  The `markets` and `publicData` collections are publicly readable, supporting the required QAPs (Rules are not Filters) without complex logic.\n\nThe membership model is not explicitly used here as roles are managed via dedicated collections (`adminUsers`) and path-based ownership is employed for user-specific data (e.g., `users/{userId}/balances/{balanceId}`). This approach simplifies rule creation and enforcement."
+      "description": "Stores information about tradable assets. Publicly readable, writeable by admins only."
+    },
+    "users/{userId}/ledgerEntries/{ledgerEntryId}": {
+      "schema": {
+        "$ref": "#/backend/entities/LedgerEntry"
+      },
+      "description": "Stores ledger entries for a specific user. Only readable by the user, and only writable by the backend."
+    }
   }
 }
-    

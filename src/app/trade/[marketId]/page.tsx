@@ -7,7 +7,7 @@ import { OrderBook } from "@/components/trade/order-book";
 import { OrderForm } from "@/components/trade/order-form";
 import { UserTrades } from "@/components/trade/user-trades";
 
-// This is now a Client Component that receives marketId as a direct prop.
+// This is a Client Component that receives marketId as a direct prop.
 function TradePageClient({ marketId }: { marketId: string }) {
   const [selectedPrice, setSelectedPrice] = useState<number | undefined>(undefined);
 
@@ -27,7 +27,6 @@ function TradePageClient({ marketId }: { marketId: string }) {
 }
 
 // The default export is a Server Component that handles params.
-export default function MarketTradePage({ params }: { params: { marketId: string } }) {
-  const { marketId } = params;
+export default function MarketTradePage({ params: { marketId } }: { params: { marketId: string } }) {
   return <TradePageClient marketId={marketId} />;
 }

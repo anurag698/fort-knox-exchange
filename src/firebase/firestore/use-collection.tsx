@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -62,14 +61,18 @@ export function useCollection<T extends DocumentData>(
         setIsLoading(false);
       },
       (err) => {
-        console.error("useCollection error:", err);
-        setError(err);
-        const permissionError = new FirestorePermissionError({
-          // @ts-ignore
-          path: (query as any)._query.path.segments.join('/'),
-          operation: 'list',
-        });
-        errorEmitter.emit('permission-error', permissionError);
+        // This is the critical change: instead of just logging, we now
+        // create and emit a detailed, contextual error for the LLM to analyze.
+        if (err.code === 'permission-denied') {
+          const permissionError = new FirestorePermissionError({
+            // @ts-ignore
+            path: (query as any)._query.path.segments.join('/'),
+            operation: 'list',
+          });
+          errorEmitter.emit('permission-error', permissionError);
+        }
+        
+        setError(err); // Still store the original error for the component's use
         setData(null);
         setIsLoading(false);
       }

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from "react";
+import { useState, use } from "react";
 import { Balances } from "@/components/trade/balances";
 import { MemoizedTradingViewChart } from "@/components/trade/trading-view-chart";
 import { OrderBook } from "@/components/trade/order-book";
@@ -27,6 +27,8 @@ function TradePageClient({ marketId }: { marketId: string }) {
 }
 
 // The default export is a Server Component that handles params.
-export default function MarketTradePage({ params: { marketId } }: { params: { marketId: string } }) {
+export default function MarketTradePage({ params }: { params: { marketId: string } }) {
+  // Use React.use() to unwrap the params promise as recommended by Next.js
+  const { marketId } = use(Promise.resolve(params));
   return <TradePageClient marketId={marketId} />;
 }

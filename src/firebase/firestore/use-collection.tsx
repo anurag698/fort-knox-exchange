@@ -8,7 +8,6 @@ import {
   DocumentData,
   FirestoreError,
   QuerySnapshot,
-  CollectionReference,
 } from 'firebase/firestore';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
@@ -35,12 +34,12 @@ export interface UseCollectionResult<T> {
  * references
  *
  * @template T Optional type for document data. Defaults to any.
- * @param {CollectionReference<DocumentData> | Query<DocumentData> | null | undefined} targetRefOrQuery -
- * The Firestore CollectionReference or Query. Waits if null/undefined.
+ * @param {Query<DocumentData> | null | undefined} memoizedTargetRefOrQuery -
+ * The Firestore Query. Waits if null/undefined.
  * @returns {UseCollectionResult<T>} Object with data, isLoading, error.
  */
 export function useCollection<T = any>(
-    memoizedTargetRefOrQuery: ((CollectionReference<DocumentData> | Query<DocumentData>))  | null | undefined,
+    memoizedTargetRefOrQuery: Query<DocumentData> | null | undefined,
 ): UseCollectionResult<T> {
   type ResultItemType = WithId<T>;
   type StateDataType = ResultItemType[] | null;
@@ -50,7 +49,7 @@ export function useCollection<T = any>(
   const [error, setError] = useState<FirestoreError | Error | null>(null);
 
   useEffect(() => {
-    // If the query is not ready (null/undefined), we are not loading, have no data, and no error.
+    // If the query is not ready, set loading to false and clear data/error.
     if (!memoizedTargetRefOrQuery) {
       setIsLoading(false);
       setData(null);
@@ -58,7 +57,7 @@ export function useCollection<T = any>(
       return;
     }
     
-    // Set loading state and clear previous errors as we're starting a new fetch.
+    // Start loading and clear previous errors when a new query is provided.
     setIsLoading(true);
     setError(null);
 
@@ -70,7 +69,7 @@ export function useCollection<T = any>(
                 id: doc.id,
             }));
             setData(results);
-            setError(null); // Clear any previous error on successful fetch.
+            setError(null); 
             setIsLoading(false);
         },
         (err: FirestoreError) => {
@@ -88,13 +87,10 @@ export function useCollection<T = any>(
         }
     );
 
-    // Cleanup function to unsubscribe from the listener when the component unmounts
-    // or when the query dependency changes.
+    // Cleanup function to unsubscribe from the listener when the component unmounts or the query changes.
     return () => {
         unsubscribe();
     }
-  // The effect depends on the memoized query reference.
-  // It will re-run ONLY when this reference changes.
   }, [memoizedTargetRefOrQuery]);
 
   return { data, isLoading, error };

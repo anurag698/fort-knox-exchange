@@ -120,4 +120,3 @@ export function MarketsTable({ markets: initialMarkets }: MarketsTableProps) {
     </>
   );
 }
-

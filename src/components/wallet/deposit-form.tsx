@@ -65,6 +65,13 @@ export function DepositForm({ assets }: { assets: Asset[] }) {
       navigator.clipboard.writeText(depositAddress).then(() => {
         setHasCopied(true);
         setTimeout(() => setHasCopied(false), 2000);
+      }).catch(err => {
+          console.error("Clipboard copy failed:", err);
+          toast({
+              variant: 'destructive',
+              title: 'Copy Failed',
+              description: 'Could not copy to clipboard. Please copy the address manually.',
+          });
       });
     }
   };
@@ -124,6 +131,7 @@ export function DepositForm({ assets }: { assets: Asset[] }) {
                         variant="ghost"
                         className="absolute top-1/2 right-1 h-7 w-7 -translate-y-1/2"
                         onClick={onCopy}
+                        type="button" // Change type to button to prevent form submission
                         aria-label="Copy address"
                     >
                         {hasCopied ? (

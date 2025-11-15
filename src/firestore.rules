@@ -16,7 +16,7 @@ service cloud.firestore {
       allow list;
     }
 
-    // USER-specific collections
+    // USER-specific collections read/writeable only by the owner
     match /users/{userId}/{document=**} {
       allow read, write: if request.auth.uid == userId;
     }
@@ -26,23 +26,25 @@ service cloud.firestore {
       allow create: if request.auth.uid == userId;
       // Allow a user to read their own profile.
       allow get: if request.auth.uid == userId;
-      // Allow a user to update their own profile data (e.g. username)
+      // Allow a user to update their own profile data (e.g. username), but not their role.
       allow update: if request.auth.uid == userId && !('role' in request.resource.data);
     }
     
     // ORDERS can only be managed by the user who owns them
     match /orders/{orderId} {
+      // Allow user to create and read their own orders.
       allow read, create: if request.auth.uid == request.resource.data.userId;
-      // Allow a user to update their own order only to cancel it
+      // Allow a user to update their own order only to cancel it.
       allow update: if request.auth.uid == resource.data.userId && request.resource.data.status == 'CANCELED';
-      // A user cannot delete orders
+      // A user cannot delete orders.
       allow delete: if false;
 
-      // This is a collection query rule.
-      allow list: if request.auth.uid == request.query.where.find(f => f.fieldPath == 'userId').value;
+      // This is the collection query rule. It allows a user to query the 'orders'
+      // collection only if their query includes a 'where("userId", "==", theirId)' clause.
+      allow list: if request.auth.uid == request.query.where.userId;
     }
 
-    // Admins can read/write anything
+    // Admins can read/write anything.
     match /{document=**} {
       allow read, write: if get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'ADMIN';
     }

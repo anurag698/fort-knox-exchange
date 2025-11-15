@@ -11,19 +11,19 @@ export function useOrders(marketId?: string) {
   const { user } = useUser();
 
   const ordersQuery = useMemoFirebase(() => {
-    if (!firestore || !user?.uid) {
+    // CRITICAL: Do not build a query until both firestore and user are available.
+    // Also requires marketId to be present for a valid composite query.
+    if (!firestore || !user?.uid || !marketId) {
       return null;
     }
 
+    // This is the correct, secure, and indexed query.
+    // It requires a composite index on (userId, marketId, createdAt)
     const queryConstraints: QueryConstraint[] = [
-      where('userId', '==', user.uid)
+      where('userId', '==', user.uid),
+      where('marketId', '==', marketId),
+      orderBy('createdAt', 'desc')
     ];
-
-    if (marketId) {
-      queryConstraints.push(where('marketId', '==', marketId));
-    }
-    
-    queryConstraints.push(orderBy('createdAt', 'desc'));
 
     return query(collection(firestore, 'orders'), ...queryConstraints);
 

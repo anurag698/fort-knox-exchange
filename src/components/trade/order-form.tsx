@@ -16,7 +16,7 @@ import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { cn } from "@/lib/utils";
-import { doc, runTransaction, serverTimestamp, type Timestamp } from "firebase/firestore";
+import { doc, runTransaction, serverTimestamp, type Timestamp, collection } from "firebase/firestore";
 import type { Order } from "@/lib/types";
 import { useActionState } from "react";
 import type { SecurityRuleContext } from "@/firebase/errors";
@@ -121,7 +121,7 @@ export function OrderForm({ selectedPrice, marketId }: OrderFormProps) {
       return;
     }
 
-    const newOrderRef = doc(firestore, 'orders', doc(collection(firestore, 'orders')).id);
+    const newOrderRef = doc(collection(firestore, 'orders'));
     const newOrder: Omit<Order, 'createdAt' | 'updatedAt'> = {
         id: newOrderRef.id,
         userId: user.uid,

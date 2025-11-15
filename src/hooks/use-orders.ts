@@ -22,11 +22,15 @@ export function useOrders(marketId?: string) {
     ];
 
     if (marketId) {
+      // This will add the marketId filter to the beginning of the constraints array.
+      // Firestore requires that the field in the first orderBy clause must also be
+      // present in an inequality filter, but here we are using '==' which is fine.
+      // If we were using >, <, >=, <= on another field, we'd need a composite index.
       constraints.unshift(where('marketId', '==', marketId));
     }
 
     return query(collection(firestore, 'orders'), ...constraints);
-  }, [firestore, user, marketId, isUserLoading]);
+  }, [firestore, user?.uid, marketId, isUserLoading]); // Depend on user.uid directly
 
   const { data, isLoading, error } = useCollection<Order>(ordersQuery);
 

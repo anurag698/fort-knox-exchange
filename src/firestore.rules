@@ -38,11 +38,14 @@ service cloud.firestore {
       allow update: if request.auth.uid == resource.data.userId && request.resource.data.status == 'CANCELED';
       // A user cannot delete orders.
       allow delete: if false;
-
-      // This rule allows a user to query the 'orders' collection only if their query
-      // includes a 'where("userId", "==", theirId)' clause.
-      allow list: if request.auth.uid == request.query.get("userId");
     }
+    
+    // This rule allows a user to query the 'orders' collection only if their query
+    // includes a 'where("userId", "==", theirId)' clause.
+    match /orders/{orderId} {
+        allow list: if request.query.get("userId") == request.auth.uid;
+    }
+
 
     // Admins can read/write anything.
     match /{document=**} {

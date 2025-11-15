@@ -105,4 +105,3 @@ export function MarketStatCard({ title, markets, isLoading }: MarketStatCardProp
         </Card>
     );
 }
-

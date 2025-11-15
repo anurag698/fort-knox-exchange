@@ -41,7 +41,7 @@ const coinIcons: { [key: string]: React.ElementType | string } = {
   LINK: 'https://cdn.jsdelivr.net/gh/atomiclabs/cryptocurrency-icons@1a63530e6e374711a8de441d91584965e5441c4a/128/color/link.png',
   SHIB: 'https://cdn.jsdelivr.net/gh/atomiclabs/cryptocurrency-icons@1a63530e6e374711a8de441d91584965e5441c4a/128/color/shib.png',
   AVAX: 'https://cdn.jsdelivr.net/gh/atomiclabs/cryptocurrency-icons@1a63530e6e374711a8de441d91584965e5441c4a/128/color/avax.png',
-  LTC: 'https://cdn.jsdelivr.net/gh/atomiclabs/cryptocurrency-icons@1a63530e6e3-74711a8de441d91584965e5441c4a/128/color/ltc.png',
+  LTC: 'https://cdn.jsdelivr.net/gh/atomiclabs/cryptocurrency-icons@1a63530e6e374711a8de441d91584965e5441c4a/128/color/ltc.png',
   TRX: 'https://cdn.jsdelivr.net/gh/atomiclabs/cryptocurrency-icons@1a63530e6e374711a8de441d91584965e5441c4a/128/color/trx.png',
   UNI: 'https://cdn.jsdelivr.net/gh/atomiclabs/cryptocurrency-icons@1a63530e6e374711a8de441d91584965e5441c4a/128/color/uni.png',
   DEFAULT: Circle,
@@ -94,7 +94,7 @@ export function MarketsTable({ markets }: MarketsTableProps) {
                   {data ? `${data.priceChangePercent >= 0 ? '+' : ''}${data.priceChangePercent.toFixed(2)}%` : <Skeleton className="h-4 w-12 ml-auto" />}
                 </TableCell>
                 <TableCell className="font-mono text-right">
-                    {data ? `$${(data.volume * data.price / 1_000_000_000).toFixed(2)}B` : <Skeleton className="h-4 w-20 ml-auto" />}
+                    {data ? `$${(data.volume * data.price / 1_000_000).toFixed(2)}M` : <Skeleton className="h-4 w-20 ml-auto" />}
                 </TableCell>
                 <TableCell className="font-mono text-right">
                   {data ? `$${(marketCap / 1_000_000_000).toFixed(2)}B` : <Skeleton className="h-4 w-24 ml-auto" />}

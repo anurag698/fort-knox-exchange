@@ -10,21 +10,23 @@ export function useOrders(marketId?: string) {
   const { user } = useUser();
 
   const ordersCollectionRef = useMemoFirebase(
-    () => (firestore && user ? collection(firestore, 'users', user.uid, 'orders') : null),
-    [firestore, user]
+    () => (firestore ? collection(firestore, 'orders') : null),
+    [firestore]
   );
 
   const ordersQuery = useMemoFirebase(() => {
-    if (!ordersCollectionRef) return null;
+    if (!ordersCollectionRef || !user) return null;
+    
+    const queryConstraints = [where('userId', '==', user.uid)];
+
     if (marketId) {
-      return query(
-        ordersCollectionRef,
-        where('marketId', '==', marketId),
-        orderBy('createdAt', 'desc')
-      );
+      queryConstraints.push(where('marketId', '==', marketId));
     }
-    return query(ordersCollectionRef, orderBy('createdAt', 'desc'));
-  }, [ordersCollectionRef, marketId]);
+
+    queryConstraints.push(orderBy('createdAt', 'desc'));
+
+    return query(ordersCollectionRef, ...queryConstraints);
+  }, [ordersCollectionRef, marketId, user]);
 
   return useCollection<Order>(ordersQuery);
 }

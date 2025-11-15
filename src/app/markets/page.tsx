@@ -5,7 +5,7 @@ import { useState, useEffect, useMemo } from 'react';
 import type { Market, Asset } from '@/lib/types';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { MarketsTable } from '@/components/markets/markets-table';
-import { CandlestickChart, AlertCircle, DatabaseZap } from 'lucide-react';
+import { AlertCircle, DatabaseZap } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import Link from 'next/link';
@@ -26,7 +26,10 @@ export default function MarketsPage() {
   const [error, setError] = useState<Error | null>(null);
 
   useEffect(() => {
-    if (!firestore) return;
+    if (!firestore) {
+      setIsLoading(false);
+      return;
+    }
     setIsLoading(true);
 
     const marketsQuery = query(collection(firestore, 'markets'), orderBy('id', 'asc'));
@@ -38,6 +41,7 @@ export default function MarketsPage() {
     }, (err) => {
       console.error("Markets snapshot error:", err);
       setError(err);
+      setIsLoading(false);
     });
 
     const unsubAssets = onSnapshot(assetsQuery, (snapshot) => {
@@ -46,36 +50,36 @@ export default function MarketsPage() {
     }, (err) => {
       console.error("Assets snapshot error:", err);
       setError(err);
+      setIsLoading(false);
     });
     
-    // Combine loading states
-    if (marketsData !== null && assetsData !== null) {
-        setIsLoading(false);
-    }
-
     return () => {
       unsubMarkets();
       unsubAssets();
     };
-  }, [firestore, marketsData, assetsData]);
+  }, [firestore]);
   
   const enrichedMarkets: EnrichedMarket[] = useMemo(() => {
     if (!marketsData || !assetsData) {
       return [];
     }
-
     const assetsMap = new Map(assetsData.map(asset => [asset.id, asset]));
-
     return marketsData.map(market => ({
       ...market,
       baseAsset: assetsMap.get(market.baseAssetId),
       quoteAsset: assetsMap.get(market.quoteAssetId),
     }));
-
   }, [marketsData, assetsData]);
     
+  useEffect(() => {
+    if (marketsData !== null && assetsData !== null) {
+      setIsLoading(false);
+    }
+  }, [marketsData, assetsData]);
+
+
   const renderContent = () => {
-    if (isLoading && !enrichedMarkets.length) {
+    if (isLoading) {
       return (
          <div className="rounded-md border">
             <div className="p-4">

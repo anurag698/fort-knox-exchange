@@ -36,7 +36,9 @@ export function MarketsTable({ markets: initialMarkets }: MarketsTableProps) {
   const [wsError, setWsError] = useState<string | null>(null);
 
   const marketSymbols = useMemo(() => {
-    return initialMarkets.map(m => `${m.baseAsset?.symbol}${m.quoteAsset?.symbol}`);
+    return initialMarkets
+      .map(m => (m.baseAsset && m.quoteAsset) ? `${m.baseAsset.symbol}${m.quoteAsset.symbol}` : null)
+      .filter(Boolean) as string[];
   }, [initialMarkets]);
 
   useEffect(() => {
@@ -49,7 +51,7 @@ export function MarketsTable({ markets: initialMarkets }: MarketsTableProps) {
       if (data && data.s && data.p && data.P && data.v) {
         setMarkets(prevMarkets => 
           prevMarkets.map(market => {
-            if (`${market.baseAsset?.symbol}${market.quoteAsset?.symbol}` === data.s) {
+            if (market.baseAsset && market.quoteAsset && `${market.baseAsset.symbol}${market.quoteAsset.symbol}` === data.s) {
               return {
                 ...market,
                 price: parseFloat(data.p),

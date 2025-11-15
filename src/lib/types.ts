@@ -9,9 +9,7 @@ export type Market = {
   quantityPrecision: number;
   makerFee: number;
   takerFee: number;
-  createdAt: string;
-  change: number; // For mock data
-  volume: number; // For mock data
+  createdAt: any;
 };
 
 export type Asset = {

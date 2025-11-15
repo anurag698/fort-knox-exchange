@@ -362,28 +362,21 @@ export async function createOrder(prevState: FormState, formData: FormData): Pro
         }
 
     } catch (serverError: any) {
-        // This is the new, more robust error handling block.
-        if (serverError.code === 7 /* PERMISSION_DENIED */ || 
-            (serverError.message && (serverError.message.includes('permission-denied') || serverError.message.includes('insufficient permissions')))) {
-            
-            // Create a rich, contextual error object
+        if (serverError?.code === 'permission-denied' || serverError?.code === 7) {
             const permissionError = new FirestorePermissionError({
-                path: orderRef.path, 
+                path: orderRef.path,
                 operation: 'create',
                 requestResourceData: newOrder
             });
-            
-            // Emit the error to be caught by the global error listener in the client
             errorEmitter.emit('permission-error', permissionError);
             
-            // Return a user-friendly error to the form state
+            // This message will be shown in the UI via the toast.
             return {
                 status: 'error',
-                message: 'Permission denied. You do not have access to create this order.',
+                message: 'Permission denied. Your request was blocked by security rules.',
             };
         }
         
-        // For all other types of errors, log them and return a generic message
         console.error("Create Order Error:", serverError);
         return {
             status: 'error',
@@ -693,6 +686,8 @@ export async function submitKyc(prevState: any, formData: FormData): Promise<For
     };
   }
 }
+    
+
     
 
     

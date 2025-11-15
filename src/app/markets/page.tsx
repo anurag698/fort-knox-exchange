@@ -5,13 +5,11 @@ import { useAssets } from '@/hooks/use-assets';
 import type { Market, Asset } from '@/lib/types';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { MarketsTable } from '@/components/markets/markets-table';
-import { CandlestickChart, AlertCircle, Database } from 'lucide-react';
+import { CandlestickChart, AlertCircle } from 'lucide-react';
 import { useMarkets } from '@/hooks/use-markets';
 import { useMemo } from 'react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { Button } from '@/components/ui/button';
-import Link from 'next/link';
 
 
 type EnrichedMarket = Market & {
@@ -74,15 +72,12 @@ export default function MarketsPage() {
       return (
         <div className="flex flex-col items-center justify-center rounded-lg border-2 border-dashed border-muted-foreground/30 p-12 text-center">
             <div className="flex h-20 w-20 items-center justify-center rounded-full bg-muted">
-                <Database className="h-10 w-10 text-muted-foreground" />
+                <CandlestickChart className="h-10 w-10 text-muted-foreground" />
             </div>
-            <h3 className="mt-4 text-lg font-semibold">Database Not Seeded</h3>
+            <h3 className="mt-4 text-lg font-semibold">No Markets Found</h3>
             <p className="mb-4 mt-2 text-sm text-muted-foreground">
-                The market data needs to be seeded into your Firestore database.
+                There are currently no trading markets available.
             </p>
-            <Button asChild>
-                <Link href="/seed-data">Seed Database Now</Link>
-            </Button>
         </div>
       );
     }

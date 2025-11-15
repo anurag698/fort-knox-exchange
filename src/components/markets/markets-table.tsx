@@ -19,17 +19,20 @@ import { AlertCircle } from 'lucide-react';
 type EnrichedMarket = Market & {
   baseAsset?: Asset;
   quoteAsset?: Asset;
+};
+
+type MarketWithLiveData = EnrichedMarket & {
   price?: number;
   change24h?: number;
   volume24h?: number;
-};
+}
 
 type MarketsTableProps = {
   markets: EnrichedMarket[];
 };
 
 export function MarketsTable({ markets: initialMarkets }: MarketsTableProps) {
-  const [markets, setMarkets] = useState<EnrichedMarket[]>(initialMarkets);
+  const [markets, setMarkets] = useState<MarketWithLiveData[]>(initialMarkets);
   const [wsError, setWsError] = useState<string | null>(null);
 
   const marketSymbols = useMemo(() => {

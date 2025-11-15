@@ -5,11 +5,11 @@ import { dexService } from '@/lib/dex/dex.service';
 
 const buildTxSchema = z.object({
   chainId: z.coerce.number().int().positive(),
-  fromTokenAddress: z.string(),
-  toTokenAddress: z.string(),
+  src: z.string(),
+  dst: z.string(),
   amount: z.string().regex(/^\d+$/), // amount in wei
+  from: z.string(),
   slippage: z.coerce.number().optional().default(1),
-  userAddress: z.string(),
 });
 
 export async function POST(request: NextRequest) {

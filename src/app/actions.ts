@@ -11,6 +11,7 @@ import { seedInitialData } from "@/lib/seed-data";
 import axios from 'axios';
 import { headers } from 'next/headers';
 import type { DexBuildTxResponse } from '@/lib/dex/dex.types';
+import { broadcastTransaction } from "@/lib/wallet-service";
 
 type FormState = {
   status: 'success' | 'error' | 'idle';
@@ -331,14 +332,13 @@ export async function createOrder(prevState: FormState, formData: FormData): Pro
                 });
             });
 
-            // After funds are locked, build the transaction
-            const hotWalletAddress = "0x...YOUR_HOT_WALLET_ADDRESS"; // Placeholder
+            const hotWalletAddress = "0xc4248A802613B40B515B35C15809774635607311"; // Placeholder
             const buildTxBody = {
                 chainId: 137,
-                fromTokenAddress: tokens[srcToken].contractAddress,
-                toTokenAddress: tokens[dstToken].contractAddress,
+                src: tokens[srcToken].contractAddress,
+                dst: tokens[dstToken].contractAddress,
                 amount: amountInWei,
-                userAddress: hotWalletAddress,
+                from: hotWalletAddress,
                 slippage: 1,
             };
 
@@ -358,12 +358,14 @@ export async function createOrder(prevState: FormState, formData: FormData): Pro
                 orderId: orderRef.id,
                 chainId: 137,
                 oneinchPayload: txData,
-                txTo: txData.to,
-                txData: txData.data,
-                txValue: txData.value,
                 status: 'BUILT',
                 createdAt: FieldValue.serverTimestamp(),
             });
+
+            // Asynchronously broadcast the transaction
+            broadcastTransaction(dexTxRef.id)
+                .then(txHash => console.log(`Transaction broadcasted with hash: ${txHash}`))
+                .catch(err => console.error("Broadcast failed:", err));
             
             revalidatePath('/trade');
             return {

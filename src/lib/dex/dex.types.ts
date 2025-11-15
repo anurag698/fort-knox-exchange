@@ -1,5 +1,4 @@
 
-
 // API Request and Response types
 
 export interface DexQuoteRequest {
@@ -17,23 +16,28 @@ export interface DexQuoteResponse {
   gas: number;
 }
 
+// Corresponds to the params for 1inch /swap endpoint
 export interface DexBuildTxRequest {
   chainId: number;
-  fromTokenAddress: string;
-  toTokenAddress: string;
+  src: string; // fromTokenAddress
+  dst: string; // toTokenAddress
   amount: string; // amount in wei
-  userAddress: string;
+  from: string; // userAddress
   slippage: number;
+  receiver?: string;
+  allowPartialFill?: boolean;
 }
 
+// Corresponds to the `tx` object in the 1inch /swap response
 export interface DexBuildTxResponse {
+  from: string;
   to: string;
   data: string;
   value: string;
-  gas: string;
-  gasPrice?: string;
-  chainId: number;
+  gas: number;
+  gasPrice: string;
 }
+
 
 // 1inch Specific API response types (simplified for v5.2)
 
@@ -58,18 +62,9 @@ export interface OneInchQuoteResponse {
 }
 
 
-export interface OneInchSwapTransaction {
-  from: string;
-  to: string;
-  data: string;
-  value: string;
-  gas: number;
-  gasPrice: string;
-}
-
 export interface OneInchSwapResponse {
   fromToken: TokenInfo;
   toToken: TokenInfo;
   toAmount: string;
-  tx: OneInchSwapTransaction;
+  tx: DexBuildTxResponse; // The nested transaction object
 }

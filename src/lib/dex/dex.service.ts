@@ -36,30 +36,25 @@ class DexService {
   }
 
   async buildSwapTransaction(params: DexBuildTxRequest): Promise<DexBuildTxResponse> {
-    const { chainId, fromTokenAddress, toTokenAddress, amount, userAddress, slippage } = params;
-    const client = oneInchConfig.getHttpClient(chainId);
+    const client = oneInchConfig.getHttpClient(params.chainId);
     
+    // Construct query parameters from the request object
     const queryParams = new URLSearchParams({
-      src: fromTokenAddress,
-      dst: toTokenAddress,
-      amount: amount,
-      from: userAddress,
-      receiver: userAddress, // Send swapped tokens back to the user
-      slippage: slippage.toString(),
+      src: params.src,
+      dst: params.dst,
+      amount: params.amount,
+      from: params.from,
+      slippage: params.slippage.toString(),
+      receiver: params.from, // Send swapped tokens back to the sender
       allowPartialFill: 'false',
     }).toString();
 
     try {
       const { data } = await client.get<OneInchSwapResponse>(`/swap?${queryParams}`);
       
-      return {
-        to: data.tx.to,
-        data: data.tx.data,
-        value: data.tx.value,
-        gas: data.tx.gas.toString(),
-        gasPrice: data.tx.gasPrice,
-        chainId: chainId,
-      };
+      // We only need the transaction object from the response
+      return data.tx;
+
     } catch (error) {
       console.error('Error building swap transaction from 1inch:', error);
       throw new Error('Failed to build swap transaction from 1inch.');

@@ -19,9 +19,9 @@ service cloud.firestore {
       return isSignedIn() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'ADMIN';
     }
     
-    function isCreatingOwnDocument() {
+    function isCreatingOwnDocument(userId) {
       // Allow creation if the new document's ID matches the user's UID.
-      return request.auth.uid == request.resource.data.id;
+      return isSignedIn() && request.auth.uid == userId;
     }
 
     // USER DATA
@@ -31,7 +31,7 @@ service cloud.firestore {
       // Users can update their own profile (e.g. username).
       allow update: if isOwner(userId);
       // A user can create their own document upon signup.
-      allow create: if isCreatingOwnDocument();
+      allow create: if isCreatingOwnDocument(userId);
       // Admins can list all users.
       allow list: if isAdmin();
       
@@ -40,7 +40,7 @@ service cloud.firestore {
       match /balances/{balanceId} {
           allow get, list: if isOwner(userId);
           // Allow creation of initial balances ONLY when creating the user document itself.
-          allow create: if isCreatingOwnDocument();
+          allow create: if isCreatingOwnDocument(userId);
           // Prevent any client-side updates or deletes to balances after creation.
           allow update, delete: if false; 
       }

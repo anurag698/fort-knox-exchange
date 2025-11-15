@@ -4,7 +4,7 @@
 import { useState, useEffect } from 'react';
 import {
   Query,
-  getDocs,
+  onSnapshot,
   DocumentData,
   FirestoreError,
   QuerySnapshot,
@@ -41,12 +41,11 @@ export interface InternalQuery extends Query<DocumentData> {
 /**
  * React hook to subscribe to a Firestore collection or query in real-time.
  * Handles nullable references/queries.
- * 
  *
  * IMPORTANT! YOU MUST MEMOIZE the inputted memoizedTargetRefOrQuery or BAD THINGS WILL HAPPEN
  * use useMemoFirebase to memoize it per React guidence.  Also make sure that it's dependencies are stable
  * references
- *  
+ *
  * @template T Optional type for document data. Defaults to any.
  * @param {CollectionReference<DocumentData> | Query<DocumentData> | null | undefined} targetRefOrQuery -
  * The Firestore CollectionReference or Query. Waits if null/undefined.
@@ -59,26 +58,34 @@ export function useCollection<T = any>(
   type StateDataType = ResultItemType[] | null;
 
   const [data, setData] = useState<StateDataType>(null);
-  const [isLoading, setIsLoading] = useState<boolean>(true);
+  // Start with loading true only if the query is initially ready.
+  const [isLoading, setIsLoading] = useState<boolean>(!!memoizedTargetRefOrQuery);
   const [error, setError] = useState<FirestoreError | Error | null>(null);
 
   useEffect(() => {
     if (!memoizedTargetRefOrQuery) {
+      // If the query isn't ready (e.g., waiting for firestore instance),
+      // ensure we are not in a loading state.
+      setData(null);
       setIsLoading(false);
       return;
     }
 
-    const fetchData = async () => {
-        setIsLoading(true);
-        setError(null);
-        try {
-            const snapshot = await getDocs(memoizedTargetRefOrQuery);
+    setIsLoading(true);
+    setError(null);
+
+    const unsubscribe = onSnapshot(
+        memoizedTargetRefOrQuery,
+        (snapshot: QuerySnapshot<DocumentData>) => {
             const results: ResultItemType[] = snapshot.docs.map(doc => ({
                 ...(doc.data() as T),
                 id: doc.id,
             }));
             setData(results);
-        } catch (err: any) {
+            setError(null);
+            setIsLoading(false);
+        },
+        (err: FirestoreError) => {
              const path: string =
                 memoizedTargetRefOrQuery.type === 'collection'
                     ? (memoizedTargetRefOrQuery as CollectionReference).path
@@ -91,14 +98,15 @@ export function useCollection<T = any>(
 
             setError(contextualError);
             setData(null);
-            errorEmitter.emit('permission-error', contextualError);
-        } finally {
             setIsLoading(false);
+            errorEmitter.emit('permission-error', contextualError);
         }
-    };
-    
-    fetchData();
-  }, [memoizedTargetRefOrQuery]);
+    );
+
+    // Cleanup function
+    return () => unsubscribe();
+  }, [memoizedTargetRefOrQuery]); // Re-run effect if the memoized query reference changes
 
   return { data, isLoading, error };
 }
+

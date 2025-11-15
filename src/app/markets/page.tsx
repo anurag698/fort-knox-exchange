@@ -31,7 +31,8 @@ export default function MarketsPage() {
 
   useEffect(() => {
     if (!firestore) {
-      setIsLoading(false);
+      // This can happen briefly on initial load.
+      // We don't want to set loading to false here, just wait for firestore.
       return;
     }
 
@@ -52,22 +53,24 @@ export default function MarketsPage() {
         
         setMarkets(marketsList);
         setAssets(assetsList);
-        
-        // Only set up the live listener after static data is successfully fetched
+
+        // Only return the unsubscribe function for the live listener
         const marketDataQuery = query(collection(firestore, 'market_data'), orderBy('id', 'asc'));
         const unsubscribe = onSnapshot(marketDataQuery, (snapshot) => {
             const liveData = snapshot.docs.map(doc => ({...doc.data() as MarketData, id: doc.id}));
             setMarketData(liveData);
         }, (err) => {
             console.error("Market live data subscription error:", err);
-            // Non-blocking error for live data
+            // This is a non-critical error, the page can still function with static data.
+            // We won't set a blocking error for the whole page.
         });
-
+        
         return unsubscribe;
 
       } catch (err) {
-        console.error("Markets static data fetch error:", err);
-        setError(err instanceof Error ? err : new Error("An unknown error occurred while fetching data. Check security rules."));
+        console.error("Critical data fetch error (markets/assets):", err);
+        setError(err instanceof Error ? err : new Error("Could not load essential market data. Please check Firestore security rules."));
+        return () => {}; // Return an empty unsubscribe function on error
       } finally {
         setIsLoading(false);
       }
@@ -129,7 +132,7 @@ export default function MarketsPage() {
       );
     }
     
-    if (!isLoading && markets?.length === 0) {
+    if (!isLoading && (!markets || markets.length === 0)) {
       return (
         <div className="flex flex-col items-center justify-center rounded-lg border-2 border-dashed border-muted-foreground/30 p-12 text-center">
             <div className="flex h-20 w-20 items-center justify-center rounded-full bg-muted">

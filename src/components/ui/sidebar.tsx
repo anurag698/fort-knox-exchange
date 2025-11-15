@@ -213,9 +213,32 @@ const Sidebar = React.forwardRef<
       )
     }
 
-    // On desktop, we don't render the sidebar directly, as it's part of the layout flow now.
-    // This component will only handle the mobile Sheet.
-    return null;
+    return (
+      <div
+        data-sidebar="sidebar"
+        data-state={state}
+        data-variant={variant}
+        data-side={side}
+        data-collapsible={collapsible}
+        className={cn(
+          "peer relative z-30 hidden flex-col bg-sidebar text-sidebar-foreground transition-[width,margin] ease-in-out",
+          "data-[variant=sidebar]:border-r data-[variant=sidebar]:border-sidebar-border",
+          "data-[side=right]:order-last data-[side=right]:border-l data-[side=right]:border-sidebar-border",
+          "data-[variant=inset]:m-2 data-[variant=inset]:h-[calc(100svh-theme(spacing.4))] data-[variant=inset]:rounded-xl",
+          "data-[state=expanded]:w-[--sidebar-width]",
+          "data-[collapsible=icon]:data-[state=collapsed]:w-[--sidebar-width-icon]",
+          "data-[collapsible=offcanvas]:data-[state=collapsed]:-ml-[--sidebar-width]",
+          "data-[side=right]:data-[collapsible=offcanvas]:data-[state=collapsed]:-mr-[--sidebar-width]",
+          "data-[collapsible=icon]:data-[variant=inset]:data-[state=collapsed]:ml-2",
+          "data-[side=right]:data-[collapsible=icon]:data-[variant=inset]:data-[state=collapsed]:mr-2",
+          className
+        )}
+        ref={ref}
+        {...props}
+      >
+        {children}
+      </div>
+    );
   }
 )
 Sidebar.displayName = "Sidebar"
@@ -722,3 +745,5 @@ export {
   SidebarTrigger,
   useSidebar,
 }
+
+    

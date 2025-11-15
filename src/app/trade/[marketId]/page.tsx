@@ -1,17 +1,17 @@
 'use client';
 
-import { use } from "react";
+import { useState, use } from "react";
 import { Balances } from "@/components/trade/balances";
 import { MemoizedTradingViewChart } from "@/components/trade/trading-view-chart";
 import { OrderBook } from "@/components/trade/order-book";
 import { OrderForm } from "@/components/trade/order-form";
 import { UserTrades } from "@/components/trade/user-trades";
-import { useState } from "react";
 
 export default function MarketTradePage({ params }: { params: { marketId: string } }) {
   const [selectedPrice, setSelectedPrice] = useState<number | undefined>(undefined);
-  // Correctly unwrap the marketId from params for use in client components
-  const { marketId } = params;
+  
+  // Use React.use() to unwrap the params promise as recommended by Next.js
+  const { marketId } = use(Promise.resolve(params));
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">

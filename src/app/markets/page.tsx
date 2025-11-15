@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useFirestore } from '@/firebase';
-import { collection, getDocs, query } from 'firebase/firestore';
+import { collection, onSnapshot, query, Unsubscribe } from 'firebase/firestore';
 import type { Market } from '@/lib/types';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { MarketsTable } from '@/components/markets/markets-table';
@@ -17,25 +17,31 @@ export default function MarketsPage() {
   const [error, setError] = useState<Error | null>(null);
 
   useEffect(() => {
-    if (!firestore) return;
+    if (!firestore) {
+      // Firestore might not be available on initial render, wait for it.
+      return;
+    }
 
-    const fetchMarkets = async () => {
-      setIsLoading(true);
-      try {
-        const marketsQuery = query(collection(firestore, 'markets'));
-        const querySnapshot = await getDocs(marketsQuery);
+    setIsLoading(true);
+    const marketsQuery = query(collection(firestore, 'markets'));
+
+    const unsubscribe: Unsubscribe = onSnapshot(
+      marketsQuery,
+      (querySnapshot) => {
         const marketsData = querySnapshot.docs.map(doc => ({ ...doc.data() as Omit<Market, 'id'>, id: doc.id }));
         setMarkets(marketsData);
         setError(null);
-      } catch (err) {
+        setIsLoading(false);
+      },
+      (err) => {
         console.error("Error fetching markets:", err);
-        setError(err instanceof Error ? err : new Error('An unknown error occurred'));
-      } finally {
+        setError(err instanceof Error ? err : new Error('An unknown error occurred while fetching markets.'));
         setIsLoading(false);
       }
-    };
+    );
 
-    fetchMarkets();
+    // Cleanup subscription on component unmount
+    return () => unsubscribe();
   }, [firestore]);
 
   const renderContent = () => {
@@ -54,9 +60,9 @@ export default function MarketsPage() {
       return (
         <Alert variant="destructive">
           <AlertCircle className="h-4 w-4" />
-          <AlertTitle>Error</AlertTitle>
+          <AlertTitle>Error Loading Market Data</AlertTitle>
           <AlertDescription>
-            {error.message || "Failed to load market data. Please try again later."}
+            {error.message || "Failed to load market data. Please check your Firestore security rules and network connection."}
           </AlertDescription>
         </Alert>
       );

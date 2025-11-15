@@ -37,7 +37,7 @@ export async function updateMarketData(prevState: any, formData: FormData) {
     const batch = firestore.batch();
     const marketDataCol = firestore.collection('market_data');
 
-    // The API key is now available through process.env
+    // The API key is available through process.env in Server Actions
     const apiKey = process.env.BINANCE_API_KEY;
     if (!apiKey) {
       return { status: 'error', message: 'Binance API key is not configured.' };

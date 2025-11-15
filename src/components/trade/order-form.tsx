@@ -174,7 +174,6 @@ export function OrderForm({ selectedPrice, marketId }: OrderFormProps) {
           requestResourceData: { 
             ...newOrderData, 
             id: newOrderRef.id,
-            // Use server-side timestamp placeholder for the error object
             createdAt: {".sv": "timestamp"}, 
             updatedAt: {".sv": "timestamp"} 
           },

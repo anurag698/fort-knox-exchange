@@ -28,6 +28,7 @@ export function PopularCoins() {
   const firestore = useFirestore();
   const [markets, setMarkets] = useState<Market[] | null>(null);
   const [marketsLoading, setMarketsLoading] = useState(true);
+  const [error, setError] = useState<Error | null>(null);
   
   const [prices, setPrices] = useState<Record<string, number>>({});
   const [pricesLoading, setPricesLoading] = useState(true);
@@ -37,13 +38,15 @@ export function PopularCoins() {
 
     const fetchMarkets = async () => {
         setMarketsLoading(true);
+        setError(null);
         try {
             const marketsQuery = query(collection(firestore, 'markets'));
             const querySnapshot = await getDocs(marketsQuery);
             const marketsData = querySnapshot.docs.map(doc => ({ ...doc.data() as Omit<Market, 'id'>, id: doc.id }));
             setMarkets(marketsData);
         } catch (err) {
-            console.error(err);
+            console.error("Failed to fetch markets for Popular Coins:", err);
+            setError(err instanceof Error ? err : new Error("An unknown error occurred."));
         } finally {
             setMarketsLoading(false);
         }
@@ -78,6 +81,11 @@ export function PopularCoins() {
     ws.onopen = () => {
       setPricesLoading(false);
     }
+    
+    ws.onerror = (err) => {
+        console.error("PopularCoins WebSocket error:", err);
+        setPricesLoading(false);
+    }
 
     return () => {
       ws.close();
@@ -102,6 +110,18 @@ export function PopularCoins() {
           {[...Array(5)].map((_, i) => <Skeleton key={i} className="h-10 w-full" />)}
         </div>
       );
+    }
+
+    if (error) {
+        return (
+            <Alert variant="destructive" className="m-4">
+                <AlertCircle className="h-4 w-4" />
+                <AlertTitle>Error</AlertTitle>
+                <AlertDescription>
+                    Could not load market data.
+                </AlertDescription>
+            </Alert>
+        )
     }
 
     if (!markets || markets.length === 0) {

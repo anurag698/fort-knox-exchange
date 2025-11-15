@@ -168,12 +168,11 @@ export function OrderForm({ selectedPrice, marketId }: OrderFormProps) {
         sellForm.reset(defaultValues);
     })
     .catch((error: any) => {
-        // This is the correct way to catch permission-denied errors from runTransaction
-        if (error.code === 'permission-denied' || (error.toString && error.toString().includes('permission_denied'))) {
+        if (error.code === 'permission-denied') {
             const permissionError = new FirestorePermissionError({
                 path: newOrderRef.path,
                 operation: 'create',
-                requestResourceData: newOrder
+                requestResourceData: { ...newOrder, createdAt: {".sv": "timestamp"}, updatedAt: {".sv": "timestamp"} },
             } satisfies SecurityRuleContext);
             errorEmitter.emit('permission-error', permissionError);
         } else {

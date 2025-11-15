@@ -18,18 +18,46 @@ export default function MarketsPage() {
   const firestore = useFirestore();
 
   useEffect(() => {
-    // This effect will now set mock data to ensure the page renders correctly.
-    setIsLoading(true);
-    const mockMarkets: Market[] = [
-        { id: 'BTC-USDT', baseAssetId: 'BTC', quoteAssetId: 'USDT', change: 2.5, volume: 50000000, pricePrecision: 2, quantityPrecision: 6, minOrderSize: 0.00001, makerFee: 0.001, takerFee: 0.001, createdAt: '' },
-        { id: 'ETH-USDT', baseAssetId: 'ETH', quoteAssetId: 'USDT', change: -1.2, volume: 30000000, pricePrecision: 2, quantityPrecision: 4, minOrderSize: 0.0001, makerFee: 0.001, takerFee: 0.001, createdAt: '' },
-        { id: 'SOL-USDT', baseAssetId: 'SOL', quoteAssetId: 'USDT', change: 5.8, volume: 25000000, pricePrecision: 2, quantityPrecision: 2, minOrderSize: 0.01, makerFee: 0.001, takerFee: 0.001, createdAt: '' },
-        { id: 'ADA-USDT', baseAssetId: 'ADA', quoteAssetId: 'USDT', change: 0.3, volume: 15000000, pricePrecision: 4, quantityPrecision: 0, minOrderSize: 1, makerFee: 0.001, takerFee: 0.001, createdAt: '' },
-    ];
-    setMarkets(mockMarkets);
-    setIsLoading(false);
-    setError(null);
-  }, []);
+    // Only attempt to fetch data if the firestore instance is available.
+    if (firestore) {
+      const fetchMarkets = async () => {
+        setIsLoading(true);
+        setError(null);
+        try {
+          const marketsQuery = query(collection(firestore, 'markets'));
+          const querySnapshot = await getDocs(marketsQuery);
+          const marketsData = querySnapshot.docs.map(doc => {
+            const data = doc.data();
+            // This ensures we have some default values for fields used in MarketsTable
+            return {
+              id: doc.id,
+              baseAssetId: data.baseAssetId,
+              quoteAssetId: data.quoteAssetId,
+              minOrderSize: data.minOrderSize,
+              pricePrecision: data.pricePrecision,
+              quantityPrecision: data.quantityPrecision,
+              makerFee: data.makerFee,
+              takerFee: data.takerFee,
+              createdAt: data.createdAt,
+              change: 0, // Default value
+              volume: 0, // Default value
+            } as Market;
+          });
+          setMarkets(marketsData);
+        } catch (err) {
+          console.error("Failed to fetch markets:", err);
+          setError(err instanceof Error ? err : new Error('An unknown error occurred while fetching markets.'));
+        } finally {
+          setIsLoading(false);
+        }
+      };
+
+      fetchMarkets();
+    } else {
+      // If firestore is not yet available, we are technically still loading.
+      setIsLoading(true);
+    }
+  }, [firestore]); // This effect re-runs when the firestore instance becomes available.
 
   const renderContent = () => {
     if (isLoading) {

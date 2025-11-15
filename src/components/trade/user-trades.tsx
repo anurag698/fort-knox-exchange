@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { AlertCircle, XCircle } from "lucide-react";
-import { useEffect, useMemo } from "react";
+import { useEffect } from "react";
 import { useActionState } from "react";
 import { cancelOrder } from "@/app/actions";
 import { useToast } from "@/hooks/use-toast";
@@ -42,13 +42,8 @@ function CancelOrderButton({ orderId, userId }: { orderId: string, userId: strin
 
 export function UserTrades({ marketId }: { marketId: string }) {
     const { user } = useUser();
-    const { data: allOrders, isLoading, error } = useOrders();
-
-    const orders = useMemo(() => {
-        if (!allOrders) return [];
-        return allOrders.filter(order => order.marketId === marketId);
-    }, [allOrders, marketId]);
-
+    // Pass the marketId directly to the hook
+    const { data: orders, isLoading, error } = useOrders(marketId);
 
     const getStatusBadgeVariant = (status: Order['status']) => {
         switch (status) {
@@ -149,5 +144,3 @@ export function UserTrades({ marketId }: { marketId: string }) {
     </Card>
   );
 }
-
-    

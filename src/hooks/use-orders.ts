@@ -24,12 +24,10 @@ export function useOrders(marketId?: string) {
       queryConstraints.push(where('marketId', '==', marketId));
     }
     
-    // NOTE: A previous version included an `orderBy('createdAt')` clause.
-    // This was removed because a query with a filter on one field (`userId`) and
-    // an orderBy on a different field (`createdAt`) requires a composite index.
-    // Without the index, Firestore returns a permission denied error.
-    // By removing the orderBy, the query becomes a simple filter that works
-    // with the default single-field indexes and satisfies the security rule.
+    // Add ordering. This will require a composite index in Firestore.
+    // The Firestore console will provide a link to create it if it doesn't exist.
+    queryConstraints.push(orderBy('createdAt', 'desc'));
+
     return query(ordersCollectionRef, ...queryConstraints);
 
   }, [firestore, marketId, user]);

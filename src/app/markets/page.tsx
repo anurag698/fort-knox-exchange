@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useAssets } from '@/hooks/use-assets';

@@ -1,7 +1,6 @@
 
 'use client';
 
-import { useUserById } from '@/hooks/use-user-by-id';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -10,8 +9,11 @@ import { Badge } from '@/components/ui/badge';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { approveKyc, rejectKyc } from '@/app/actions';
-import { useActionState, useTransition } from 'react';
+import { useActionState, useTransition, useState, useEffect } from 'react';
 import { useFormStatus } from 'react-dom';
+import { useFirestore } from "@/firebase";
+import { doc, onSnapshot } from "firebase/firestore";
+import type { UserProfile } from "@/lib/types";
 
 function KycButtons({ disabled }: { disabled: boolean }) {
   const [approvePending, startApproveTransition] = useTransition();
@@ -45,9 +47,26 @@ function KycButtons({ disabled }: { disabled: boolean }) {
 
 
 export default function ManageUserPage({ params }: { params: { id: string } }) {
-  const { data: user, isLoading, error } = useUserById(params.id);
+  const firestore = useFirestore();
+  const [user, setUser] = useState<UserProfile | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<Error | null>(null);
+  
   const [approveState, approveAction] = useActionState(approveKyc, { status: 'idle', message: '' });
   const [rejectState, rejectAction] = useActionState(rejectKyc, { status: 'idle', message: '' });
+
+  useEffect(() => {
+    if (!firestore || !params.id) {
+        setIsLoading(false);
+        return;
+    }
+    const unsubscribe = onSnapshot(doc(firestore, 'users', params.id), (doc) => {
+        setUser(doc.exists() ? {...doc.data() as UserProfile, id: doc.id} : null);
+        setIsLoading(false);
+    }, setError);
+
+    return () => unsubscribe();
+  }, [firestore, params.id]);
 
 
   const getKYCBadgeVariant = (status?: string) => {

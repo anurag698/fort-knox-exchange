@@ -1,3 +1,4 @@
+
 'use client';
 
 import Link from 'next/link';
@@ -7,22 +8,40 @@ import { NewsFeed } from '@/components/home/news-feed';
 import { DownloadApp } from '@/components/home/download-app';
 import { Faq } from '@/components/home/faq';
 import { BookOpen } from 'lucide-react';
-import { useUser, useFirestore, useDoc, useMemoFirebase } from '@/firebase';
-import { doc } from 'firebase/firestore';
-import type { UserProfile } from '@/lib/types';
-import { useBalances } from '@/hooks/use-balances';
-import { useMemo } from 'react';
+import { useUser, useFirestore } from '@/firebase';
+import { doc, onSnapshot } from 'firebase/firestore';
+import type { UserProfile, Balance } from '@/lib/types';
+import { useMemo, useState, useEffect } from 'react';
+import { collection } from 'firebase/firestore';
 
 export default function Home() {
   const { user } = useUser();
   const firestore = useFirestore();
-  const { data: balances } = useBalances();
+  const [balances, setBalances] = useState<Balance[] | null>(null);
+  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
-  const userDocRef = useMemoFirebase(
-    () => (firestore && user ? doc(firestore, 'users', user.uid) : null),
-    [firestore, user]
-  );
-  const { data: userProfile } = useDoc<UserProfile>(userDocRef);
+  useEffect(() => {
+    if (!firestore || !user) {
+      setIsLoading(false);
+      return;
+    }
+
+    const unsubProfile = onSnapshot(doc(firestore, 'users', user.uid), (doc) => {
+      setUserProfile(doc.exists() ? {...doc.data() as UserProfile, id: doc.id} : null);
+      if (balances) setIsLoading(false);
+    });
+
+    const unsubBalances = onSnapshot(collection(firestore, 'users', user.uid, 'balances'), (snapshot) => {
+      setBalances(snapshot.docs.map(doc => ({...doc.data() as Balance, id: doc.id})));
+      if (userProfile) setIsLoading(false);
+    });
+
+    return () => {
+      unsubProfile();
+      unsubBalances();
+    }
+  }, [firestore, user, balances, userProfile]);
 
   const estimatedBalance = useMemo(() => {
     // A real implementation would fetch live prices and calculate total value

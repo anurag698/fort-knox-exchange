@@ -1,8 +1,6 @@
+
 'use client';
 
-import { useWithdrawal } from '@/hooks/use-withdrawal';
-import { useUser, useFirestore, useDoc, useMemoFirebase } from '@/firebase';
-import { doc } from 'firebase/firestore';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -11,12 +9,13 @@ import { Badge } from '@/components/ui/badge';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { approveWithdrawal, rejectWithdrawal } from '@/app/actions';
-import { useActionState, useTransition } from 'react';
+import { useActionState, useTransition, useState, useEffect } from 'react';
 import { useFormStatus } from 'react-dom';
-import { useAssets } from '@/hooks/use-assets';
-import type { Withdrawal } from '@/lib/types';
+import type { Withdrawal, Asset, UserProfile } from '@/lib/types';
 import { UserDeposits } from '@/components/wallet/user-deposits';
 import { UserWithdrawals } from '@/components/wallet/user-withdrawals';
+import { useFirestore } from "@/firebase";
+import { doc, onSnapshot, query, collectionGroup, where, collection } from "firebase/firestore";
 
 
 function ModerationButtons({ disabled }: { disabled: boolean }) {
@@ -51,24 +50,53 @@ function ModerationButtons({ disabled }: { disabled: boolean }) {
 
 
 export default function ReviewWithdrawalPage({ params }: { params: { id: string } }) {
-  const { data: withdrawal, isLoading: isWithdrawalLoading, error: withdrawalError } = useWithdrawal(params.id);
   const firestore = useFirestore();
-
-  const userDocRef = useMemoFirebase(
-    () => (firestore && withdrawal ? doc(firestore, 'users', withdrawal.userId) : null),
-    [firestore, withdrawal]
-  );
-  
-  const { data: userProfile, isLoading: isProfileLoading, error: profileError } = useDoc(userDocRef);
-  const { data: assets, isLoading: assetsLoading } = useAssets();
-  const asset = assets?.find(a => a.id === withdrawal?.assetId);
+  const [withdrawal, setWithdrawal] = useState<Withdrawal | null>(null);
+  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
+  const [assets, setAssets] = useState<Asset[] | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<Error | null>(null);
 
   const [approveState, approveAction] = useActionState(approveWithdrawal, { status: 'idle', message: '' });
   const [rejectState, rejectAction] = useActionState(rejectWithdrawal, { status: 'idle', message: '' });
+  
+  const asset = assets?.find(a => a.id === withdrawal?.assetId);
 
+  useEffect(() => {
+    if (!firestore) return;
 
-  const isLoading = isWithdrawalLoading || isProfileLoading || assetsLoading;
-  const error = withdrawalError || profileError;
+    const q = query(collectionGroup(firestore, 'withdrawals'), where('id', '==', params.id));
+    const unsubWithdrawal = onSnapshot(q, (snapshot) => {
+        if (!snapshot.empty) {
+            const doc = snapshot.docs[0];
+            const withdrawalData = { ...doc.data() as Withdrawal, id: doc.id };
+            setWithdrawal(withdrawalData);
+
+            // Fetch user profile after getting withdrawal
+            if(withdrawalData.userId) {
+                const unsubUser = onSnapshot(doc(firestore, 'users', withdrawalData.userId), (userDoc) => {
+                    setUserProfile(userDoc.exists() ? {...userDoc.data() as UserProfile, id: userDoc.id} : null);
+                    if(assets) setIsLoading(false);
+                }, setError);
+                return () => unsubUser();
+            }
+        } else {
+            setWithdrawal(null);
+            setIsLoading(false);
+        }
+    }, setError);
+
+    const unsubAssets = onSnapshot(collection(firestore, 'assets'), (snapshot) => {
+        setAssets(snapshot.docs.map(doc => ({...doc.data() as Asset, id: doc.id})));
+        if (userProfile) setIsLoading(false);
+    }, setError);
+
+    return () => {
+        unsubWithdrawal();
+        unsubAssets();
+    }
+  }, [firestore, params.id, assets, userProfile]);
+
 
   const renderContent = () => {
     if (isLoading) {

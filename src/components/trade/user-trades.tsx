@@ -1,6 +1,6 @@
+
 'use client';
 
-import { useOrders } from "@/hooks/use-orders";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
@@ -8,14 +8,13 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { AlertCircle, XCircle } from "lucide-react";
-import { useAssets } from "@/hooks/use-assets";
 import { useEffect, useMemo, useState } from "react";
 import { useActionState } from "react";
 import { cancelOrder } from "@/app/actions";
 import { useToast } from "@/hooks/use-toast";
-import { useFirestore, useMemoFirebase } from "@/firebase";
-import { doc, getDoc } from 'firebase/firestore';
-import type { Market } from "@/lib/types";
+import { useFirestore, useUser } from "@/firebase";
+import { doc, getDoc, collection, query, where, orderBy, onSnapshot } from 'firebase/firestore';
+import type { Market, Asset, Order } from "@/lib/types";
 
 
 function CancelOrderButton({ orderId }: { orderId: string }) {
@@ -41,39 +40,54 @@ function CancelOrderButton({ orderId }: { orderId: string }) {
 }
 
 export function UserTrades({ marketId }: { marketId: string }) {
-    const { data: orders, isLoading, error } = useOrders(marketId);
-    const { data: assets, isLoading: assetsLoading } = useAssets();
     const firestore = useFirestore();
+    const { user } = useUser();
+
+    const [orders, setOrders] = useState<Order[] | null>(null);
+    const [assets, setAssets] = useState<Asset[] | null>(null);
     const [market, setMarket] = useState<Market | null>(null);
-    const [marketLoading, setMarketLoading] = useState(true);
 
-    const marketDocRef = useMemoFirebase(
-      () => (firestore && marketId ? doc(firestore, 'markets', marketId) : null),
-      [firestore, marketId]
-    );
-
+    const [isLoading, setIsLoading] = useState(true);
+    const [error, setError] = useState<Error | null>(null);
+    
     useEffect(() => {
-        if (!marketDocRef) {
-            setMarketLoading(false);
+        if (!firestore || !user) {
+            setIsLoading(false);
             return;
-        };
+        }
 
-        setMarketLoading(true);
-        getDoc(marketDocRef)
-          .then(docSnap => {
-            if (docSnap.exists()) {
-              setMarket({ ...docSnap.data() as Omit<Market, 'id'>, id: docSnap.id });
-            } else {
-              setMarket(null);
-            }
-          })
-          .catch(err => {
-            console.error(err);
-          })
-          .finally(() => {
-            setMarketLoading(false);
-          });
-    }, [marketDocRef]);
+        const constraints = [
+            where('userId', '==', user.uid),
+            where('status', 'in', ['OPEN', 'PARTIAL']),
+            orderBy('createdAt', 'desc')
+        ];
+        if (marketId) {
+            constraints.splice(1, 0, where('marketId', '==', marketId));
+        }
+        const ordersQuery = query(collection(firestore, 'orders'), ...constraints);
+
+        const unsubOrders = onSnapshot(ordersQuery, (snapshot) => {
+            setOrders(snapshot.docs.map(doc => ({...doc.data() as Order, id: doc.id})));
+            if(assets && market) setIsLoading(false);
+        }, setError);
+        
+        const unsubAssets = onSnapshot(collection(firestore, 'assets'), (snapshot) => {
+            setAssets(snapshot.docs.map(doc => ({...doc.data() as Asset, id: doc.id})));
+            if(orders && market) setIsLoading(false);
+        }, setError);
+
+        const unsubMarket = onSnapshot(doc(firestore, 'markets', marketId), (doc) => {
+            setMarket(doc.exists() ? {...doc.data() as Market, id: doc.id} : null);
+            if(orders && assets) setIsLoading(false);
+        }, setError);
+
+        return () => {
+            unsubOrders();
+            unsubAssets();
+            unsubMarket();
+        }
+
+    }, [firestore, user, marketId, orders, assets, market]);
 
 
     const assetsMap = useMemo(() => {
@@ -83,7 +97,7 @@ export function UserTrades({ marketId }: { marketId: string }) {
 
 
     const renderContent = () => {
-        if (isLoading || assetsLoading || marketLoading) {
+        if (isLoading) {
             return (
                 <div className="space-y-2">
                     <Skeleton className="h-10 w-full" />

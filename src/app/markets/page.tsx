@@ -1,18 +1,17 @@
 
 'use client';
 
-import { useAssets } from '@/hooks/use-assets';
+import { useState, useEffect, useMemo } from 'react';
 import type { Market, Asset } from '@/lib/types';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { MarketsTable } from '@/components/markets/markets-table';
 import { CandlestickChart, AlertCircle, DatabaseZap } from 'lucide-react';
-import { useMarkets } from '@/hooks/use-markets';
-import { useMemo } from 'react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
-
+import { useFirestore } from '@/firebase';
+import { collection, onSnapshot, query, orderBy } from 'firebase/firestore';
 
 type EnrichedMarket = Market & {
   baseAsset?: Asset;
@@ -20,12 +19,46 @@ type EnrichedMarket = Market & {
 };
 
 export default function MarketsPage() {
-  const { data: marketsData, isLoading: marketsLoading, error: marketsError } = useMarkets();
-  const { data: assetsData, isLoading: assetsLoading, error: assetsError } = useAssets();
-  
-  const isLoading = marketsLoading || assetsLoading;
-  const error = marketsError || assetsError;
+  const firestore = useFirestore();
+  const [marketsData, setMarketsData] = useState<Market[] | null>(null);
+  const [assetsData, setAssetsData] = useState<Asset[] | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<Error | null>(null);
 
+  useEffect(() => {
+    if (!firestore) return;
+    setIsLoading(true);
+
+    const marketsQuery = query(collection(firestore, 'markets'), orderBy('id', 'asc'));
+    const assetsQuery = query(collection(firestore, 'assets'), orderBy('name', 'asc'));
+
+    const unsubMarkets = onSnapshot(marketsQuery, (snapshot) => {
+      const markets = snapshot.docs.map(doc => ({ ...doc.data() as Omit<Market, 'id'>, id: doc.id }));
+      setMarketsData(markets);
+    }, (err) => {
+      console.error("Markets snapshot error:", err);
+      setError(err);
+    });
+
+    const unsubAssets = onSnapshot(assetsQuery, (snapshot) => {
+      const assets = snapshot.docs.map(doc => ({ ...doc.data() as Omit<Asset, 'id'>, id: doc.id }));
+      setAssetsData(assets);
+    }, (err) => {
+      console.error("Assets snapshot error:", err);
+      setError(err);
+    });
+    
+    // Combine loading states
+    if (marketsData !== null && assetsData !== null) {
+        setIsLoading(false);
+    }
+
+    return () => {
+      unsubMarkets();
+      unsubAssets();
+    };
+  }, [firestore, marketsData, assetsData]);
+  
   const enrichedMarkets: EnrichedMarket[] = useMemo(() => {
     if (!marketsData || !assetsData) {
       return [];
@@ -42,7 +75,7 @@ export default function MarketsPage() {
   }, [marketsData, assetsData]);
     
   const renderContent = () => {
-    if (isLoading) {
+    if (isLoading && !enrichedMarkets.length) {
       return (
          <div className="rounded-md border">
             <div className="p-4">

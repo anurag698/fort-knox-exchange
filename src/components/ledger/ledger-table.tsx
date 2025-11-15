@@ -9,13 +9,14 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import type { LedgerEntry } from '@/lib/types';
-import { useAssets } from '@/hooks/use-assets';
-import { useMemo } from 'react';
+import type { LedgerEntry, Asset } from '@/lib/types';
+import { useMemo, useState, useEffect } from 'react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { ArrowUpRight, ArrowDownLeft, ReceiptText } from 'lucide-react';
+import { useFirestore } from '@/firebase';
+import { collection, onSnapshot, query, orderBy } from 'firebase/firestore';
 
 type LedgerTableProps = {
   entries: LedgerEntry[];
@@ -37,14 +38,26 @@ const getTransactionIcon = (type: string) => {
 }
 
 export function LedgerTable({ entries }: LedgerTableProps) {
-    const { data: assets, isLoading: assetsLoading } = useAssets();
+    const firestore = useFirestore();
+    const [assets, setAssets] = useState<Asset[] | null>(null);
+    const [isLoading, setIsLoading] = useState(true);
+
+    useEffect(() => {
+        if (!firestore) return;
+        const unsub = onSnapshot(query(collection(firestore, 'assets')), snapshot => {
+            setAssets(snapshot.docs.map(doc => ({ ...doc.data() as Asset, id: doc.id })));
+            setIsLoading(false);
+        });
+        return () => unsub();
+    }, [firestore]);
+
 
     const assetsMap = useMemo(() => {
         if (!assets) return new Map();
         return new Map(assets.map(asset => [asset.id, asset]));
     }, [assets]);
 
-    if (assetsLoading) {
+    if (isLoading) {
       return (
         <div className="space-y-2">
             <Skeleton className="h-12 w-full" />

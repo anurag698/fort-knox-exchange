@@ -1,9 +1,9 @@
 
 'use client';
 
-import { useEffect } from 'react';
-import { useUser, useFirestore, useDoc, useMemoFirebase } from '@/firebase';
-import { doc } from 'firebase/firestore';
+import { useEffect, useState } from 'react';
+import { useUser, useFirestore, useMemoFirebase } from '@/firebase';
+import { doc, onSnapshot } from 'firebase/firestore';
 import { useActionState } from 'react';
 import { useFormStatus } from 'react-dom';
 import { useForm } from 'react-hook-form';
@@ -60,12 +60,24 @@ export default function SettingsPage() {
   const firestore = useFirestore();
   const { toast } = useToast();
 
-  const userDocRef = useMemoFirebase(
-    () => (firestore && authUser ? doc(firestore, 'users', authUser.uid) : null),
-    [firestore, authUser]
-  );
+  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
+  const [isProfileLoading, setIsProfileLoading] = useState(true);
+  const [error, setError] = useState<Error | null>(null);
 
-  const { data: userProfile, isLoading: isProfileLoading, error } = useDoc<UserProfile>(userDocRef);
+
+  useEffect(() => {
+    if (!firestore || !authUser) {
+      if(!isAuthLoading) setIsProfileLoading(false);
+      return;
+    }
+    const unsubscribe = onSnapshot(doc(firestore, 'users', authUser.uid), (doc) => {
+        setUserProfile(doc.exists() ? {...doc.data() as UserProfile, id: doc.id} : null);
+        setIsProfileLoading(false);
+    }, setError);
+
+    return () => unsubscribe();
+  }, [firestore, authUser, isAuthLoading]);
+
 
   const [profileFormState, profileFormAction] = useActionState(updateUserProfile, { status: "idle", message: "" });
   const [kycFormState, kycFormAction] = useActionState(submitKyc, { status: "idle", message: "" });

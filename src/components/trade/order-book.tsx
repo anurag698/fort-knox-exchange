@@ -1,10 +1,21 @@
+
 "use client";
 
+import { useMemo, useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { useOrderBook, type ProcessedOrder } from "@/hooks/use-order-book";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { AlertCircle } from "lucide-react";
+import { useFirestore } from '@/firebase';
+import { collection, onSnapshot, query, where } from 'firebase/firestore';
+import type { Order } from '@/lib/types';
+
+
+export type ProcessedOrder = {
+  price: number;
+  quantity: number;
+  total: number;
+};
 
 interface OrderBookProps {
   onPriceSelect: (price: number) => void;
@@ -12,8 +23,69 @@ interface OrderBookProps {
 }
 
 export function OrderBook({ onPriceSelect, marketId }: OrderBookProps) {
-  const { bids, asks, isLoading, error } = useOrderBook(marketId);
+  const firestore = useFirestore();
+  const [orders, setOrders] = useState<Order[] | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<Error | null>(null);
   const [baseAsset, quoteAsset] = marketId.split('-');
+  
+  useEffect(() => {
+    if (!firestore) return;
+    setIsLoading(true);
+
+    const q = query(
+      collection(firestore, 'orders'),
+      where('marketId', '==', marketId),
+      where('status', '==', 'OPEN')
+    );
+
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const fetchedOrders = snapshot.docs.map(doc => ({...doc.data() as Order, id: doc.id}));
+      setOrders(fetchedOrders);
+      setIsLoading(false);
+    }, (err) => {
+      setError(err);
+      setIsLoading(false);
+    });
+
+    return () => unsubscribe();
+  }, [firestore, marketId]);
+
+
+  const { bids, asks } = useMemo(() => {
+    if (!orders) {
+      return { bids: [], asks: [] };
+    }
+
+    const bidsMap = new Map<number, number>();
+    const asksMap = new Map<number, number>();
+
+    orders.forEach(order => {
+        if(order.price === undefined) return;
+
+        if (order.side === 'BUY') {
+            const existingQty = bidsMap.get(order.price) || 0;
+            bidsMap.set(order.price, existingQty + order.quantity);
+        } else {
+            const existingQty = asksMap.get(order.price) || 0;
+            asksMap.set(order.price, existingQty + order.quantity);
+        }
+    });
+
+    const processMap = (map: Map<number, number>): ProcessedOrder[] => {
+        return Array.from(map.entries()).map(([price, quantity]) => ({
+            price,
+            quantity,
+            total: price * quantity,
+        }));
+    }
+
+    const bids = processMap(bidsMap).sort((a, b) => b.price - a.price);
+    const asks = processMap(asksMap).sort((a, b) => a.price - b.price);
+
+    return { bids, asks };
+  }, [orders]);
+
 
   const renderOrderList = (orders: ProcessedOrder[], isBid: boolean) => {
     if (orders.length === 0) {

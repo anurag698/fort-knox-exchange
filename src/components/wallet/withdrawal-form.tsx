@@ -1,12 +1,12 @@
 
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useActionState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { useUser, useDoc, useFirestore, useMemoFirebase } from "@/firebase";
+import { useUser, useFirestore } from "@/firebase";
 import { requestWithdrawal } from "@/app/actions";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
@@ -15,7 +15,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import type { Asset, Balance, UserProfile } from "@/lib/types";
-import { doc } from "firebase/firestore";
+import { doc, onSnapshot } from "firebase/firestore";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { ShieldAlert } from "lucide-react";
 import Link from "next/link";
@@ -33,12 +33,16 @@ export function WithdrawalForm({ assets, balances }: { assets: Asset[], balances
   const firestore = useFirestore();
   const { toast } = useToast();
   const [state, formAction] = useActionState(requestWithdrawal, { status: "idle", message: "" });
-
-  const userDocRef = useMemoFirebase(
-    () => (firestore && user ? doc(firestore, 'users', user.uid) : null),
-    [firestore, user]
-  );
-  const { data: userProfile } = useDoc<UserProfile>(userDocRef);
+  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
+  
+  useEffect(() => {
+    if (user && firestore) {
+        const unsub = onSnapshot(doc(firestore, 'users', user.uid), (doc) => {
+            setUserProfile(doc.exists() ? doc.data() as UserProfile : null);
+        });
+        return () => unsub();
+    }
+  }, [user, firestore]);
 
   const balancesMap = new Map(balances.map(b => [b.assetId, b]));
 

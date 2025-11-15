@@ -1,8 +1,6 @@
 
 'use client';
 
-import { useBalances } from '@/hooks/use-balances';
-import { useAssets } from '@/hooks/use-assets';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -15,13 +13,47 @@ import { DepositForm } from '@/components/wallet/deposit-form';
 import { WithdrawalForm } from '@/components/wallet/withdrawal-form';
 import { UserDeposits } from '@/components/wallet/user-deposits';
 import { UserWithdrawals } from '@/components/wallet/user-withdrawals';
+import { useFirestore, useUser } from '@/firebase';
+import { collection, onSnapshot, query, orderBy } from 'firebase/firestore';
+import type { Asset, Balance } from '@/lib/types';
 
 
 export default function WalletPage() {
-  const { data: balances, isLoading: balancesLoading, error: balancesError } = useBalances();
-  const { data: assets, isLoading: assetsLoading, error: assetsError } = useAssets();
+  const firestore = useFirestore();
+  const { user } = useUser();
+
+  const [balances, setBalances] = useState<Balance[] | null>(null);
+  const [assets, setAssets] = useState<Asset[] | null>(null);
   const [prices, setPrices] = useState<Record<string, number>>({});
+  
+  const [balancesLoading, setBalancesLoading] = useState(true);
+  const [assetsLoading, setAssetsLoading] = useState(true);
   const [pricesLoading, setPricesLoading] = useState(true);
+  const [error, setError] = useState<Error | null>(null);
+
+  useEffect(() => {
+    if (!firestore) return;
+    
+    if (user) {
+        const unsubBalances = onSnapshot(collection(firestore, 'users', user.uid, 'balances'), (snapshot) => {
+            setBalances(snapshot.docs.map(doc => ({...doc.data() as Balance, id: doc.id})));
+            setBalancesLoading(false);
+        }, setError);
+        return () => unsubBalances();
+    } else {
+        setBalancesLoading(false);
+    }
+  }, [firestore, user]);
+
+  useEffect(() => {
+      if(!firestore) return;
+      const unsubAssets = onSnapshot(query(collection(firestore, 'assets'), orderBy('name', 'asc')), (snapshot) => {
+        setAssets(snapshot.docs.map(doc => ({...doc.data() as Asset, id: doc.id})));
+        setAssetsLoading(false);
+      }, setError);
+      return () => unsubAssets();
+  }, [firestore]);
+
 
   useEffect(() => {
     if (!assets || assets.length === 0) {
@@ -70,7 +102,6 @@ export default function WalletPage() {
   }, [assets]);
 
   const isLoading = balancesLoading || assetsLoading || pricesLoading;
-  const error = balancesError || assetsError;
 
   const portfolioData = useMemo(() => {
     if (isLoading || !balances || !assets) {

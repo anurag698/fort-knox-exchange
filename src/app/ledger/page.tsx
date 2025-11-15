@@ -2,14 +2,37 @@
 'use client';
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { useLedger } from "@/hooks/use-ledger";
 import { LedgerTable } from "@/components/ledger/ledger-table";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { AlertCircle, BookOpen } from "lucide-react";
+import { useFirestore, useUser } from "@/firebase";
+import { useState, useEffect } from "react";
+import { collection, query, orderBy, onSnapshot } from "firebase/firestore";
+import type { LedgerEntry } from "@/lib/types";
 
 export default function LedgerPage() {
-  const { data: ledgerEntries, isLoading, error } = useLedger();
+  const firestore = useFirestore();
+  const { user } = useUser();
+  const [ledgerEntries, setLedgerEntries] = useState<LedgerEntry[] | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<Error | null>(null);
+
+  useEffect(() => {
+    if (!firestore || !user) {
+      setIsLoading(false);
+      return;
+    }
+    const ledgerQuery = query(collection(firestore, 'users', user.uid, 'ledgerEntries'), orderBy('createdAt', 'desc'));
+    
+    const unsubscribe = onSnapshot(ledgerQuery, (snapshot) => {
+        setLedgerEntries(snapshot.docs.map(doc => ({...doc.data() as LedgerEntry, id: doc.id})));
+        setIsLoading(false);
+    }, setError);
+
+    return () => unsubscribe();
+  }, [firestore, user]);
+
 
   const renderContent = () => {
     if (isLoading) {

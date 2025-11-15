@@ -1,6 +1,7 @@
 
 "use client";
 
+import { useState, useEffect } from "react";
 import { SidebarTrigger, useSidebar } from "@/components/ui/sidebar";
 import { Button } from "@/components/ui/button";
 import {
@@ -16,8 +17,8 @@ import { User, LogOut, Settings, LogIn, Landmark, Home, CandlestickChart, ArrowR
 import { useIsMobile } from "@/hooks/use-mobile";
 import { PlaceHolderImages } from "@/lib/placeholder-images";
 import Link from 'next/link';
-import { useUser, useAuth, useDoc, useFirestore, useMemoFirebase } from '@/firebase';
-import { doc } from 'firebase/firestore';
+import { useUser, useAuth, useFirestore, useMemoFirebase } from '@/firebase';
+import { doc, onSnapshot } from 'firebase/firestore';
 import { signOut } from 'firebase/auth';
 import { useRouter, usePathname } from "next/navigation";
 import { clearSession } from "@/app/actions";
@@ -45,11 +46,22 @@ export default function Header() {
   const userAvatar = PlaceHolderImages.find(img => img.id === 'user-avatar');
 
   const firestore = useFirestore();
-  const userDocRef = useMemoFirebase(
-    () => (firestore && user ? doc(firestore, 'users', user.uid) : null),
-    [firestore, user]
-  );
-  const { data: userProfile } = useDoc<UserProfile>(userDocRef);
+  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
+
+  useEffect(() => {
+    if (firestore && user) {
+        const userDocRef = doc(firestore, 'users', user.uid);
+        const unsubscribe = onSnapshot(userDocRef, (doc) => {
+            if (doc.exists()) {
+                setUserProfile({ ...doc.data() as UserProfile, id: doc.id });
+            } else {
+                setUserProfile(null);
+            }
+        });
+        return () => unsubscribe();
+    }
+  }, [firestore, user]);
+
 
   const handleSignOut = async () => {
     if (auth) {

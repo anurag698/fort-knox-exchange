@@ -6,29 +6,75 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Users, CandlestickChart, ShieldAlert, ArrowRight, AlertCircle, Hourglass } from "lucide-react";
-import { useWithdrawals } from '@/hooks/use-withdrawals';
-import { useAssets } from '@/hooks/use-assets';
-import { useMemo } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import Link from 'next/link';
-import { useUsersCount } from '@/hooks/use-users-count';
-import { useMarketsCount } from '@/hooks/use-markets-count';
-import { useWithdrawalsCount } from '@/hooks/use-withdrawals-count';
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from '@/components/ui/tooltip';
+import { useFirestore, useUser } from "@/firebase";
+import { collection, onSnapshot, query, where, getCountFromServer, doc, getDoc, collectionGroup, orderBy } from "firebase/firestore";
+import type { Withdrawal, Asset } from "@/lib/types";
 
 
 export default function AdminPage() {
-  const { data: withdrawals, isLoading, error } = useWithdrawals('PENDING');
-  const { data: assets, isLoading: assetsLoading, error: assetsError } = useAssets();
-  const { count: usersCount, isLoading: usersLoading } = useUsersCount();
-  const { count: marketsCount, isLoading: marketsLoading } = useMarketsCount();
-  const { count: withdrawalsCount, isLoading: withdrawalsCountLoading } = useWithdrawalsCount('PENDING');
+  const firestore = useFirestore();
+  const { user } = useUser();
+
+  const [withdrawals, setWithdrawals] = useState<Withdrawal[] | null>(null);
+  const [assets, setAssets] = useState<Asset[] | null>(null);
+  const [usersCount, setUsersCount] = useState<number | null>(null);
+  const [marketsCount, setMarketsCount] = useState<number | null>(null);
+  const [withdrawalsCount, setWithdrawalsCount] = useState<number | null>(null);
+
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<Error | null>(null);
+  const [isAdmin, setIsAdmin] = useState(false);
+  
+  useEffect(() => {
+    if (!firestore) return;
+    
+    if (user) {
+      const userDocRef = doc(firestore, 'users', user.uid);
+      getDoc(userDocRef).then(docSnap => {
+        if(docSnap.exists() && docSnap.data().isAdmin) {
+          setIsAdmin(true);
+        }
+      });
+    }
+
+    if (isAdmin) {
+        const q = query(collectionGroup(firestore, 'withdrawals'), where('status', '==', 'PENDING'), orderBy('createdAt', 'desc'));
+        const unsubWithdrawals = onSnapshot(q, snapshot => {
+            setWithdrawals(snapshot.docs.map(doc => ({...doc.data() as Withdrawal, id: doc.id})));
+            if(assets && usersCount && marketsCount) setIsLoading(false);
+        }, setError);
+        
+        const unsubAssets = onSnapshot(collection(firestore, 'assets'), snapshot => {
+            setAssets(snapshot.docs.map(doc => ({...doc.data() as Asset, id: doc.id})));
+            if(withdrawals && usersCount && marketsCount) setIsLoading(false);
+        }, setError);
+
+        getCountFromServer(collection(firestore, 'users')).then(snap => setUsersCount(snap.data().count));
+        getCountFromServer(collection(firestore, 'markets')).then(snap => setMarketsCount(snap.data().count));
+        getCountFromServer(query(collectionGroup(firestore, 'withdrawals'), where('status', '==', 'PENDING'))).then(snap => setWithdrawalsCount(snap.data().count));
+
+        return () => {
+            unsubWithdrawals();
+            unsubAssets();
+        }
+    } else if (user) {
+        setIsLoading(false);
+    }
+    
+
+  }, [firestore, user, isAdmin, assets, withdrawals, usersCount, marketsCount]);
+
+
 
   const summaryStats = [
-    { title: "Total Users", value: usersCount, isLoading: usersLoading, icon: Users, href: "/admin/users" },
-    { title: "Active Markets", value: marketsCount, isLoading: marketsLoading, icon: CandlestickChart, href: "/markets" },
-    { title: "Pending Withdrawals", value: withdrawalsCount, isLoading: withdrawalsCountLoading, icon: ShieldAlert, href: "#moderation" },
+    { title: "Total Users", value: usersCount, isLoading: isLoading, icon: Users, href: "/admin/users" },
+    { title: "Active Markets", value: marketsCount, isLoading: isLoading, icon: CandlestickChart, href: "/markets" },
+    { title: "Pending Withdrawals", value: withdrawalsCount, isLoading: isLoading, icon: ShieldAlert, href: "#moderation" },
   ];
 
   const assetsMap = useMemo(() => {
@@ -52,7 +98,7 @@ export default function AdminPage() {
   };
 
   const renderWithdrawals = () => {
-    if (isLoading || assetsLoading) {
+    if (isLoading) {
       return (
         <>
           {[...Array(3)].map((_, i) => (
@@ -69,7 +115,7 @@ export default function AdminPage() {
       );
     }
 
-    if (error || assetsError) {
+    if (error) {
        return (
         <TableRow>
             <TableCell colSpan={6}>
@@ -84,6 +130,23 @@ export default function AdminPage() {
         </TableRow>
       );
     }
+    
+    if(!isAdmin) {
+      return (
+        <TableRow>
+          <TableCell colSpan={6}>
+              <Alert variant="destructive" className="mt-4">
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertTitle>Permission Denied</AlertTitle>
+                  <AlertDescription>
+                      You do not have permission to view this page.
+                  </AlertDescription>
+              </Alert>
+          </TableCell>
+        </TableRow>
+      );
+    }
+
 
     if (!withdrawals || withdrawals.length === 0) {
       return (
@@ -197,5 +260,3 @@ export default function AdminPage() {
     </div>
   );
 }
-
-    

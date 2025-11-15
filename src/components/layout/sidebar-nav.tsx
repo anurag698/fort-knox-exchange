@@ -1,6 +1,7 @@
 
 'use client';
 
+import { useState, useEffect } from 'react';
 import {
   SidebarMenu,
   SidebarMenuItem,
@@ -9,9 +10,8 @@ import {
 import { CandlestickChart, ArrowRightLeft, Repeat, Wallet, BookText, UserCog } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { cn } from '@/lib/utils';
-import { useUser, useDoc, useFirestore, useMemoFirebase } from '@/firebase';
-import { doc } from 'firebase/firestore';
+import { useUser, useFirestore } from '@/firebase';
+import { doc, onSnapshot } from 'firebase/firestore';
 import type { UserProfile } from '@/lib/types';
 
 const mainLinks = [
@@ -28,11 +28,17 @@ export default function SidebarNav() {
     const pathname = usePathname();
     const { user } = useUser();
     const firestore = useFirestore();
-    const userDocRef = useMemoFirebase(
-      () => (firestore && user ? doc(firestore, 'users', user.uid) : null),
-      [firestore, user]
-    );
-    const { data: userProfile } = useDoc<UserProfile>(userDocRef);
+    const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
+
+    useEffect(() => {
+        if (user && firestore) {
+            const userDocRef = doc(firestore, 'users', user.uid);
+            const unsubscribe = onSnapshot(userDocRef, (doc) => {
+                setUserProfile(doc.exists() ? { ...doc.data() as UserProfile, id: doc.id } : null);
+            });
+            return () => unsubscribe();
+        }
+    }, [user, firestore]);
 
     return (
         <div className="flex flex-col h-full">

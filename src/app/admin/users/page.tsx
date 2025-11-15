@@ -6,13 +6,44 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ArrowRight, AlertCircle, Users, ArrowLeft } from "lucide-react";
-import { useUsers } from '@/hooks/use-users';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import Link from 'next/link';
+import { useFirestore, useUser } from "@/firebase";
+import { useState, useEffect } from "react";
+import { collection, query, orderBy, onSnapshot, getDoc, doc } from "firebase/firestore";
+import type { UserProfile } from "@/lib/types";
 
 export default function AdminUsersPage() {
-  const { data: users, isLoading, error } = useUsers();
+  const firestore = useFirestore();
+  const { user } = useUser();
+  const [users, setUsers] = useState<UserProfile[] | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<Error | null>(null);
+  const [isAdmin, setIsAdmin] = useState(false);
+
+  useEffect(() => {
+    if (!firestore) return;
+    
+    if (user) {
+      getDoc(doc(firestore, 'users', user.uid)).then(docSnap => {
+        if(docSnap.exists() && docSnap.data().isAdmin) {
+          setIsAdmin(true);
+          const q = query(collection(firestore, 'users'), orderBy('createdAt', 'desc'));
+          const unsubscribe = onSnapshot(q, snapshot => {
+            setUsers(snapshot.docs.map(doc => ({...doc.data() as UserProfile, id: doc.id})));
+            setIsLoading(false);
+          }, setError);
+          return () => unsubscribe();
+        } else {
+            setIsLoading(false);
+        }
+      });
+    } else {
+      setIsLoading(false);
+    }
+  }, [firestore, user]);
+
 
   const getKYCBadgeVariant = (status: string) => {
     switch (status) {
@@ -44,7 +75,7 @@ export default function AdminUsersPage() {
       );
     }
 
-    if (error) {
+    if (error || !isAdmin) {
        return (
         <TableRow>
             <TableCell colSpan={5}>
@@ -52,7 +83,7 @@ export default function AdminUsersPage() {
                     <AlertCircle className="h-4 w-4" />
                     <AlertTitle>Error Loading Users</AlertTitle>
                     <AlertDescription>
-                        Could not fetch user data. Please check your Firestore security rules and network connection.
+                        Could not fetch user data. You may not have permission to view this page.
                     </AlertDescription>
                 </Alert>
             </TableCell>

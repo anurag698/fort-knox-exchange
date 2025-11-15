@@ -1,26 +1,64 @@
+
 'use client';
 
-import { useUserDeposits } from '@/hooks/use-user-deposits';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { AlertCircle, History } from "lucide-react";
-import { useAssets } from '@/hooks/use-assets';
-import { useMemo } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { Badge } from '@/components/ui/badge';
+import { useFirestore, useUser } from "@/firebase";
+import { collection, query, orderBy, onSnapshot } from "firebase/firestore";
+import type { Deposit, Asset } from "@/lib/types";
 
 interface UserDepositsProps {
   userId?: string;
 }
 
 export function UserDeposits({ userId }: UserDepositsProps) {
-    const { data: deposits, isLoading, error } = useUserDeposits(userId);
-    const { data: assets, isLoading: assetsLoading } = useAssets();
+    const firestore = useFirestore();
+    const { user: authUser } = useUser();
+    
+    const [deposits, setDeposits] = useState<Deposit[] | null>(null);
+    const [assets, setAssets] = useState<Asset[] | null>(null);
+    const [isLoading, setIsLoading] = useState(true);
+    const [error, setError] = useState<Error | null>(null);
+
+    const targetUserId = userId || authUser?.uid;
+
+    useEffect(() => {
+        if (!firestore || !targetUserId) {
+            setIsLoading(false);
+            return;
+        }
+
+        const depositsQuery = query(
+            collection(firestore, 'users', targetUserId, 'deposits'),
+            orderBy('createdAt', 'desc')
+        );
+        const unsubDeposits = onSnapshot(depositsQuery, snapshot => {
+            setDeposits(snapshot.docs.map(doc => ({ ...doc.data() as Deposit, id: doc.id })));
+            if (assets) setIsLoading(false);
+        }, setError);
+
+        const assetsQuery = query(collection(firestore, 'assets'));
+        const unsubAssets = onSnapshot(assetsQuery, snapshot => {
+            setAssets(snapshot.docs.map(doc => ({...doc.data() as Asset, id: doc.id})));
+            if (deposits) setIsLoading(false);
+        }, setError);
+
+        return () => {
+            unsubDeposits();
+            unsubAssets();
+        }
+    }, [firestore, targetUserId, assets, deposits]);
+
+
     const assetsMap = useMemo(() => new Map(assets?.map(a => [a.id, a])), [assets]);
 
     const renderContent = () => {
-        if (isLoading || assetsLoading) {
+        if (isLoading) {
             return (
                 <div className="space-y-2">
                     <Skeleton className="h-10 w-full" />

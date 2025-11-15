@@ -1,61 +1,64 @@
+
 'use client';
 
-import { useBalances } from '@/hooks/use-balances';
-import { useAssets } from '@/hooks/use-assets';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useMemo, useState, useEffect } from 'react';
 import { Wallet, AlertCircle } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { useFirestore, useMemoFirebase } from '@/firebase';
-import { doc, getDoc } from 'firebase/firestore';
-import type { Market } from '@/lib/types';
+import { useFirestore, useUser } from '@/firebase';
+import { doc, onSnapshot, collection } from 'firebase/firestore';
+import type { Market, Asset, Balance } from '@/lib/types';
 
 export function Balances({ marketId }: { marketId: string }) {
-  const { data: balances, isLoading: balancesLoading, error: balancesError } = useBalances();
-  const { data: assets, isLoading: assetsLoading, error: assetsError } = useAssets();
-  
   const firestore = useFirestore();
-  const [market, setMarket] = useState<Market | null>(null);
-  const [marketLoading, setMarketLoading] = useState(true);
-  const [marketError, setMarketError] = useState<Error | null>(null);
+  const { user } = useUser();
 
-  const marketDocRef = useMemoFirebase(
-    () => (firestore && marketId ? doc(firestore, 'markets', marketId) : null),
-    [firestore, marketId]
-  );
+  const [balances, setBalances] = useState<Balance[] | null>(null);
+  const [assets, setAssets] = useState<Asset[] | null>(null);
+  const [market, setMarket] = useState<Market | null>(null);
+  
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<Error | null>(null);
+
 
   useEffect(() => {
-    if (!marketDocRef) {
-        setMarketLoading(false);
-        return;
+    if (!firestore || !user) {
+      setIsLoading(false);
+      return;
+    }
+    
+    const unsubBalances = onSnapshot(collection(firestore, 'users', user.uid, 'balances'), (snapshot) => {
+        setBalances(snapshot.docs.map(doc => ({...doc.data() as Balance, id: doc.id})));
+    }, setError);
+
+    const unsubAssets = onSnapshot(collection(firestore, 'assets'), (snapshot) => {
+        setAssets(snapshot.docs.map(doc => ({...doc.data() as Asset, id: doc.id})));
+    }, setError);
+
+    const unsubMarket = onSnapshot(doc(firestore, 'markets', marketId), (doc) => {
+        if (doc.exists()) {
+            setMarket({ ...doc.data() as Market, id: doc.id });
+        } else {
+            setMarket(null);
+        }
+    }, setError);
+
+    if(balances && assets && market) {
+        setIsLoading(false);
+    }
+
+    return () => {
+        unsubBalances();
+        unsubAssets();
+        unsubMarket();
     };
 
-    setMarketLoading(true);
-    getDoc(marketDocRef)
-      .then(docSnap => {
-        if (docSnap.exists()) {
-          setMarket({ ...docSnap.data() as Omit<Market, 'id'>, id: docSnap.id });
-        } else {
-          setMarket(null);
-        }
-        setMarketError(null);
-      })
-      .catch(err => {
-        console.error("Error fetching market:", err);
-        setMarketError(err);
-      })
-      .finally(() => {
-        setMarketLoading(false);
-      });
-  }, [marketDocRef]);
+  }, [firestore, user, marketId, balances, assets, market]);
 
-
-  const isLoading = balancesLoading || assetsLoading || marketLoading;
-  const error = balancesError || assetsError || marketError;
 
   const { baseAsset, quoteAsset, baseBalance, quoteBalance } = useMemo(() => {
-    if (isLoading || !market || !assets || !balances) {
+    if (!market || !assets || !balances) {
       return { baseAsset: null, quoteAsset: null, baseBalance: null, quoteBalance: null };
     }
 
@@ -66,7 +69,7 @@ export function Balances({ marketId }: { marketId: string }) {
     const quoteBalance = balances.find(b => b.assetId === market.quoteAssetId);
 
     return { baseAsset, quoteAsset, baseBalance, quoteBalance };
-  }, [isLoading, market, assets, balances]);
+  }, [market, assets, balances]);
 
 
   const renderContent = () => {

@@ -18,6 +18,10 @@ service cloud.firestore {
       // For this prototype, we check a field in the user's document.
       return isSignedIn() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'ADMIN';
     }
+    
+    function isCreatingOwnDocument() {
+      return request.auth.uid == request.resource.data.id;
+    }
 
     // USER DATA
     match /users/{userId} {
@@ -26,14 +30,16 @@ service cloud.firestore {
       // Users can update their own profile (e.g. username).
       allow update: if isOwner(userId);
       // A user can create their own document upon signup.
-      allow create: if isOwner(userId);
+      allow create: if isCreatingOwnDocument();
       // Admins can list all users.
       allow list: if isAdmin();
       
-      // Balances can only be read by the owner. ALL writes must be from the backend.
+      // Balances can only be read by the owner. 
+      // Writes are allowed ONLY if the user is creating their own account for the first time.
       match /balances/{balanceId} {
           allow get, list: if isOwner(userId);
-          allow write: if false; // Server-only
+          allow create: if isCreatingOwnDocument();
+          allow update, delete: if false; // All subsequent balance changes must be from the server.
       }
       
       // Deposits can only be read by the owner or an admin. Writes are server-only.

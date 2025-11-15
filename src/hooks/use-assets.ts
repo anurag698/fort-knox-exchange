@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import { collection, query, getDocs } from 'firebase/firestore';
@@ -15,7 +14,8 @@ export function useAssets() {
 
   useEffect(() => {
     if (!firestore) {
-      // Firestore is not yet available.
+      // Firestore is not yet available. Wait for it.
+      setIsLoading(true);
       return;
     }
 

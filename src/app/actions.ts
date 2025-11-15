@@ -362,17 +362,29 @@ export async function createOrder(prevState: FormState, formData: FormData): Pro
         }
 
     } catch (serverError: any) {
+        // Check if the error is a Firestore permission error
         if (serverError.code === 'permission-denied' || (serverError.message && (serverError.message.includes('permission-denied') || serverError.message.includes('insufficient permissions')))) {
+            // Create a rich, contextual error object
             const permissionError = new FirestorePermissionError({
-                path: orderRef.path,
+                path: orderRef.path, // The path of the document we tried to create
                 operation: 'create',
+                // Include the data that was rejected by security rules
                 requestResourceData: newOrder
             });
+            
+            // Emit the error to be caught by the global error listener
             errorEmitter.emit('permission-error', permissionError);
-        } else {
-            console.error("Create Order Error:", serverError);
+            
+            // We still need to inform the client that an error occurred,
+            // but the rich error is now available in the dev overlay.
+            return {
+                status: 'error',
+                message: 'You do not have permission to create this order.',
+            };
         }
-
+        
+        // For all other types of errors, log them and return a generic message
+        console.error("Create Order Error:", serverError);
         return {
             status: 'error',
             message: serverError.message || 'Failed to place order.',

@@ -8,13 +8,12 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { AlertCircle, XCircle } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo } from "react";
 import { useActionState } from "react";
 import { cancelOrder } from "@/app/actions";
 import { useToast } from "@/hooks/use-toast";
-import { useFirestore, useUser } from "@/firebase";
-import { doc, getDoc, collection, query, where, orderBy, onSnapshot } from 'firebase/firestore';
-import type { Market, Asset, Order } from "@/lib/types";
+import { useOrders } from "@/hooks/use-orders";
+import type { Order } from "@/lib/types";
 
 
 function CancelOrderButton({ orderId }: { orderId: string }) {
@@ -40,72 +39,12 @@ function CancelOrderButton({ orderId }: { orderId: string }) {
 }
 
 export function UserTrades({ marketId }: { marketId: string }) {
-    const firestore = useFirestore();
-    const { user } = useUser();
+    const { data: allOrders, isLoading, error } = useOrders();
 
-    const [orders, setOrders] = useState<Order[] | null>(null);
-    const [assets, setAssets] = useState<Asset[] | null>(null);
-    const [market, setMarket] = useState<Market | null>(null);
-
-    const [isLoading, setIsLoading] = useState(true);
-    const [error, setError] = useState<Error | null>(null);
-    
-    useEffect(() => {
-        if (!firestore) {
-            setIsLoading(false);
-            return;
-        }
-
-        const fetchInitialData = async () => {
-          try {
-            // This is inefficient, should be done at a higher level
-            const assetsSnap = await getDocs(collection(firestore, 'assets'));
-            setAssets(assetsSnap.docs.map(d => ({ ...d.data() as Asset, id: d.id })));
-            
-            const marketSnap = await getDoc(doc(firestore, 'markets', marketId));
-            setMarket(marketSnap.exists() ? { ...marketSnap.data() as Market, id: marketSnap.id } : null);
-
-          } catch (e) {
-            setError(e as Error);
-          }
-        };
-
-        fetchInitialData();
-
-        if (!user?.uid) {
-            setOrders([]);
-            setIsLoading(false);
-            return;
-        }
-        
-        // Fetch all open orders for the user
-        const ordersQuery = query(
-            collection(firestore, 'orders'), 
-            where('userId', '==', user.uid),
-            where('status', 'in', ['OPEN', 'PARTIAL']),
-            orderBy('createdAt', 'desc')
-        );
-
-        const unsubscribe = onSnapshot(ordersQuery, (snapshot) => {
-            const allUserOrders = snapshot.docs.map(doc => ({...doc.data() as Order, id: doc.id}));
-            // Filter by marketId on the client
-            const marketOrders = allUserOrders.filter(order => order.marketId === marketId);
-            setOrders(marketOrders);
-            setIsLoading(false);
-        }, (e) => {
-            setError(e);
-            setIsLoading(false);
-        });
-
-        return () => unsubscribe();
-
-    }, [firestore, user?.uid, marketId]);
-
-
-    const assetsMap = useMemo(() => {
-        if (!assets) return new Map();
-        return new Map(assets.map(asset => [asset.id, asset]));
-    }, [assets]);
+    const orders = useMemo(() => {
+        if (!allOrders) return [];
+        return allOrders.filter(order => order.marketId === marketId);
+    }, [allOrders, marketId]);
 
 
     const renderContent = () => {
@@ -130,14 +69,6 @@ export function UserTrades({ marketId }: { marketId: string }) {
                 </Alert>
             );
         }
-
-        if (!user) {
-            return (
-                <div className="text-center py-12 text-muted-foreground">
-                    <p>Please sign in to see your orders.</p>
-                </div>
-            );
-        }
         
         if (!orders || orders.length === 0) {
             return (
@@ -146,9 +77,6 @@ export function UserTrades({ marketId }: { marketId: string }) {
                 </div>
             );
         }
-
-        const baseAsset = market ? assetsMap.get(market.baseAssetId) : null;
-        const quoteAsset = market ? assetsMap.get(market.quoteAssetId) : null;
 
         return (
              <Table>
@@ -167,7 +95,7 @@ export function UserTrades({ marketId }: { marketId: string }) {
                     {orders.map(order => {
                         return (
                             <TableRow key={order.id}>
-                                <TableCell>{baseAsset?.symbol}/{quoteAsset?.symbol}</TableCell>
+                                <TableCell>{order.marketId}</TableCell>
                                 <TableCell>
                                     <span className={order.side === 'BUY' ? 'text-green-600 font-semibold' : 'text-red-600 font-semibold'}>{order.side}</span>
                                 </TableCell>

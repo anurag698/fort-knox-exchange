@@ -3,63 +3,23 @@
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
-import { useMemo, useState, useEffect } from 'react';
+import { useMemo } from 'react';
 import { Wallet, AlertCircle } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { useFirestore, useUser } from '@/firebase';
-import { doc, getDoc, collection, getDocs } from 'firebase/firestore';
-import type { Market, Asset, Balance } from '@/lib/types';
+import { useBalances } from '@/hooks/use-balances';
+import { useMarkets } from '@/hooks/use-markets';
+import { useAssets } from '@/hooks/use-assets';
 
 export function Balances({ marketId }: { marketId: string }) {
-  const firestore = useFirestore();
-  const { user } = useUser();
-
-  const [balances, setBalances] = useState<Balance[] | null>(null);
-  const [assets, setAssets] = useState<Asset[] | null>(null);
-  const [market, setMarket] = useState<Market | null>(null);
+  const { data: balances, isLoading: balancesLoading, error: balancesError } = useBalances();
+  const { data: assets, isLoading: assetsLoading, error: assetsError } = useAssets();
+  const { data: markets, isLoading: marketsLoading, error: marketsError } = useMarkets();
   
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<Error | null>(null);
-
-
-  useEffect(() => {
-    if (!firestore) {
-      setIsLoading(false);
-      return;
-    }
-    
-    const fetchData = async () => {
-      setIsLoading(true);
-      setError(null);
-      try {
-        const [assetsSnap, marketSnap] = await Promise.all([
-          getDocs(collection(firestore, 'assets')),
-          getDoc(doc(firestore, 'markets', marketId)),
-        ]);
-        
-        setAssets(assetsSnap.docs.map(d => ({ ...d.data() as Asset, id: d.id })));
-        setMarket(marketSnap.exists() ? { ...marketSnap.data() as Market, id: marketSnap.id } : null);
-
-        if (user?.uid) {
-          const balancesSnap = await getDocs(collection(firestore, 'users', user.uid, 'balances'));
-          setBalances(balancesSnap.docs.map(d => ({ ...d.data() as Balance, id: d.id })));
-        } else {
-          setBalances([]);
-        }
-
-      } catch (err) {
-        setError(err as Error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    fetchData();
-
-  }, [firestore, user?.uid, marketId]);
-
-
+  const isLoading = balancesLoading || assetsLoading || marketsLoading;
+  const error = balancesError || assetsError || marketsError;
+  
   const { baseAsset, quoteAsset, baseBalance, quoteBalance } = useMemo(() => {
+    const market = markets?.find(m => m.id === marketId);
     if (!market || !assets || !balances) {
       return { baseAsset: null, quoteAsset: null, baseBalance: null, quoteBalance: null };
     }
@@ -71,7 +31,7 @@ export function Balances({ marketId }: { marketId: string }) {
     const quoteBalance = balances.find(b => b.assetId === market.quoteAssetId);
 
     return { baseAsset, quoteAsset, baseBalance, quoteBalance };
-  }, [market, assets, balances]);
+  }, [marketId, markets, assets, balances]);
 
 
   const renderContent = () => {

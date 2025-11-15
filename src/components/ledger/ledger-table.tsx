@@ -10,13 +10,12 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import type { LedgerEntry, Asset } from '@/lib/types';
-import { useMemo, useState, useEffect } from 'react';
+import { useMemo } from 'react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { ArrowUpRight, ArrowDownLeft, ReceiptText } from 'lucide-react';
-import { useFirestore } from '@/firebase';
-import { collection, getDocs, query } from 'firebase/firestore';
+import { useAssets } from '@/hooks/use-assets';
 
 type LedgerTableProps = {
   entries: LedgerEntry[];
@@ -38,26 +37,7 @@ const getTransactionIcon = (type: string) => {
 }
 
 export function LedgerTable({ entries }: LedgerTableProps) {
-    const firestore = useFirestore();
-    const [assets, setAssets] = useState<Asset[] | null>(null);
-    const [isLoading, setIsLoading] = useState(true);
-
-    useEffect(() => {
-        if (!firestore) return;
-        const fetchAssets = async () => {
-          setIsLoading(true);
-          try {
-            const snapshot = await getDocs(query(collection(firestore, 'assets')));
-            setAssets(snapshot.docs.map(doc => ({ ...doc.data() as Asset, id: doc.id })));
-          } catch(e) {
-            console.error("Failed to fetch assets for ledger table", e);
-          } finally {
-            setIsLoading(false);
-          }
-        };
-        fetchAssets();
-    }, [firestore]);
-
+    const { data: assets, isLoading } = useAssets();
 
     const assetsMap = useMemo(() => {
         if (!assets) return new Map();

@@ -10,8 +10,10 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
-import { useFirestore } from '@/firebase';
-import { collection, getDocs, onSnapshot, query, orderBy } from 'firebase/firestore';
+import { useFirestore, useMemoFirebase } from '@/firebase';
+import { useMarkets } from '@/hooks/use-markets';
+import { useAssets } from '@/hooks/use-assets';
+import { collection, onSnapshot, query } from 'firebase/firestore';
 
 export type EnrichedMarket = Market & {
   baseAsset?: Asset;
@@ -21,71 +23,29 @@ export type EnrichedMarket = Market & {
 
 export default function MarketsPage() {
   const firestore = useFirestore();
-  
-  const [markets, setMarkets] = useState<Market[] | null>(null);
-  const [assets, setAssets] = useState<Asset[] | null>(null);
+  const { data: markets, isLoading: marketsLoading, error: marketsError } = useMarkets();
+  const { data: assets, isLoading: assetsLoading, error: assetsError } = useAssets();
+
   const [marketData, setMarketData] = useState<Record<string, MarketData>>({});
   
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<Error | null>(null);
+  const isLoading = marketsLoading || assetsLoading;
+  const error = marketsError || assetsError;
 
   useEffect(() => {
-    if (!firestore) {
-      return;
-    }
-
-    const fetchStaticData = async () => {
-      setIsLoading(true);
-      setError(null);
-      try {
-        const marketsQuery = query(collection(firestore, 'markets'), orderBy('id', 'asc'));
-        const assetsQuery = query(collection(firestore, 'assets'), orderBy('name', 'asc'));
-
-        const [marketsSnapshot, assetsSnapshot] = await Promise.all([
-          getDocs(marketsQuery),
-          getDocs(assetsQuery),
-        ]);
-
-        const marketsList = marketsSnapshot.docs.map(doc => ({ ...doc.data() as Market, id: doc.id }));
-        const assetsList = assetsSnapshot.docs.map(doc => ({ ...doc.data() as Asset, id: doc.id }));
-        
-        setMarkets(marketsList);
-        setAssets(assetsList);
-        
-        // After static data is loaded, set up the live listener
-        const marketDataQuery = query(collection(firestore, 'market_data'));
-        const unsubscribe = onSnapshot(marketDataQuery, (snapshot) => {
-            const liveData: Record<string, MarketData> = {};
-            snapshot.forEach(doc => {
-                liveData[doc.id] = { ...doc.data() as MarketData, id: doc.id };
-            });
-            setMarketData(liveData);
-        }, (err) => {
-            console.error("Market live data subscription error:", err);
-            // Non-critical, the page can function with static data.
+    if (!firestore) return;
+    
+    const marketDataQuery = query(collection(firestore, 'market_data'));
+    const unsubscribe = onSnapshot(marketDataQuery, (snapshot) => {
+        const liveData: Record<string, MarketData> = {};
+        snapshot.forEach(doc => {
+            liveData[doc.id] = { ...doc.data() as MarketData, id: doc.id };
         });
-        
-        return unsubscribe;
-
-      } catch (err) {
-        console.error("Critical data fetch error (markets/assets):", err);
-        setError(err instanceof Error ? err : new Error("Could not load essential market data. Please check Firestore security rules."));
-        return () => {}; // Return an empty unsubscribe function on error
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    let unsubscribe: (() => void) | undefined;
-    fetchStaticData().then(unsub => {
-      unsubscribe = unsub;
+        setMarketData(liveData);
+    }, (err) => {
+        console.error("Market live data subscription error:", err);
     });
-
-    return () => {
-        if (unsubscribe) {
-            unsubscribe();
-        }
-    };
+    
+    return () => unsubscribe();
   }, [firestore]);
 
   const enrichedMarkets: EnrichedMarket[] = useMemo(() => {

@@ -9,8 +9,7 @@ import { cn } from '@/lib/utils';
 import { useMemo, useState, useEffect } from 'react';
 import Link from 'next/link';
 import { Button } from '../ui/button';
-import { useFirestore } from "@/firebase";
-import { collection, getDocs, query } from 'firebase/firestore';
+import { useMarkets } from '@/hooks/use-markets';
 import type { Market } from "@/lib/types";
 
 // Mock icons for coins
@@ -25,36 +24,10 @@ const coinIcons: { [key: string]: React.ElementType } = {
 };
 
 export function PopularCoins() {
-  const firestore = useFirestore();
-  const [markets, setMarkets] = useState<Market[] | null>(null);
-  const [marketsLoading, setMarketsLoading] = useState(true);
-  const [error, setError] = useState<Error | null>(null);
+  const { data: markets, isLoading: marketsLoading, error } = useMarkets();
   
   const [prices, setPrices] = useState<Record<string, number>>({});
   const [pricesLoading, setPricesLoading] = useState(true);
-
-   useEffect(() => {
-    if (!firestore) return;
-
-    const fetchMarkets = async () => {
-        setMarketsLoading(true);
-        setError(null);
-        try {
-            const marketsQuery = query(collection(firestore, 'markets'));
-            const querySnapshot = await getDocs(marketsQuery);
-            const marketsData = querySnapshot.docs.map(doc => ({ ...doc.data() as Omit<Market, 'id'>, id: doc.id }));
-            setMarkets(marketsData);
-        } catch (err) {
-            console.error("Failed to fetch markets for Popular Coins:", err);
-            setError(err instanceof Error ? err : new Error("An unknown error occurred."));
-        } finally {
-            setMarketsLoading(false);
-        }
-    };
-
-    fetchMarkets();
-  }, [firestore]);
-
 
   const marketSymbols = useMemo(() => {
     if (!markets) return [];
@@ -98,7 +71,7 @@ export function PopularCoins() {
       ...market,
       // Mock data for change
       change: (market.id.charCodeAt(0) % 11) - 5 + Math.random() * 2 - 1, 
-    })).slice(0, 5); // Show top 5
+    })).filter(m => m.quoteAssetId === 'USDT').slice(0, 5); // Show top 5 USDT pairs
   }, [markets]);
 
   const isLoading = marketsLoading || pricesLoading;

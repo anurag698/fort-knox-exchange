@@ -6,55 +6,21 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { AlertCircle, History } from "lucide-react";
-import { useMemo, useState, useEffect } from 'react';
+import { useMemo } from 'react';
 import { Badge } from '@/components/ui/badge';
-import { useFirestore, useUser } from "@/firebase";
-import { collection, query, orderBy, getDocs } from "firebase/firestore";
-import type { Withdrawal, Asset } from "@/lib/types";
+import { useAssets } from "@/hooks/use-assets";
+import { useUserWithdrawals } from "@/hooks/use-user-withdrawals";
 
 interface UserWithdrawalsProps {
   userId?: string;
 }
 
 export function UserWithdrawals({ userId }: UserWithdrawalsProps) {
-    const firestore = useFirestore();
-    const { user: authUser } = useUser();
+    const { data: withdrawals, isLoading: withdrawalsLoading, error: withdrawalsError } = useUserWithdrawals(userId);
+    const { data: assets, isLoading: assetsLoading, error: assetsError } = useAssets();
     
-    const [withdrawals, setWithdrawals] = useState<Withdrawal[] | null>(null);
-    const [assets, setAssets] = useState<Asset[] | null>(null);
-    const [isLoading, setIsLoading] = useState(true);
-    const [error, setError] = useState<Error | null>(null);
-
-    const targetUserId = userId || authUser?.uid;
-
-    useEffect(() => {
-        if (!firestore || !targetUserId) {
-            setIsLoading(false);
-            return;
-        }
-
-        const fetchData = async () => {
-          setIsLoading(true);
-          setError(null);
-          try {
-            const [withdrawalsSnap, assetsSnap] = await Promise.all([
-              getDocs(query(collection(firestore, 'users', targetUserId, 'withdrawals'), orderBy('createdAt', 'desc'))),
-              getDocs(query(collection(firestore, 'assets')))
-            ]);
-
-            setWithdrawals(withdrawalsSnap.docs.map(doc => ({ ...doc.data() as Withdrawal, id: doc.id })));
-            setAssets(assetsSnap.docs.map(doc => ({...doc.data() as Asset, id: doc.id})));
-
-          } catch(err) {
-            setError(err as Error);
-          } finally {
-            setIsLoading(false);
-          }
-        };
-
-        fetchData();
-
-    }, [firestore, targetUserId]);
+    const isLoading = withdrawalsLoading || assetsLoading;
+    const error = withdrawalsError || assetsError;
 
     const assetsMap = useMemo(() => new Map(assets?.map(a => [a.id, a])), [assets]);
 
@@ -74,7 +40,7 @@ export function UserWithdrawals({ userId }: UserWithdrawalsProps) {
                     <AlertCircle className="h-4 w-4" />
                     <AlertTitle>Error Loading Withdrawals</AlertTitle>
                     <AlertDescription>
-                        There was a problem fetching the withdrawal history.
+                        {error.message || "There was a problem fetching the withdrawal history."}
                     </AlertDescription>
                 </Alert>
             );

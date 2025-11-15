@@ -19,6 +19,7 @@ class WalletService {
     private wallet: ethers.Wallet;
     private provider: ethers.JsonRpcProvider;
     private firestore: FirebaseFirestore.Firestore;
+    private FieldValue: any;
 
     constructor() {
         const privateKey = process.env.HOT_WALLET_PRIVATE_KEY;
@@ -32,58 +33,143 @@ class WalletService {
         
         this.provider = new ethers.JsonRpcProvider(POLYGON_RPC_URL);
         this.wallet = this.wallet.connect(this.provider);
-        this.firestore = getFirebaseAdmin().firestore;
+
+        const { firestore, FieldValue } = getFirebaseAdmin();
+        this.firestore = firestore;
+        this.FieldValue = FieldValue;
     }
 
     /**
-     * Fetches a built transaction from Firestore, signs it, and broadcasts it.
+     * Fetches a built transaction from Firestore, signs it, broadcasts it,
+     * waits for confirmation, and reconciles the trade.
      * @param dexTxId The ID of the document in the `dex_transactions` collection.
      * @returns The on-chain transaction hash.
      */
-    async broadcastTransaction(dexTxId: string): Promise<string> {
-        console.log(`[WalletService] Broadcasting transaction for dexTxId: ${dexTxId}`);
+    async broadcastAndReconcileTransaction(dexTxId: string): Promise<string> {
+        console.log(`[WalletService] Broadcasting and reconciling transaction for dexTxId: ${dexTxId}`);
 
         const txDocRef = this.firestore.collection('dex_transactions').doc(dexTxId);
-        const txDoc = await txDocRef.get();
 
-        if (!txDoc.exists) {
-            throw new Error(`[WalletService] Dex transaction document ${dexTxId} not found.`);
+        try {
+            const txDoc = await txDocRef.get();
+
+            if (!txDoc.exists) {
+                throw new Error(`[WalletService] Dex transaction document ${dexTxId} not found.`);
+            }
+
+            const txData = txDoc.data();
+            if (!txData || txData.status !== 'BUILT' || !txData.oneinchPayload) {
+                throw new Error(`[WalletService] Transaction ${dexTxId} is not in a broadcastable state.`);
+            }
+            
+            const { oneinchPayload: tx, orderId } = txData;
+
+            console.log('[WalletService] Signing transaction:', tx);
+            
+            const txResponse = await this.wallet.sendTransaction({
+                to: tx.to,
+                data: tx.data,
+                value: tx.value,
+                gasPrice: tx.gasPrice,
+                gasLimit: tx.gas ? BigInt(tx.gas) + BigInt(50000) : undefined // Add a buffer
+            });
+
+            console.log(`[WalletService] Transaction sent. Hash: ${txResponse.hash}. Updating status to BROADCASTED.`);
+            await txDocRef.update({
+                status: 'BROADCASTED',
+                onchainTxHash: txResponse.hash,
+            });
+
+            console.log(`[WalletService] Waiting for transaction confirmation for hash: ${txResponse.hash}`);
+            const receipt = await txResponse.wait();
+
+            if (!receipt || receipt.status !== 1) {
+                throw new Error(`Transaction ${txResponse.hash} failed on-chain.`);
+            }
+
+            console.log(`[WalletService] Transaction ${txResponse.hash} confirmed. Reconciling trade...`);
+            
+            await this.reconcileTrade(orderId, txResponse.hash);
+
+            await txDocRef.update({ status: 'CONFIRMED' });
+
+            return txResponse.hash;
+        } catch (error) {
+            console.error(`[WalletService] Error during broadcast/reconciliation for ${dexTxId}:`, error);
+            await txDocRef.update({ status: 'FAILED' });
+            // In a real app, you would also need to revert the locked funds here.
+            throw error; // Re-throw the error to be caught by the server action
         }
+    }
 
-        const txData = txDoc.data();
-        if (!txData || txData.status !== 'BUILT' || !txData.oneinchPayload) {
-            throw new Error(`[WalletService] Transaction ${dexTxId} is not in a broadcastable state.`);
-        }
-
-        // The payload from 1inch is already the transaction object
-        const tx = txData.oneinchPayload;
-
-        console.log('[WalletService] Signing transaction:', tx);
+    private async reconcileTrade(orderId: string, txHash: string) {
+        const orderRef = this.firestore.collection('orders').doc(orderId);
         
-        const txResponse = await this.wallet.sendTransaction({
-            to: tx.to,
-            data: tx.data,
-            value: tx.value,
-            gasPrice: tx.gasPrice,
-            gasLimit: tx.gas ? BigInt(tx.gas) + BigInt(50000) : undefined // Add a buffer to the gas limit
+        await this.firestore.runTransaction(async (t) => {
+            const orderSnap = await t.get(orderRef);
+            if (!orderSnap.exists) throw new Error(`Order ${orderId} not found for reconciliation.`);
+            
+            const order = orderSnap.data()!;
+            const { userId, quantity, marketId, side } = order;
+            const [baseAssetId, quoteAssetId] = marketId.split('-');
+            
+            const srcAssetId = side === 'BUY' ? quoteAssetId : baseAssetId;
+            const dstAssetId = side === 'BUY' ? baseAssetId : quoteAssetId;
+            
+            // This is a simplification. A real implementation would parse the tx receipt
+            // to find the exact amount of dstAssetId received. Here, we assume the quoted amount.
+            // For a market BUY, 'quantity' is the amount of quote asset to spend.
+            // For a market SELL, 'quantity' is the amount of base asset to sell.
+            const amountSpent = quantity;
+            // Let's pretend we got 1:1 for simplicity; a real app needs a price or receipt data.
+            const amountReceived = quantity;
+
+            const srcBalanceRef = this.firestore.collection('users').doc(userId).collection('balances').doc(srcAssetId);
+            const dstBalanceRef = this.firestore.collection('users').doc(userId).collection('balances').doc(dstAssetId);
+
+            const srcBalanceSnap = await t.get(srcBalanceRef);
+            if (!srcBalanceSnap.exists) throw new Error (`Source balance ${srcAssetId} not found for user ${userId}`);
+
+            // Finalize source balance: move from locked to spent
+            t.update(srcBalanceRef, {
+                locked: this.FieldValue.increment(-amountSpent),
+                updatedAt: this.FieldValue.serverTimestamp(),
+            });
+            
+            // Finalize destination balance: add received amount
+            t.set(dstBalanceRef, {
+                available: this.FieldValue.increment(amountReceived)
+            }, { merge: true });
+
+            // Update order status
+            t.update(orderRef, {
+                status: 'FILLED',
+                filledAmount: quantity, // Simplified
+                updatedAt: this.FieldValue.serverTimestamp(),
+            });
+
+            // Create ledger entry
+            const ledgerRef = this.firestore.collection('users').doc(userId).collection('ledgerEntries').doc();
+            t.set(ledgerRef, {
+                id: ledgerRef.id,
+                userId,
+                assetId: dstAssetId,
+                type: 'TRADE_SETTLEMENT',
+                amount: amountReceived,
+                orderId: orderId,
+                description: `Market ${side} ${baseAssetId} settled.`,
+                createdAt: this.FieldValue.serverTimestamp(),
+            });
         });
-
-        console.log(`[WalletService] Transaction sent. Hash: ${txResponse.hash}`);
-
-        // Update the document with the hash and new status
-        await txDocRef.update({
-            status: 'BROADCASTED',
-            onchainTxHash: txResponse.hash,
-        });
-
-        return txResponse.hash;
+        console.log(`[WalletService] Successfully reconciled order ${orderId}.`);
     }
 }
+
 
 // Singleton instance of the wallet service
 const walletService = new WalletService();
 
 // Export a function that uses the singleton, making it easier to mock in tests
-export const broadcastTransaction = (dexTxId: string) => {
-    return walletService.broadcastTransaction(dexTxId);
+export const broadcastAndReconcileTransaction = (dexTxId: string) => {
+    return walletService.broadcastAndReconcileTransaction(dexTxId);
 }

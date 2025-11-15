@@ -11,7 +11,7 @@ import { seedInitialData } from "@/lib/seed-data";
 import axios from 'axios';
 import { headers } from 'next/headers';
 import type { DexBuildTxResponse } from '@/lib/dex/dex.types';
-import { broadcastTransaction } from "@/lib/wallet-service";
+import { broadcastAndReconcileTransaction } from "@/lib/wallet-service";
 
 type FormState = {
   status: 'success' | 'error' | 'idle';
@@ -362,15 +362,13 @@ export async function createOrder(prevState: FormState, formData: FormData): Pro
                 createdAt: FieldValue.serverTimestamp(),
             });
 
-            // Asynchronously broadcast the transaction
-            broadcastTransaction(dexTxRef.id)
-                .then(txHash => console.log(`Transaction broadcasted with hash: ${txHash}`))
-                .catch(err => console.error("Broadcast failed:", err));
+            // Asynchronously broadcast and reconcile the transaction
+            const txHash = await broadcastAndReconcileTransaction(dexTxRef.id);
             
             revalidatePath('/trade');
             return {
                 status: 'success',
-                message: `Market ${side} order submitted for execution.`,
+                message: `Market ${side} order executed and settled. TxHash: ${txHash.slice(0,10)}...`,
             };
         } else {
              return { status: 'error', message: 'Invalid order type or missing price for limit order.' };

@@ -7,13 +7,13 @@ import { OrderBook } from "@/components/trade/order-book";
 import { OrderForm } from "@/components/trade/order-form";
 import { UserTrades } from "@/components/trade/user-trades";
 
-export default function MarketTradePage({ params: { marketId: routeMarketId } }: { params: { marketId: string } }) {
+export default function MarketTradePage({ params }: { params: { marketId: string } }) {
   const [selectedPrice, setSelectedPrice] = useState<number | undefined>(undefined);
-  const [marketId, setMarketId] = useState<string>(routeMarketId || 'BTC-USDT');
+  const [marketId, setMarketId] = useState<string>(params.marketId || 'BTC-USDT');
 
   useEffect(() => {
-    setMarketId(routeMarketId || 'BTC-USDT');
-  }, [routeMarketId]);
+    setMarketId(params.marketId || 'BTC-USDT');
+  }, [params.marketId]);
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">

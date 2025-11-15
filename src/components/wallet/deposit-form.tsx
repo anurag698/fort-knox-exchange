@@ -19,6 +19,7 @@ import { Copy, Check } from "lucide-react";
 
 const depositSchema = z.object({
   assetId: z.string().min(1, "Please select an asset."),
+  userId: z.string(),
 });
 
 type DepositFormValues = z.infer<typeof depositSchema>;
@@ -37,8 +38,14 @@ export function DepositForm({ assets }: { assets: Asset[] }) {
 
   const form = useForm<DepositFormValues>({
     resolver: zodResolver(depositSchema),
-    defaultValues: { assetId: "" },
+    defaultValues: { assetId: "", userId: user?.uid || "" },
   });
+
+  useEffect(() => {
+    if(user){
+      form.setValue('userId', user.uid);
+    }
+  }, [user, form]);
 
   useEffect(() => {
     if (state.status === 'success') {
@@ -76,6 +83,7 @@ export function DepositForm({ assets }: { assets: Asset[] }) {
       <CardContent>
         <Form {...form}>
           <form action={formAction} className="space-y-6">
+            <input type="hidden" name="userId" value={user?.uid || ''} />
             <FormField
               control={form.control}
               name="assetId"
@@ -135,5 +143,4 @@ export function DepositForm({ assets }: { assets: Asset[] }) {
   );
 }
 
-    
     

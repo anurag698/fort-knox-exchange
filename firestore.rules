@@ -12,9 +12,16 @@ service cloud.firestore {
       return request.auth.uid == userId;
     }
     
+    // Check if the user is creating their own document.
     function isCreatingOwnDocument(userId) {
-      // Allow creation if the new document's ID matches the user's UID.
-      return isSignedIn() && request.auth.uid == userId;
+      return isSignedIn() && isOwner(userId);
+    }
+    
+    // Check if the user is creating their own document via a batch write that also includes their balances
+    function isCreatingOwnUserAndBalances(userId) {
+      let isCreatingUser = request.resource.data.id == userId;
+      let balancePaths = request.write.filter(write => write.path[2] == 'users' && write.path[3] == userId && write.path[4] == 'balances');
+      return isCreatingUser && balancePaths.size() > 0;
     }
 
     function isAdmin() {
@@ -124,3 +131,5 @@ service cloud.firestore {
     match /{path=**}/sessions/{sessionId} { allow read, write: if false; }
   }
 }
+
+    

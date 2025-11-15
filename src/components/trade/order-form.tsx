@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useEffect, useState } from "react";
@@ -22,6 +23,7 @@ const orderSchema = z.object({
   quantity: z.coerce.number().positive({ message: "Amount must be positive." }),
   marketId: z.string(),
   type: z.enum(['LIMIT', 'MARKET']),
+  userId: z.string(),
 });
 
 type OrderFormValues = z.infer<typeof orderSchema>;
@@ -40,15 +42,28 @@ export function OrderForm({ selectedPrice, marketId }: OrderFormProps) {
   const [buyState, buyAction] = useActionState(createOrder, { status: "idle", message: "" });
   const [sellState, sellAction] = useActionState(createOrder, { status: "idle", message: "" });
 
+  const defaultValues = {
+      price: undefined,
+      quantity: undefined,
+      marketId,
+      type: 'LIMIT' as 'LIMIT' | 'MARKET',
+      userId: user?.uid || '',
+  }
+
   const buyForm = useForm<OrderFormValues>({
     resolver: zodResolver(orderSchema),
-    defaultValues: { price: undefined, quantity: undefined, marketId, type: 'LIMIT' },
+    defaultValues
   });
 
   const sellForm = useForm<OrderFormValues>({
     resolver: zodResolver(orderSchema),
-    defaultValues: { price: undefined, quantity: undefined, marketId, type: 'LIMIT' },
+    defaultValues
   });
+
+  useEffect(() => {
+    buyForm.setValue('userId', user?.uid || '');
+    sellForm.setValue('userId', user?.uid || '');
+  }, [user, buyForm, sellForm]);
 
   useEffect(() => {
     buyForm.setValue('type', orderType);
@@ -74,20 +89,20 @@ export function OrderForm({ selectedPrice, marketId }: OrderFormProps) {
   useEffect(() => {
     if (buyState.status === 'success' && buyState.message) {
       toast({ title: "Success", description: buyState.message });
-      buyForm.reset({ price: buyForm.getValues('price'), quantity: undefined, marketId, type: orderType });
+      buyForm.reset({ ...defaultValues, price: buyForm.getValues('price') });
     } else if (buyState.status === 'error' && buyState.message) {
       toast({ variant: "destructive", title: "Error", description: buyState.message });
     }
-  }, [buyState, toast, buyForm, marketId, orderType]);
+  }, [buyState, toast, buyForm, marketId, orderType, defaultValues]);
 
   useEffect(() => {
     if (sellState.status === 'success' && sellState.message) {
       toast({ title: "Success", description: sellState.message });
-      sellForm.reset({ price: sellForm.getValues('price'), quantity: undefined, marketId, type: orderType });
+      sellForm.reset({ ...defaultValues, price: sellForm.getValues('price') });
     } else if (sellState.status === 'error' && sellState.message) {
       toast({ variant: "destructive", title: "Error", description: sellState.message });
     }
-  }, [sellState, toast, sellForm, marketId, orderType]);
+  }, [sellState, toast, sellForm, marketId, orderType, defaultValues]);
 
   const OrderTabContent = ({ side, form, action }: { side: 'BUY' | 'SELL', form: any, action: any }) => {
     const price = form.watch("price");
@@ -101,6 +116,7 @@ export function OrderForm({ selectedPrice, marketId }: OrderFormProps) {
           <input type="hidden" name="side" value={side} />
            <input type="hidden" name="marketId" value={marketId} />
            <input type="hidden" name="type" value={currentOrderType} />
+           <input type="hidden" name="userId" value={user?.uid || ''} />
           
            {currentOrderType === 'LIMIT' && (
              <FormField
@@ -175,3 +191,5 @@ export function OrderForm({ selectedPrice, marketId }: OrderFormProps) {
     </Card>
   );
 }
+
+    

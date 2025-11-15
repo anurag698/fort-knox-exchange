@@ -24,6 +24,7 @@ const withdrawalSchema = z.object({
   assetId: z.string().min(1, "Please select an asset."),
   amount: z.coerce.number().positive("Amount must be a positive number."),
   withdrawalAddress: z.string().min(10, "Please enter a valid withdrawal address."),
+  userId: z.string(),
 });
 
 type WithdrawalFormValues = z.infer<typeof withdrawalSchema>;
@@ -50,8 +51,14 @@ export function WithdrawalForm({ assets, balances }: { assets: Asset[], balances
 
   const form = useForm<WithdrawalFormValues>({
     resolver: zodResolver(withdrawalSchema),
-    defaultValues: { assetId: "", amount: undefined, withdrawalAddress: "" },
+    defaultValues: { assetId: "", amount: undefined, withdrawalAddress: "", userId: user?.uid || '' },
   });
+
+  useEffect(() => {
+    if(user) {
+      form.setValue('userId', user.uid);
+    }
+  }, [user, form]);
 
   useEffect(() => {
     if (state.status === 'success') {
@@ -88,6 +95,7 @@ export function WithdrawalForm({ assets, balances }: { assets: Asset[], balances
         )}
         <Form {...form}>
           <form action={formAction} className="space-y-4">
+            <input type="hidden" name="userId" value={user?.uid || ''} />
             <fieldset disabled={!isKycVerified} className="space-y-4">
               <FormField
                 control={form.control}
@@ -155,3 +163,5 @@ export function WithdrawalForm({ assets, balances }: { assets: Asset[], balances
     </Card>
   );
 }
+
+    

@@ -19,13 +19,6 @@ type FormState = {
   message: string;
 }
 
-// A placeholder function to get the user ID. In a real app, you'd get this from a verified ID token passed from the client.
-async function getUserId(): Promise<string | null> {
-    // For now, this is a limitation as we've removed session cookies.
-    // This will need to be replaced with a proper token verification strategy.
-    return null;
-}
-
 export async function seedDatabase(prevState: any, formData: FormData) {
   try {
     const { firestore, FieldValue } = getFirebaseAdmin();
@@ -95,26 +88,24 @@ export async function updateMarketData(prevState: any, formData: FormData) {
 
 const updateUserProfileSchema = z.object({
   username: z.string().min(3, "Username must be at least 3 characters long."),
+  userId: z.string(),
 });
 
 export async function updateUserProfile(prevState: any, formData: FormData) {
-  const validatedFields = updateUserProfileSchema.safeParse({
-    username: formData.get('username'),
-  });
-
-  const userId = await getUserId();
-  if (!userId) {
-     return { status: 'error', message: 'Authentication required.' };
-  }
+  const validatedFields = updateUserProfileSchema.safeParse(Object.fromEntries(formData.entries()));
 
   if (!validatedFields.success) {
     return {
       status: 'error',
-      message: 'Invalid username.',
+      message: 'Invalid data.',
     };
   }
   
-  const { username } = validatedFields.data;
+  const { username, userId } = validatedFields.data;
+
+  if (!userId) {
+     return { status: 'error', message: 'Authentication required.' };
+  }
 
   try {
     const { firestore, FieldValue } = getFirebaseAdmin();
@@ -141,27 +132,25 @@ export async function updateUserProfile(prevState: any, formData: FormData) {
 
 const cancelOrderSchema = z.object({
   orderId: z.string(),
+  userId: z.string(),
 });
 
 export async function cancelOrder(prevState: FormState, formData: FormData): Promise<FormState> {
-  const validatedFields = cancelOrderSchema.safeParse({
-    orderId: formData.get('orderId'),
-  });
-
-  const userId = await getUserId();
-  if (!userId) {
-     return { status: 'error', message: 'Authentication required.' };
-  }
+  const validatedFields = cancelOrderSchema.safeParse(Object.fromEntries(formData.entries()));
 
   if (!validatedFields.success) {
     return {
       status: 'error',
-
-      message: 'Invalid order ID.',
+      message: 'Invalid data.',
     };
   }
   
-  const { orderId } = validatedFields.data;
+  const { orderId, userId } = validatedFields.data;
+
+  if (!userId) {
+     return { status: 'error', message: 'Authentication required.' };
+  }
+
 
   try {
     const { firestore, FieldValue } = getFirebaseAdmin();
@@ -209,25 +198,26 @@ const createOrderSchema = z.object({
     side: z.enum(['BUY', 'SELL']),
     marketId: z.string(),
     type: z.enum(['LIMIT', 'MARKET']),
+    userId: z.string(),
 });
 
 export async function createOrder(prevState: FormState, formData: FormData): Promise<FormState> {
     const validatedFields = createOrderSchema.safeParse(Object.fromEntries(formData.entries()));
-    const userId = await getUserId();
-
-    if (!userId) {
-       return { status: 'error', message: 'You must be logged in to place an order.' };
-    }
-
+    
     if (!validatedFields.success) {
-        const firstError = Object.values(validatedFields.error.flatten().fieldErrors)[0][0];
+        const firstError = Object.values(validatedFields.error.flatten().fieldErrors)[0]?.[0] || 'Invalid data';
         return {
             status: 'error',
             message: firstError,
         };
     }
     
-    const { price, quantity, side, marketId, type } = validatedFields.data;
+    const { price, quantity, side, marketId, type, userId } = validatedFields.data;
+
+    if (!userId) {
+       return { status: 'error', message: 'You must be logged in to place an order.' };
+    }
+
 
     if (type === 'LIMIT' && (!price || price <= 0)) {
         return { status: 'error', message: 'A positive price is required for Limit orders.' };
@@ -451,21 +441,21 @@ export async function rejectWithdrawal(prevState: any, formData: FormData) {
 
 const requestDepositSchema = z.object({
   assetId: z.string(),
+  userId: z.string(),
 });
 
 export async function requestDeposit(prevState: FormState, formData: FormData): Promise<FormState> {
     const validatedFields = requestDepositSchema.safeParse(Object.fromEntries(formData.entries()));
-    const userId = await getUserId();
-
-    if (!userId) {
-       return { status: 'error', message: 'You must be logged in to request a deposit.' };
-    }
 
     if (!validatedFields.success) {
         return { status: 'error', message: "Invalid asset selected." };
     }
     
-    const { assetId } = validatedFields.data;
+    const { assetId, userId } = validatedFields.data;
+
+    if (!userId) {
+       return { status: 'error', message: 'You must be logged in to request a deposit.' };
+    }
 
     try {
         const { firestore, FieldValue } = getFirebaseAdmin();
@@ -519,22 +509,22 @@ const requestWithdrawalSchema = z.object({
     assetId: z.string(),
     amount: z.coerce.number().positive("Amount must be positive."),
     withdrawalAddress: z.string().min(10, "Withdrawal address is too short."),
+    userId: z.string(),
 });
 
 export async function requestWithdrawal(prevState: FormState, formData: FormData): Promise<FormState> {
     const validatedFields = requestWithdrawalSchema.safeParse(Object.fromEntries(formData.entries()));
-    const userId = await getUserId();
+    
+    if (!validatedFields.success) {
+        const firstError = Object.values(validatedFields.error.flatten().fieldErrors)[0]?.[0] || 'Invalid input.';
+        return { status: 'error', message: firstError };
+    }
+    
+    const { assetId, amount, withdrawalAddress, userId } = validatedFields.data;
 
     if (!userId) {
        return { status: 'error', message: 'You must be logged in to request a withdrawal.' };
     }
-
-    if (!validatedFields.success) {
-        const firstError = Object.values(validatedFields.error.flatten().fieldErrors)[0][0];
-        return { status: 'error', message: firstError };
-    }
-    
-    const { assetId, amount, withdrawalAddress } = validatedFields.data;
 
     try {
         const { firestore, FieldValue } = getFirebaseAdmin();
@@ -666,7 +656,8 @@ export async function rejectKyc(prevState: any, formData: FormData) {
 }
     
 export async function submitKyc(prevState: any, formData: FormData): Promise<FormState> {
-  const userId = await getUserId();
+  const userId = formData.get('userId') as string;
+
   if (!userId) {
      return { status: 'error', message: 'Authentication required.' };
   }
@@ -693,3 +684,5 @@ export async function submitKyc(prevState: any, formData: FormData): Promise<For
     };
   }
 }
+
+    

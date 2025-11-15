@@ -14,9 +14,10 @@ import { cancelOrder } from "@/app/actions";
 import { useToast } from "@/hooks/use-toast";
 import { useOrders } from "@/hooks/use-orders";
 import type { Order } from "@/lib/types";
+import { useUser } from "@/firebase";
 
 
-function CancelOrderButton({ orderId }: { orderId: string }) {
+function CancelOrderButton({ orderId, userId }: { orderId: string, userId: string }) {
     const { toast } = useToast();
     const [state, formAction] = useActionState(cancelOrder, { status: "idle", message: "" });
 
@@ -31,6 +32,7 @@ function CancelOrderButton({ orderId }: { orderId: string }) {
     return (
         <form action={formAction}>
             <input type="hidden" name="orderId" value={orderId} />
+            <input type="hidden" name="userId" value={userId} />
             <Button variant="ghost" size="icon" type="submit" aria-label="Cancel order">
                 <XCircle className="h-4 w-4 text-muted-foreground hover:text-destructive" />
             </Button>
@@ -39,6 +41,7 @@ function CancelOrderButton({ orderId }: { orderId: string }) {
 }
 
 export function UserTrades({ marketId }: { marketId: string }) {
+    const { user } = useUser();
     const { data: allOrders, isLoading, error } = useOrders();
 
     const orders = useMemo(() => {
@@ -110,7 +113,7 @@ export function UserTrades({ marketId }: { marketId: string }) {
                 </TableHeader>
                 <TableBody>
                     {orders.map(order => {
-                        const canCancel = order.status === 'OPEN' || order.status === 'PARTIAL';
+                        const canCancel = (order.status === 'OPEN' || order.status === 'PARTIAL') && user;
                         return (
                             <TableRow key={order.id}>
                                 <TableCell>{order.marketId}</TableCell>
@@ -124,7 +127,7 @@ export function UserTrades({ marketId }: { marketId: string }) {
                                     <Badge variant={getStatusBadgeVariant(order.status)}>{order.status}</Badge>
                                 </TableCell>
                                 <TableCell className="text-right">
-                                    {canCancel && <CancelOrderButton orderId={order.id} />}
+                                    {canCancel && <CancelOrderButton orderId={order.id} userId={user.uid} />}
                                 </TableCell>
                             </TableRow>
                         )
@@ -146,3 +149,5 @@ export function UserTrades({ marketId }: { marketId: string }) {
     </Card>
   );
 }
+
+    

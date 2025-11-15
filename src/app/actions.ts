@@ -31,7 +31,15 @@ export async function updateMarketData(prevState: any, formData: FormData) {
     const { firestore, FieldValue } = getFirebaseAdmin();
     const marketsSnapshot = await firestore.collection('markets').get();
     if (marketsSnapshot.empty) {
-      return { status: 'error', message: 'No markets found. Please seed the database first.' };
+      // If markets are empty, try seeding first.
+      console.log('No markets found. Seeding initial database data...');
+      await seedInitialData(firestore, FieldValue);
+      console.log('Database seeded successfully. Re-fetching markets...');
+      // Re-fetch markets after seeding
+      const updatedMarketsSnapshot = await firestore.collection('markets').get();
+      if (updatedMarketsSnapshot.empty) {
+        return { status: 'error', message: 'Seeding failed. No markets found.' };
+      }
     }
 
     const batch = firestore.batch();
@@ -54,7 +62,10 @@ export async function updateMarketData(prevState: any, formData: FormData) {
     const tickers: any[] = response.data;
     const tickerMap = new Map(tickers.map(t => [t.symbol, t]));
 
-    for (const doc of marketsSnapshot.docs) {
+    // Use the potentially updated markets snapshot
+    const allMarketsSnapshot = await firestore.collection('markets').get();
+
+    for (const doc of allMarketsSnapshot.docs) {
       const market = doc.data();
       const symbol = `${market.baseAssetId}${market.quoteAssetId}`;
       const ticker = tickerMap.get(symbol);
@@ -713,3 +724,5 @@ export async function submitKyc(prevState: any, formData: FormData): Promise<For
     };
   }
 }
+
+    

@@ -10,11 +10,11 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { useFirestore } from '@/firebase';
-import { collection, onSnapshot, query, getDocs, doc, getDoc, serverTimestamp, setDoc } from 'firebase/firestore';
+import { collection, onSnapshot, query, getDocs, doc, getDoc } from 'firebase/firestore';
 import { MarketStatCard } from '@/components/markets/market-stat-card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { updateMarketData } from '@/app/actions';
-
+import Link from 'next/link';
 
 export type EnrichedMarket = Market & {
   baseAsset?: Asset;
@@ -186,13 +186,10 @@ export default function MarketsPage() {
             <div className="flex h-20 w-20 items-center justify-center rounded-full bg-muted">
                 <DatabaseZap className="h-10 w-10 text-muted-foreground" />
             </div>
-            <h3 className="mt-4 text-lg font-semibold">Database Not Seeded</h3>
+            <h3 className="mt-4 text-lg font-semibold">Database Not Initialized</h3>
             <p className="mb-4 mt-2 text-sm text-muted-foreground">
-                The exchange requires initial data for assets and markets. Please sign up a new user to seed the database automatically.
+                The exchange requires initial data for assets and markets. Please sign up your first user to initialize the database automatically.
             </p>
-             <form action={updateMarketData}>
-                 <Button>Update Market Data</Button>
-            </form>
         </div>
       );
     }

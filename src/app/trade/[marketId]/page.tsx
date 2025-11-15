@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { Balances } from "@/components/trade/balances";
-import { TradingViewChart } from "@/components/trade/trading-view-chart";
+import { MemoizedTradingViewChart } from "@/components/trade/trading-view-chart";
 import { OrderBook } from "@/components/trade/order-book";
 import { OrderForm } from "@/components/trade/order-form";
 import { UserTrades } from "@/components/trade/user-trades";
@@ -14,7 +14,7 @@ export default function MarketTradePage({ params }: { params: { marketId: string
   return (
     <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
       <div className="lg:col-span-9 flex flex-col gap-4">
-        <TradingViewChart marketId={marketId} />
+        <MemoizedTradingViewChart marketId={marketId} />
         <UserTrades marketId={marketId} />
       </div>
       <div className="lg:col-span-3 flex flex-col gap-4">

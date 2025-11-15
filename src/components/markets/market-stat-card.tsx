@@ -22,7 +22,7 @@ const coinIcons: { [key: string]: React.ElementType | string } = {
   MATIC: 'https://cdn.jsdelivr.net/gh/atomiclabs/cryptocurrency-icons@1a63530e6e374711a8de441d91584965e5441c4a/128/color/matic.png',
   DOGE: 'https://cdn.jsdelivr.net/gh/atomiclabs/cryptocurrency-icons@1a63530e6e374711a8de441d91584965e5441c4a/128/color/doge.png',
   XRP: 'https://cdn.jsdelivr.net/gh/atomiclabs/cryptocurrency-icons@1a63530e6e374711a8de441d91584965e5441c4a/128/color/xrp.png',
-  DOT: 'https://cdn.jsdelivr.net/gh/atomiclabs/cryptocurrency-icons@1a63530e6e374711a8de441d91584965e5441c4a/128/color/dot.png',
+  DOT: 'https://cdn.jsdelivrnet/gh/atomiclabs/cryptocurrency-icons@1a63530e6e374711a8de441d91584965e5441c4a/128/color/dot.png',
   LINK: 'https://cdn.jsdelivr.net/gh/atomiclabs/cryptocurrency-icons@1a63530e6e374711a8de441d91584965e5441c4a/128/color/link.png',
   SHIB: 'https://cdn.jsdelivr.net/gh/atomiclabs/cryptocurrency-icons@1a63530e6e374711a8de441d91584965e5441c4a/128/color/shib.png',
   AVAX: 'https://cdn.jsdelivr.net/gh/atomiclabs/cryptocurrency-icons@1a63530e6e374711a8de441d91584965e5441c4a/128/color/avax.png',
@@ -33,6 +33,16 @@ const coinIcons: { [key: string]: React.ElementType | string } = {
   BCH: 'https://cdn.jsdelivr.net/gh/atomiclabs/cryptocurrency-icons@1a63530e6e374711a8de441d91584965e5441c4a/128/color/bch.png',
   XLM: 'https://cdn.jsdelivr.net/gh/atomiclabs/cryptocurrency-icons@1a63530e6e374711a8de441d91584965e5441c4a/128/color/xlm.png',
   ATOM: 'https://cdn.jsdelivr.net/gh/atomiclabs/cryptocurrency-icons@1a63530e6e374711a8de441d91584965e5441c4a/128/color/atom.png',
+  FIL: 'https://cdn.jsdelivr.net/gh/atomiclabs/cryptocurrency-icons@1a63530e6e374711a8de441d91584965e5441c4a/128/color/fil.png',
+  NEAR: 'https://cdn.jsdelivr.net/gh/atomiclabs/cryptocurrency-icons@1a63530e6e374711a8de441d91584965e5441c4a/128/color/near.png',
+  APT: 'https://cdn.jsdelivr.net/gh/atomiclabs/cryptocurrency-icons@1a63530e6e374711a8de441d91584965e5441c4a/128/color/apt.png',
+  IMX: 'https://cdn.jsdelivr.net/gh/atomiclabs/cryptocurrency-icons@1a63530e6e374711a8de441d91584965e5441c4a/128/color/imx.png',
+  SUI: 'https://cdn.jsdelivr.net/gh/atomiclabs/cryptocurrency-icons@1a63530e6e374711a8de441d91584965e5441c4a/128/color/sui.png',
+  SAND: 'https://cdn.jsdelivr.net/gh/atomiclabs/cryptocurrency-icons@1a63530e6e374711a8de441d91584965e5441c4a/128/color/sand.png',
+  AAVE: 'https://cdn.jsdelivr.net/gh/atomiclabs/cryptocurrency-icons@1a63530e6e374711a8de441d91584965e5441c4a/128/color/aave.png',
+  MKR: 'https://cdn.jsdelivr.net/gh/atomiclabs/cryptocurrency-icons@1a63530e6e374711a8de441d91584965e5441c4a/128/color/mkr.png',
+  MANA: 'https://cdn.jsdelivr.net/gh/atomiclabs/cryptocurrency-icons@1a63530e6e374711a8de441d91584965e5441c4a/128/color/mana.png',
+  FTM: 'https://cdn.jsdelivr.net/gh/atomiclabs/cryptocurrency-icons@1a63530e6e374711a8de441d91584965e5441c4a/128/color/ftm.png',
   DEFAULT: Circle,
 };
 
@@ -48,7 +58,7 @@ export function MarketStatCard({ title, markets, isLoading }: MarketStatCardProp
         if (isLoading) {
             return (
                 <div className="space-y-4 mt-2">
-                    {[...Array(3)].map((_, i) => (
+                    {[...Array(4)].map((_, i) => (
                          <div key={i} className="flex items-center justify-between">
                             <div className="flex items-center gap-2">
                                 <Skeleton className="h-6 w-6 rounded-full" />

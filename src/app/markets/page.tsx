@@ -10,10 +10,12 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { useFirestore } from '@/firebase';
-import { collection, onSnapshot, query, getDocs, doc, getDoc } from 'firebase/firestore';
+import { collection, onSnapshot, query } from 'firebase/firestore';
 import { MarketStatCard } from '@/components/markets/market-stat-card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import Link from 'next/link';
+import { useAssets } from '@/hooks/use-assets';
+import { useMarkets } from '@/hooks/use-markets';
 
 export type EnrichedMarket = Market & {
   baseAsset?: Asset;
@@ -23,37 +25,23 @@ export type EnrichedMarket = Market & {
 
 export default function MarketsPage() {
   const firestore = useFirestore();
-  const [markets, setMarkets] = useState<Market[]>([]);
-  const [assets, setAssets] = useState<Asset[]>([]);
+  const { data: markets, isLoading: marketsLoading, error: marketsError } = useMarkets();
+  const { data: assets, isLoading: assetsLoading, error: assetsError } = useAssets();
   const [marketData, setMarketData] = useState<Record<string, MarketData>>({});
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<Error | null>(null);
+  const [marketDataLoading, setMarketDataLoading] = useState(true);
+  const [marketDataError, setMarketDataError] = useState<Error | null>(null);
+
+  const isLoading = marketsLoading || assetsLoading || marketDataLoading;
+  const error = marketsError || assetsError || marketDataError;
 
   useEffect(() => {
-    if (!firestore) return;
+    if (!firestore) {
+      setMarketDataLoading(false);
+      return;
+    };
 
-    setIsLoading(true);
-    setError(null);
-    
-    const marketsQuery = query(collection(firestore, 'markets'));
-    const assetsQuery = query(collection(firestore, 'assets'));
+    setMarketDataLoading(true);
     const marketDataQuery = query(collection(firestore, 'market_data'));
-
-    const unsubMarkets = onSnapshot(marketsQuery, (snapshot) => {
-        const marketsData = snapshot.docs.map(doc => ({ ...doc.data() as Market, id: doc.id }));
-        setMarkets(marketsData);
-    }, (err) => {
-        console.error("Markets subscription error:", err);
-        setError(new Error("Failed to subscribe to markets."));
-    });
-    
-    const unsubAssets = onSnapshot(assetsQuery, (snapshot) => {
-        const assetsData = snapshot.docs.map(doc => ({ ...doc.data() as Asset, id: doc.id }));
-        setAssets(assetsData);
-    }, (err) => {
-        console.error("Assets subscription error:", err);
-        setError(new Error("Failed to subscribe to assets."));
-    });
 
     const unsubMarketData = onSnapshot(marketDataQuery, (snapshot) => {
         const liveData: Record<string, MarketData> = {};
@@ -61,22 +49,21 @@ export default function MarketsPage() {
             liveData[doc.id] = { ...doc.data() as MarketData, id: doc.id };
         });
         setMarketData(liveData);
-        setIsLoading(false);
+        setMarketDataLoading(false);
+        setMarketDataError(null);
     }, (err) => {
         console.error("Market live data subscription error:", err);
-        setError(new Error("Failed to subscribe to live market data."));
-        setIsLoading(false);
+        setMarketDataError(new Error("Failed to subscribe to live market data."));
+        setMarketDataLoading(false);
     });
 
     return () => {
-      unsubMarkets();
-      unsubAssets();
       unsubMarketData();
     };
   }, [firestore]);
 
   const enrichedMarkets: EnrichedMarket[] = useMemo(() => {
-    if (!markets.length || !assets.length) {
+    if (!markets || !assets) {
       return [];
     }
     const assetsMap = new Map(assets.map(asset => [asset.id, asset]));
@@ -122,7 +109,7 @@ export default function MarketsPage() {
 
 
   const renderContent = () => {
-    if (isLoading && markets.length === 0) {
+    if (isLoading && (!markets || markets.length === 0)) {
       return (
          <div className="rounded-md border">
             <div className="p-4">
@@ -210,5 +197,3 @@ export default function MarketsPage() {
     </div>
   );
 }
-
-    

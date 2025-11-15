@@ -152,12 +152,6 @@ export default function Header() {
                 <span>Settings</span>
               </Link>
             </DropdownMenuItem>
-            <DropdownMenuItem asChild>
-                <Link href="/seed-data">
-                  <Database className="mr-2 h-4 w-4" />
-                  <span>Update Data</span>
-                </Link>
-            </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem onClick={handleSignOut}>
               <LogOut className="mr-2 h-4 w-4" />
@@ -177,6 +171,8 @@ export default function Header() {
     </header>
   );
 }
+
+    
 
     
 

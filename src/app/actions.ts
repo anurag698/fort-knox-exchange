@@ -39,7 +39,10 @@ export async function updateMarketData(prevState: any, formData: FormData) {
 
     const apiKey = process.env.BINANCE_API_KEY;
     if (!apiKey) {
-      return { status: 'error', message: 'Binance API key is not configured.' };
+      // This is a server-side action, so a missing key is a critical configuration error.
+      // We should not proceed with a default key here.
+      console.error('Binance API key is not configured on the server.');
+      return { status: 'error', message: 'Server is not configured for market data updates.' };
     }
 
     const response = await axios.get(`https://api.binance.com/api/v3/ticker/24hr`, {
@@ -355,6 +358,14 @@ export async function createSession(token: string) {
     const userDoc = await userRef.get();
 
     if (!userDoc.exists) {
+      // Check if markets exist. If not, this is likely the first user. Seed data.
+      const marketsSnapshot = await firestore.collection('markets').limit(1).get();
+      if (marketsSnapshot.empty) {
+        console.log('No markets found. Seeding initial database data...');
+        await seedInitialData(firestore, FieldValue);
+        console.log('Database seeded successfully.');
+      }
+      
       // Create user document and seed balances.
       const batch = firestore.batch();
       const newUser = {
@@ -702,6 +713,8 @@ export async function submitKyc(prevState: any, formData: FormData): Promise<For
     };
   }
 }
+
+    
 
     
 

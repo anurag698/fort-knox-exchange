@@ -1,9 +1,8 @@
 
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import type { Market, Asset, MarketData } from '@/lib/types';
-import Link from 'next/link';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { MarketsTable } from '@/components/markets/markets-table';
 import { AlertCircle, DatabaseZap } from 'lucide-react';
@@ -11,15 +10,19 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { useFirestore } from '@/firebase';
-import { collection, onSnapshot, query, getDocs } from 'firebase/firestore';
+import { collection, onSnapshot, query, getDocs, doc, getDoc, serverTimestamp, setDoc } from 'firebase/firestore';
 import { MarketStatCard } from '@/components/markets/market-stat-card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { updateMarketData } from '@/app/actions';
+
 
 export type EnrichedMarket = Market & {
   baseAsset?: Asset;
   quoteAsset?: Asset;
   marketData?: MarketData;
 };
+
+const DATA_REFRESH_COOLDOWN = 5 * 60 * 1000; // 5 minutes
 
 export default function MarketsPage() {
   const firestore = useFirestore();
@@ -28,6 +31,12 @@ export default function MarketsPage() {
   const [marketData, setMarketData] = useState<Record<string, MarketData>>({});
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
+
+  const triggerMarketDataUpdate = useCallback(async () => {
+    console.log("Triggering market data update...");
+    // We pass null values because the action doesn't use them
+    await updateMarketData(null, new FormData());
+  }, []);
 
   useEffect(() => {
     if (!firestore) return;
@@ -50,6 +59,7 @@ export default function MarketsPage() {
         setMarkets(marketsData);
         setAssets(assetsData);
         
+        // Subscribe to live market data
         const marketDataQuery = query(collection(firestore, 'market_data'));
         const unsubscribe = onSnapshot(marketDataQuery, (snapshot) => {
             const liveData: Record<string, MarketData> = {};
@@ -60,8 +70,26 @@ export default function MarketsPage() {
             setIsLoading(false);
         }, (err) => {
             console.error("Market live data subscription error:", err);
+            setError(new Error("Failed to subscribe to live market data."));
             setIsLoading(false);
         });
+
+        // Check if market data needs a refresh
+        if (marketsData.length > 0) {
+            const firstMarketDataRef = doc(firestore, 'market_data', marketsData[0].id);
+            const firstMarketDataSnap = await getDoc(firstMarketDataRef);
+            if (firstMarketDataSnap.exists()) {
+                const data = firstMarketDataSnap.data();
+                const lastUpdated = data.lastUpdated?.toDate();
+                if (!lastUpdated || (new Date().getTime() - lastUpdated.getTime() > DATA_REFRESH_COOLDOWN)) {
+                   triggerMarketDataUpdate();
+                }
+            } else {
+                // If no market data exists at all, trigger an update.
+                triggerMarketDataUpdate();
+            }
+        }
+
 
         return unsubscribe;
 
@@ -77,7 +105,7 @@ export default function MarketsPage() {
     return () => {
       unsubscribePromise.then(unsubscribe => unsubscribe && unsubscribe());
     };
-  }, [firestore]);
+  }, [firestore, triggerMarketDataUpdate]);
 
   const enrichedMarkets: EnrichedMarket[] = useMemo(() => {
     if (!markets.length || !assets.length) {
@@ -126,7 +154,7 @@ export default function MarketsPage() {
 
 
   const renderContent = () => {
-    if (isLoading) {
+    if (isLoading && markets.length === 0) {
       return (
          <div className="rounded-md border">
             <div className="p-4">
@@ -146,7 +174,7 @@ export default function MarketsPage() {
          <Alert variant="destructive">
             <AlertTitle>Error Loading Markets</AlertTitle>
             <AlertDescription>
-                {error.message || "Could not fetch market data. Please ensure your Firestore security rules allow list access for the 'markets' and 'assets' collections and try again."}
+                {error.message || "Could not fetch market data. Please ensure your Firestore security rules allow public read access for the 'markets' and 'assets' collections."}
             </AlertDescription>
         </Alert>
       );
@@ -160,11 +188,11 @@ export default function MarketsPage() {
             </div>
             <h3 className="mt-4 text-lg font-semibold">Database Not Seeded</h3>
             <p className="mb-4 mt-2 text-sm text-muted-foreground">
-                The exchange requires initial data for assets and markets. Please go to the Update Data page to seed the database.
+                The exchange requires initial data for assets and markets. Please sign up a new user to seed the database automatically.
             </p>
-            <Button asChild>
-                <Link href="/seed-data">Go to Update Data Page</Link>
-            </Button>
+             <form action={updateMarketData}>
+                 <Button>Update Market Data</Button>
+            </form>
         </div>
       );
     }
@@ -214,3 +242,5 @@ export default function MarketsPage() {
     </div>
   );
 }
+
+    

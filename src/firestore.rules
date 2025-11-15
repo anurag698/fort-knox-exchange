@@ -41,7 +41,7 @@ service cloud.firestore {
 
       // This is the collection query rule. It allows a user to query the 'orders'
       // collection only if their query includes a 'where("userId", "==", theirId)' clause.
-      allow list: if request.auth.uid == request.query.where.userId;
+      allow list: if request.query.where.userId == request.auth.uid;
     }
 
     // Admins can read/write anything.

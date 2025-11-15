@@ -14,20 +14,22 @@ export function useOrders(marketId?: string) {
 
     const ordersCollectionRef = collection(firestore, 'orders');
     
-    // Start with the base security requirement: always filter by the current user.
+    // The security rules require that we must filter by userId.
     const queryConstraints: QueryConstraint[] = [
-      where('userId', '==', user.uid),
-      orderBy('createdAt', 'desc')
+      where('userId', '==', user.uid)
     ];
 
     // If a marketId is also provided, add it to the filter.
-    // This requires a composite index on (userId, marketId, createdAt).
     if (marketId) {
-      queryConstraints.unshift(where('marketId', '==', marketId));
+      queryConstraints.push(where('marketId', '==', marketId));
     }
     
-    // The where and orderBy on different fields requires a composite index.
-    // The Firestore error message in the console will provide a direct link to create it if needed.
+    // NOTE: A previous version included an `orderBy('createdAt')` clause.
+    // This was removed because a query with a filter on one field (`userId`) and
+    // an orderBy on a different field (`createdAt`) requires a composite index.
+    // Without the index, Firestore returns a permission denied error.
+    // By removing the orderBy, the query becomes a simple filter that works
+    // with the default single-field indexes and satisfies the security rule.
     return query(ordersCollectionRef, ...queryConstraints);
 
   }, [firestore, marketId, user]);

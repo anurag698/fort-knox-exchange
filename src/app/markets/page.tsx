@@ -8,10 +8,11 @@ import { MarketsTable } from '@/components/markets/markets-table';
 import { AlertCircle, DatabaseZap } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { useFirestore } from '@/firebase';
 import { collection, onSnapshot, query, getDocs } from 'firebase/firestore';
+import { MarketStatCard } from '@/components/markets/market-stat-card';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 export type EnrichedMarket = Market & {
   baseAsset?: Asset;
@@ -34,7 +35,6 @@ export default function MarketsPage() {
       setIsLoading(true);
       setError(null);
       try {
-        // 1. Fetch static data first
         const marketsQuery = query(collection(firestore, 'markets'));
         const assetsQuery = query(collection(firestore, 'assets'));
         
@@ -49,7 +49,6 @@ export default function MarketsPage() {
         setMarkets(marketsData);
         setAssets(assetsData);
         
-        // 2. After static data is loaded, set up the real-time listener
         const marketDataQuery = query(collection(firestore, 'market_data'));
         const unsubscribe = onSnapshot(marketDataQuery, (snapshot) => {
             const liveData: Record<string, MarketData> = {};
@@ -57,12 +56,12 @@ export default function MarketsPage() {
                 liveData[doc.id] = { ...doc.data() as MarketData, id: doc.id };
             });
             setMarketData(liveData);
+            setIsLoading(false);
         }, (err) => {
             console.error("Market live data subscription error:", err);
-            // Non-fatal, the page can still render with static data
+            setIsLoading(false);
         });
 
-        setIsLoading(false);
         return unsubscribe;
 
       } catch (err: any) {
@@ -80,7 +79,7 @@ export default function MarketsPage() {
   }, [firestore]);
 
   const enrichedMarkets: EnrichedMarket[] = useMemo(() => {
-    if (!markets || !assets) {
+    if (!markets.length || !assets.length) {
       return [];
     }
     const assetsMap = new Map(assets.map(asset => [asset.id, asset]));
@@ -93,6 +92,37 @@ export default function MarketsPage() {
     }));
   }, [markets, assets, marketData]);
 
+  const usdtMarkets = useMemo(() => enrichedMarkets.filter(m => m.quoteAssetId === 'USDT'), [enrichedMarkets]);
+
+  const topGainers = useMemo(() => {
+    return [...usdtMarkets]
+      .filter(m => m.marketData?.priceChangePercent)
+      .sort((a, b) => (b.marketData?.priceChangePercent || 0) - (a.marketData?.priceChangePercent || 0))
+      .slice(0, 4);
+  }, [usdtMarkets]);
+
+  const topVolume = useMemo(() => {
+    return [...usdtMarkets]
+      .filter(m => m.marketData?.volume)
+      .sort((a, b) => (b.marketData?.volume || 0) - (a.marketData?.volume || 0))
+      .slice(0, 4);
+  }, [usdtMarkets]);
+
+  const hotList = useMemo(() => {
+    // Simple "hot" logic: a mix of high volume and high change
+    return [...usdtMarkets]
+       .filter(m => m.marketData?.volume && m.marketData?.priceChangePercent)
+       .sort((a, b) => ((b.marketData?.volume || 0) * Math.abs(b.marketData?.priceChangePercent || 0)) - ((a.marketData?.volume || 0) * Math.abs(a.marketData?.priceChangePercent || 0)))
+       .slice(0, 4);
+  }, [usdtMarkets]);
+
+  const newTokens = useMemo(() => {
+    // Simple "new" logic: sort by creation date if available
+     return [...usdtMarkets]
+       .sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0))
+       .slice(0, 4);
+  }, [usdtMarkets]);
+
 
   const renderContent = () => {
     if (isLoading) {
@@ -101,7 +131,7 @@ export default function MarketsPage() {
             <div className="p-4">
               <Skeleton className="h-10 w-full" />
             </div>
-            {[...Array(4)].map((_, i) => (
+            {[...Array(10)].map((_, i) => (
                 <div className="border-t p-4" key={i}>
                     <Skeleton className="h-8 w-full" />
                 </div>
@@ -129,16 +159,16 @@ export default function MarketsPage() {
             </div>
             <h3 className="mt-4 text-lg font-semibold">Database Not Seeded</h3>
             <p className="mb-4 mt-2 text-sm text-muted-foreground">
-                The exchange requires initial data for assets and markets. Please seed the database to continue.
+                The exchange requires initial data for assets and markets. Please sign up a new user to seed the database automatically.
             </p>
-            <Button asChild>
-                <Link href="/seed-data">Seed The Exchange</Link>
-            </Button>
+             <form action="/actions" method="POST">
+                <Button type="submit" name="action" value="updateMarketData">Update Market Data</Button>
+            </form>
         </div>
       );
     }
 
-    return <MarketsTable markets={enrichedMarkets} />;
+    return <MarketsTable markets={usdtMarkets} />;
   }
 
 
@@ -152,17 +182,35 @@ export default function MarketsPage() {
           Explore real-time market data from the Fort Knox Exchange.
         </p>
       </div>
-       <Card>
-        <CardHeader>
-          <CardTitle>Trading Pairs</CardTitle>
-          <CardDescription>
-            All available markets for trading on the exchange.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-            {renderContent()}
-        </CardContent>
-      </Card>
+
+       <Tabs defaultValue="overview">
+        <TabsList>
+            <TabsTrigger value="overview">Overview</TabsTrigger>
+            <TabsTrigger value="data">All Tokens</TabsTrigger>
+        </TabsList>
+        <TabsContent value="overview" className="mt-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              <MarketStatCard title="Hot" markets={hotList} isLoading={isLoading} />
+              <MarketStatCard title="Top Gainer" markets={topGainers} isLoading={isLoading} />
+              <MarketStatCard title="Top Volume" markets={topVolume} isLoading={isLoading} />
+              <MarketStatCard title="New" markets={newTokens} isLoading={isLoading} />
+            </div>
+        </TabsContent>
+         <TabsContent value="data" className="mt-6">
+            <Card>
+                <CardHeader>
+                <CardTitle>Top Tokens by Market Capitalization</CardTitle>
+                <CardDescription>
+                    Get a comprehensive snapshot of all cryptocurrencies available on Fort Knox Exchange.
+                </CardDescription>
+                </CardHeader>
+                <CardContent>
+                    {renderContent()}
+                </CardContent>
+            </Card>
+        </TabsContent>
+       </Tabs>
     </div>
   );
 }
+

@@ -7,10 +7,12 @@ import { OrderBook } from "@/components/trade/order-book";
 import { OrderForm } from "@/components/trade/order-form";
 import { UserTrades } from "@/components/trade/user-trades";
 
-// This is the Client Component that contains all the interactive UI.
-export default function TradePageClient({ marketId }: { marketId: string }) {
+// The default export is the page, which now receives params directly
+export default function TradePage({ params }: { params: { marketId: string } }) {
+  const { marketId } = params;
   const [selectedPrice, setSelectedPrice] = useState<number | undefined>(undefined);
 
+  // All UI is now within this single client component structure
   return (
     <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
       <div className="lg:col-span-9 flex flex-col gap-4">

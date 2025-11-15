@@ -10,7 +10,7 @@ import { useState } from "react";
 
 export default function MarketTradePage({ params }: { params: { marketId: string } }) {
   const [selectedPrice, setSelectedPrice] = useState<number | undefined>(undefined);
-  const { marketId } = params;
+  const { marketId } = use(params);
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">

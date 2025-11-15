@@ -23,24 +23,11 @@ export function useOrders(marketId?: string) {
       queryConstraints.push(where('marketId', '==', marketId));
     }
     
-    // orderBy needs to be the last constraint if it's on a different field than the where clauses
     queryConstraints.push(orderBy('createdAt', 'desc'));
 
     return query(collection(firestore, 'orders'), ...queryConstraints);
 
   }, [firestore, user?.uid, marketId]);
 
-  const { data, isLoading, error } = useCollection<Order>(ordersQuery);
-
-  const filteredData = useMemo(() => {
-    if (!data) return null;
-    if (!marketId) return data;
-    // Client-side filter as a fallback
-    return data.filter(order => order.marketId === marketId);
-  }, [data, marketId]);
-
-
-  return { data: filteredData, isLoading, error };
+  return useCollection<Order>(ordersQuery);
 }
-
-    

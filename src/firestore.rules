@@ -39,7 +39,7 @@ service cloud.firestore {
       allow delete: if false;
 
       // This is a collection query rule.
-      allow list: if request.auth.uid == request.query.filters.find(f => f.fieldPath == 'userId').value;
+      allow list: if request.auth.uid == request.query.where.find(f => f.fieldPath == 'userId').value;
     }
 
     // Admins can read/write anything
@@ -48,5 +48,3 @@ service cloud.firestore {
     }
   }
 }
-
-    

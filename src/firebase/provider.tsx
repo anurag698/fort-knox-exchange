@@ -78,7 +78,8 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
       return;
     }
 
-    setUserAuthState({ user: auth.currentUser, isUserLoading: true, userError: null }); // Set initial user if available
+    const initialUser = auth.currentUser;
+    setUserAuthState({ user: initialUser, isUserLoading: !initialUser, userError: null });
 
     const unsubscribe = onAuthStateChanged(
       auth,

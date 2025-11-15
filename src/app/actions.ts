@@ -349,7 +349,7 @@ export async function createSession(token: string) {
   }
 
   try {
-    const { auth, firestore, FieldValue } = getFirebaseAdmin();
+    const { auth } = getFirebaseAdmin();
     const expiresIn = 60 * 60 * 24 * 5 * 1000; // 5 days
     const sessionCookie = await auth.createSessionCookie(token, { expiresIn });
 
@@ -359,81 +359,6 @@ export async function createSession(token: string) {
       secure: process.env.NODE_ENV === 'production',
       path: '/',
     });
-
-    const decodedToken = await auth.verifyIdToken(token);
-    const userRef = firestore.collection('users').doc(decodedToken.uid);
-    const userDoc = await userRef.get();
-
-    if (!userDoc.exists) {
-      // Create user document and seed balances.
-      const batch = firestore.batch();
-      const newUser = {
-        id: decodedToken.uid,
-        email: decodedToken.email,
-        username: decodedToken.email?.split('@')[0] ?? `user_${Math.random().toString(36).substring(2, 8)}`,
-        kycStatus: 'NOT_STARTED',
-        referralCode: Math.random().toString(36).substring(2, 8).toUpperCase(),
-        createdAt: FieldValue.serverTimestamp(),
-        updatedAt: FieldValue.serverTimestamp(),
-        isAdmin: decodedToken.email === 'admin@fortknox.exchange'
-      };
-      batch.set(userRef, newUser);
-
-      // Seed initial balances
-      const balancesRef = firestore.collection('users').doc(decodedToken.uid).collection('balances');
-      const usdtBalanceRef = balancesRef.doc('USDT');
-      batch.set(usdtBalanceRef, {
-        id: usdtBalanceRef.id,
-        userId: decodedToken.uid,
-        assetId: 'USDT',
-        available: 100000,
-        locked: 0,
-        createdAt: FieldValue.serverTimestamp(),
-        updatedAt: FieldValue.serverTimestamp(),
-      });
-      const btcBalanceRef = balancesRef.doc('BTC');
-      batch.set(btcBalanceRef, {
-        id: btcBalanceRef.id,
-        userId: decodedToken.uid,
-        assetId: 'BTC',
-        available: 1,
-        locked: 0,
-        createdAt: FieldValue.serverTimestamp(),
-        updatedAt: FieldValue.serverTimestamp(),
-      });
-      const ethBalanceRef = balancesRef.doc('ETH');
-      batch.set(ethBalanceRef, {
-        id: ethBalanceRef.id,
-        userId: decodedToken.uid,
-        assetId: 'ETH',
-        available: 10,
-        locked: 0,
-        createdAt: FieldValue.serverTimestamp(),
-        updatedAt: FieldValue.serverTimestamp(),
-      });
-      const dogeBalanceRef = balancesRef.doc('DOGE');
-      batch.set(dogeBalanceRef, {
-        id: dogeBalanceRef.id,
-        userId: decodedToken.uid,
-        assetId: 'DOGE',
-        available: 50000,
-        locked: 0,
-        createdAt: FieldValue.serverTimestamp(),
-        updatedAt: FieldValue.serverTimestamp(),
-      });
-      const maticBalanceRef = balancesRef.doc('MATIC');
-      batch.set(maticBalanceRef, {
-        id: maticBalanceRef.id,
-        userId: decodedToken.uid,
-        assetId: 'MATIC',
-        available: 2000,
-        locked: 0,
-        createdAt: FieldValue.serverTimestamp(),
-        updatedAt: FieldValue.serverTimestamp(),
-      });
-
-      await batch.commit();
-    }
     
     return { status: 'success' };
   } catch (error) {
@@ -716,3 +641,4 @@ export async function submitKyc(prevState: any, formData: FormData): Promise<For
     
 
     
+

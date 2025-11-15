@@ -1,5 +1,6 @@
 
 
+
 export type Market = {
   id: string;
   baseAssetId: string;
@@ -36,13 +37,26 @@ export type Order = {
   marketId: string;
   side: 'BUY' | 'SELL';
   type: 'LIMIT' | 'MARKET';
-  price: number; // For LIMIT orders
+  price?: number; // Optional for MARKET orders
   quantity: number;
-  status: 'OPEN' | 'PARTIAL' | 'FILLED' | 'CANCELED' | 'EXECUTING';
+  status: 'OPEN' | 'PARTIAL' | 'FILLED' | 'CANCELED' | 'EXECUTING' | 'FAILED';
   filledAmount: number;
   createdAt: any;
   updatedAt: any;
 };
+
+export type DexTransaction = {
+  id: string;
+  orderId: string;
+  chainId: number;
+  oneinchPayload: object; // The full payload from 1inch /swap endpoint
+  txTo: string;
+  txData: string;
+  txValue: string;
+  onchainTxHash?: string;
+  status: 'BUILT' | 'BROADCASTED' | 'CONFIRMED' | 'FAILED';
+  createdAt: any;
+}
 
 export type Deposit = {
     id: string;

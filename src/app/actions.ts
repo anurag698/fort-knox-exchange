@@ -9,6 +9,8 @@ import { cookies } from "next/headers";
 import { getFirebaseAdmin, getUserIdFromSession } from "@/lib/firebase-admin";
 import { seedInitialData } from "@/lib/seed-data";
 import axios from 'axios';
+import { headers } from 'next/headers';
+import type { DexBuildTxResponse } from '@/lib/dex/dex.types';
 
 type FormState = {
   status: 'success' | 'error' | 'idle';
@@ -198,10 +200,11 @@ export async function cancelOrder(prevState: FormState, formData: FormData): Pro
 }
 
 const createOrderSchema = z.object({
-    price: z.coerce.number().positive("Price must be positive."),
+    price: z.coerce.number().optional(),
     quantity: z.coerce.number().positive("Amount must be positive."),
     side: z.enum(['BUY', 'SELL']),
     marketId: z.string(),
+    type: z.enum(['LIMIT', 'MARKET']),
 });
 
 export async function createOrder(prevState: FormState, formData: FormData): Promise<FormState> {
@@ -220,56 +223,156 @@ export async function createOrder(prevState: FormState, formData: FormData): Pro
         };
     }
     
-    const { price, quantity, side, marketId } = validatedFields.data;
+    const { price, quantity, side, marketId, type } = validatedFields.data;
+
+    if (type === 'LIMIT' && (!price || price <= 0)) {
+        return { status: 'error', message: 'A positive price is required for Limit orders.' };
+    }
+    
     const { firestore, FieldValue } = getFirebaseAdmin();
     const [baseAssetId, quoteAssetId] = marketId.split('-');
     
     const orderRef = firestore.collection('orders').doc();
 
     try {
-        await firestore.runTransaction(async (transaction) => {
-            const assetToLock = side === 'BUY' ? quoteAssetId : baseAssetId;
-            const amountToLock = side === 'BUY' ? price * quantity : quantity;
-            
-            const balanceRef = firestore.collection('users').doc(userId).collection('balances').doc(assetToLock);
-            const balanceSnap = await transaction.get(balanceRef);
+        if(type === 'LIMIT' && price) {
+             await firestore.runTransaction(async (transaction) => {
+                const assetToLock = side === 'BUY' ? quoteAssetId : baseAssetId;
+                const amountToLock = side === 'BUY' ? price * quantity : quantity;
+                
+                const balanceRef = firestore.collection('users').doc(userId).collection('balances').doc(assetToLock);
+                const balanceSnap = await transaction.get(balanceRef);
 
-            if (!balanceSnap.exists) {
-                throw new Error(`You have no balance for ${assetToLock}.`);
-            }
-            const balanceData = balanceSnap.data()!;
-            if (balanceData.available < amountToLock) {
-                throw new Error(`Insufficient funds. You need ${amountToLock} ${assetToLock}, but only have ${balanceData.available}.`);
-            }
-            
-            // Lock funds
-            const newAvailable = balanceData.available - amountToLock;
-            const newLocked = (balanceData.locked || 0) + amountToLock;
-            transaction.update(balanceRef, { available: newAvailable, locked: newLocked, updatedAt: FieldValue.serverTimestamp() });
+                if (!balanceSnap.exists) {
+                    throw new Error(`You have no balance for ${assetToLock}.`);
+                }
+                const balanceData = balanceSnap.data()!;
+                if (balanceData.available < amountToLock) {
+                    throw new Error(`Insufficient funds. You need ${amountToLock} ${assetToLock}, but only have ${balanceData.available}.`);
+                }
+                
+                // Lock funds
+                const newAvailable = balanceData.available - amountToLock;
+                const newLocked = (balanceData.locked || 0) + amountToLock;
+                transaction.update(balanceRef, { available: newAvailable, locked: newLocked, updatedAt: FieldValue.serverTimestamp() });
 
-            // Create order
-            const newOrder = {
-                id: orderRef.id,
-                userId,
-                marketId,
-                side,
-                price,
-                quantity,
-                type: 'LIMIT',
-                status: 'OPEN',
-                filledAmount: 0,
-                createdAt: FieldValue.serverTimestamp(),
-                updatedAt: FieldValue.serverTimestamp(),
+                // Create order
+                const newOrder = {
+                    id: orderRef.id,
+                    userId,
+                    marketId,
+                    side,
+                    price,
+                    quantity,
+                    type: 'LIMIT',
+                    status: 'OPEN',
+                    filledAmount: 0,
+                    createdAt: FieldValue.serverTimestamp(),
+                    updatedAt: FieldValue.serverTimestamp(),
+                };
+                transaction.set(orderRef, newOrder);
+            });
+
+            revalidatePath('/trade');
+            return {
+                status: 'success',
+                message: `Limit ${side} order placed successfully and is now open.`,
             };
-            transaction.set(orderRef, newOrder);
-        });
-        
-        revalidatePath('/trade');
-        
-        return {
-            status: 'success',
-            message: `${side} order placed successfully and is now open.`,
-        };
+        } else if (type === 'MARKET') {
+            const host = headers().get('host');
+            const protocol = process.env.NODE_ENV === 'development' ? 'http' : 'https';
+            const apiUrlBase = `${protocol}://${host}`;
+
+            const [srcToken, dstToken, amountToLock, assetToLock] = side === 'BUY'
+              ? [quoteAssetId, baseAssetId, quantity, quoteAssetId] // Approximation: lock quote currency needed for estimated price
+              : [baseAssetId, quoteAssetId, quantity, baseAssetId];
+            
+            const tokens = (await firestore.collection('assets').get()).docs.reduce((acc, doc) => {
+                acc[doc.id] = doc.data();
+                return acc;
+            }, {} as Record<string, any>);
+
+            if (!tokens[srcToken] || !tokens[dstToken]) {
+                throw new Error("Could not find token details for the market order.");
+            }
+            const amountInWei = (quantity * (10 ** tokens[srcToken].decimals)).toString();
+
+            const quoteQuery = new URLSearchParams({
+                chainId: '137', // Hardcoded Polygon for now
+                fromTokenAddress: tokens[srcToken].contractAddress,
+                toTokenAddress: tokens[dstToken].contractAddress,
+                amount: amountInWei,
+            }).toString();
+
+            const quoteResponse = await fetch(`${apiUrlBase}/api/dex/quote?${quoteQuery}`);
+            if (!quoteResponse.ok) throw new Error('Failed to get quote from 1inch.');
+            const quoteData = await quoteResponse.json();
+
+            // Run transaction to lock funds and create order
+            await firestore.runTransaction(async (t) => {
+                const balRef = firestore.collection('users').doc(userId).collection('balances').doc(assetToLock);
+                const balSnap = await t.get(balRef);
+                if (!balSnap.exists || balSnap.data()!.available < amountToLock) throw new Error("Insufficient funds.");
+                t.update(balRef, { 
+                    available: FieldValue.increment(-amountToLock), 
+                    locked: FieldValue.increment(amountToLock) 
+                });
+                t.set(orderRef, {
+                    id: orderRef.id,
+                    userId,
+                    marketId,
+                    side,
+                    quantity,
+                    type: 'MARKET',
+                    status: 'EXECUTING',
+                    filledAmount: 0,
+                    createdAt: FieldValue.serverTimestamp(),
+                    updatedAt: FieldValue.serverTimestamp(),
+                });
+            });
+
+            // After funds are locked, build the transaction
+            const hotWalletAddress = "0x...YOUR_HOT_WALLET_ADDRESS"; // Placeholder
+            const buildTxBody = {
+                chainId: 137,
+                fromTokenAddress: tokens[srcToken].contractAddress,
+                toTokenAddress: tokens[dstToken].contractAddress,
+                amount: amountInWei,
+                userAddress: hotWalletAddress,
+                slippage: 1,
+            };
+
+            const buildTxResponse = await fetch(`${apiUrlBase}/api/dex/build-tx`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(buildTxBody),
+            });
+
+            if (!buildTxResponse.ok) throw new Error('Failed to build transaction with 1inch.');
+            const txData: DexBuildTxResponse = await buildTxResponse.json();
+
+            // Save the built transaction to Firestore
+            const dexTxRef = firestore.collection('dex_transactions').doc();
+            await dexTxRef.set({
+                id: dexTxRef.id,
+                orderId: orderRef.id,
+                chainId: 137,
+                oneinchPayload: txData,
+                txTo: txData.to,
+                txData: txData.data,
+                txValue: txData.value,
+                status: 'BUILT',
+                createdAt: FieldValue.serverTimestamp(),
+            });
+            
+            revalidatePath('/trade');
+            return {
+                status: 'success',
+                message: `Market ${side} order submitted for execution.`,
+            };
+        } else {
+             return { status: 'error', message: 'Invalid order type or missing price for limit order.' };
+        }
 
     } catch (e) {
         const error = e as Error;

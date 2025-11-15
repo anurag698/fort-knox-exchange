@@ -15,14 +15,16 @@ export function DownloadApp() {
             <div className="container mx-auto grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
                 <div className="flex justify-center lg:justify-end">
                     {mobileAppImage && (
-                        <Image
-                            src={mobileAppImage.imageUrl}
-                            alt="Fort Knox mobile app"
-                            width={300}
-                            height={600}
-                            className="rounded-[2.5rem] shadow-2xl"
-                            data-ai-hint={mobileAppImage.imageHint}
-                        />
+                        <div className="relative w-[300px] h-[600px]">
+                            <Image
+                                src={mobileAppImage.imageUrl}
+                                alt="Fort Knox mobile app"
+                                fill
+                                style={{objectFit: 'contain'}}
+                                className="rounded-[2.5rem] shadow-2xl"
+                                data-ai-hint={mobileAppImage.imageHint}
+                            />
+                        </div>
                     )}
                 </div>
                 <div className="flex flex-col gap-8 items-center lg:items-start text-center lg:text-left">

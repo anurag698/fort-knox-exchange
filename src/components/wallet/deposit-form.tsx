@@ -60,19 +60,30 @@ export function DepositForm({ assets }: { assets: Asset[] }) {
     }
   }, [state, toast, assets, form]);
 
-  const onCopy = () => {
-    if (depositAddress) {
-      navigator.clipboard.writeText(depositAddress).then(() => {
+  const onCopy = async () => {
+    if (!depositAddress) return;
+    
+    // Check if running in a secure context (HTTPS)
+    if (!navigator.clipboard) {
+        toast({
+            variant: 'destructive',
+            title: 'Copy Failed',
+            description: 'Clipboard API is not available in this browser or context (requires HTTPS).',
+        });
+        return;
+    }
+
+    try {
+        await navigator.clipboard.writeText(depositAddress);
         setHasCopied(true);
         setTimeout(() => setHasCopied(false), 2000);
-      }).catch(err => {
-          console.error("Clipboard copy failed:", err);
-          toast({
-              variant: 'destructive',
-              title: 'Copy Failed',
-              description: 'Could not copy to clipboard. Please copy the address manually.',
-          });
-      });
+    } catch (err) {
+        console.error("Clipboard copy failed:", err);
+        toast({
+            variant: 'destructive',
+            title: 'Copy Failed',
+            description: 'Could not copy to clipboard. Please copy the address manually.',
+        });
     }
   };
 
@@ -150,5 +161,3 @@ export function DepositForm({ assets }: { assets: Asset[] }) {
     </Card>
   );
 }
-
-    

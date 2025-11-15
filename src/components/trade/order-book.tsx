@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useMemo, useState, useEffect } from 'react';
@@ -53,7 +54,7 @@ export function OrderBook({ onPriceSelect, marketId }: OrderBookProps) {
       }
     };
 
-    ws.onerror = (err) => {
+    ws.onerror = (event) => {
       setError(new Error('Failed to connect to the order book feed.'));
       setIsLoading(false);
     };

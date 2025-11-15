@@ -22,8 +22,6 @@ export function useOrders(userId?: string, marketId?: string) {
     ];
 
     if (marketId) {
-      // Use unshift to ensure the marketId filter comes before the orderBy,
-      // which can be more efficient for Firestore.
       constraints.unshift(where('marketId', '==', marketId));
     }
 

@@ -91,7 +91,7 @@ export function OrdersTable({ marketId, userId }: { marketId: string, userId: st
          <Table>
             <TableHeader>
                 <TableRow>
-                    <TableHead>Market</TableHead>
+                    <TableHead>Date</TableHead>
                     <TableHead>Side</TableHead>
                     <TableHead>Price</TableHead>
                     <TableHead>Amount</TableHead>
@@ -105,7 +105,7 @@ export function OrdersTable({ marketId, userId }: { marketId: string, userId: st
                     const canCancel = (order.status === 'OPEN' || order.status === 'PARTIAL');
                     return (
                         <TableRow key={order.id}>
-                            <TableCell>{order.marketId}</TableCell>
+                            <TableCell>{order.createdAt.toDate().toLocaleString()}</TableCell>
                             <TableCell>
                                 <span className={order.side === 'BUY' ? 'text-green-600 font-semibold' : 'text-red-600 font-semibold'}>{order.side}</span>
                             </TableCell>

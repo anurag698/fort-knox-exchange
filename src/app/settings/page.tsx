@@ -26,6 +26,7 @@ import type { UserProfile } from '@/lib/types';
 
 const profileSchema = z.object({
   username: z.string().min(3, "Username must be at least 3 characters."),
+  userId: z.string(),
 });
 
 type ProfileFormValues = z.infer<typeof profileSchema>;
@@ -40,9 +41,9 @@ function SubmitButton() {
   );
 }
 
-function KycSubmitButton({ kycStatus } : { kycStatus?: UserProfile['kycStatus'] }) {
+function KycSubmitButton({ kycStatus, userId } : { kycStatus?: UserProfile['kycStatus'], userId?: string }) {
   const { pending } = useFormStatus();
-  const isDisabled = kycStatus === 'VERIFIED' || kycStatus === 'PENDING';
+  const isDisabled = kycStatus === 'VERIFIED' || kycStatus === 'PENDING' || !userId;
   
   const buttonText = {
     'VERIFIED': 'KYC Verified',
@@ -107,12 +108,13 @@ export default function SettingsPage() {
     resolver: zodResolver(profileSchema),
     defaultValues: {
       username: '',
+      userId: '',
     },
   });
 
   useEffect(() => {
-    if (userProfile?.username) {
-      form.reset({ username: userProfile.username });
+    if (userProfile) {
+      form.reset({ username: userProfile.username, userId: userProfile.id });
     }
   }, [userProfile, form]);
   
@@ -210,6 +212,7 @@ export default function SettingsPage() {
     return (
       <Form {...form}>
         <form action={profileFormAction} className="h-full flex flex-col">
+           <input type="hidden" {...form.register("userId")} />
           <CardContent className="space-y-8 flex-grow pt-6">
             <div className="flex items-center space-x-6">
               <Avatar className="h-24 w-24">
@@ -320,6 +323,7 @@ export default function SettingsPage() {
         </div>
         <div className="lg:col-span-1">
           <form action={kycFormAction} className="h-full">
+            <input type="hidden" name="userId" value={userProfile?.id || ''} />
             <Card className="h-full flex flex-col">
               <CardHeader>
                 <CardTitle>KYC Verification</CardTitle>
@@ -329,7 +333,7 @@ export default function SettingsPage() {
                 {renderKycContent()}
               </div>
               <CardFooter className="border-t pt-6">
-                  <KycSubmitButton kycStatus={userProfile?.kycStatus} />
+                  <KycSubmitButton kycStatus={userProfile?.kycStatus} userId={userProfile?.id} />
               </CardFooter>
             </Card>
           </form>
@@ -338,3 +342,5 @@ export default function SettingsPage() {
     </div>
   );
 }
+
+    

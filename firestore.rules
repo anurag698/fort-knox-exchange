@@ -25,8 +25,8 @@ service cloud.firestore {
       allow get: if isOwner(userId) || isAdmin();
       // Users can update their own profile (e.g. username).
       allow update: if isOwner(userId);
-      // Only authenticated users can create their own user document.
-      allow create: if isSignedIn();
+      // A user can create their own document upon signup.
+      allow create: if isOwner(userId);
       // Admins can list all users.
       allow list: if isAdmin();
       

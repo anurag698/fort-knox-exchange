@@ -46,20 +46,22 @@ export function useCollection<T = any>(
   type StateDataType = ResultItemType[] | null;
 
   const [data, setData] = useState<StateDataType>(null);
-  const [isLoading, setIsLoading] = useState<boolean>(true); // Start as loading
+  const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<FirestoreError | Error | null>(null);
 
   useEffect(() => {
+    // If the query is not ready (null/undefined), we are not loading, have no data, and no error.
     if (!memoizedTargetRefOrQuery) {
-      // If the query is not ready, we are not loading and have no data.
       setIsLoading(false);
       setData(null);
       setError(null);
       return;
     }
-
-    setIsLoading(true);
     
+    // Set loading state and clear previous errors as we're starting a new fetch.
+    setIsLoading(true);
+    setError(null);
+
     const unsubscribe = onSnapshot(
         memoizedTargetRefOrQuery,
         (snapshot: QuerySnapshot<DocumentData>) => {
@@ -68,16 +70,17 @@ export function useCollection<T = any>(
                 id: doc.id,
             }));
             setData(results);
-            setError(null);
+            setError(null); // Clear any previous error on successful fetch.
             setIsLoading(false);
         },
         (err: FirestoreError) => {
-            const path = (memoizedTargetRefOrQuery as any)?._query?.path?.canonicalString() || 'unknown';
+            const path = (memoizedTargetRefOrQuery as any)?._query?.path?.canonicalString() || 'unknown path';
             const contextualError = new FirestorePermissionError({
                 operation: 'list',
                 path: path,
             });
 
+            console.error("useCollection error:", contextualError.message);
             setError(contextualError);
             setData(null);
             setIsLoading(false);
@@ -85,10 +88,13 @@ export function useCollection<T = any>(
         }
     );
 
+    // Cleanup function to unsubscribe from the listener when the component unmounts
+    // or when the query dependency changes.
     return () => {
         unsubscribe();
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+  // The effect depends on the memoized query reference.
+  // It will re-run ONLY when this reference changes.
   }, [memoizedTargetRefOrQuery]);
 
   return { data, isLoading, error };

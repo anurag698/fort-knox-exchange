@@ -10,7 +10,9 @@ export function useOrders(marketId?: string) {
   const { user, isUserLoading } = useUser();
 
   const ordersQuery = useMemoFirebase(() => {
-    if (!firestore || !user?.uid) {
+    // Await user authentication before constructing the query.
+    // If we are loading or there is no user, return null to prevent an invalid query.
+    if (isUserLoading || !user?.uid) {
       return null;
     }
 
@@ -24,9 +26,10 @@ export function useOrders(marketId?: string) {
     }
 
     return query(collection(firestore, 'orders'), ...constraints);
-  }, [firestore, user?.uid, marketId]); 
+  }, [firestore, user?.uid, marketId, isUserLoading]); 
 
   const { data, isLoading, error } = useCollection<Order>(ordersQuery);
 
+  // The overall loading state depends on both the user loading and the collection loading.
   return { data, isLoading: isUserLoading || isLoading, error };
 }

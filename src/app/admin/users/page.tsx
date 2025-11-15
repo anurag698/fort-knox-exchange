@@ -1,7 +1,7 @@
 
 'use client';
 
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -9,65 +9,10 @@ import { ArrowRight, AlertCircle, Users, ArrowLeft } from "lucide-react";
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import Link from 'next/link';
-import { useFirestore, useUser } from "@/firebase";
-import { useState, useEffect } from "react";
-import { collection, query, orderBy, onSnapshot, getDoc, doc, getDocs, setDoc } from "firebase/firestore";
-import type { UserProfile } from "@/lib/types";
+import { useUsers } from "@/hooks/use-users";
 
 export default function AdminUsersPage() {
-  const firestore = useFirestore();
-  const { user } = useUser();
-  const [users, setUsers] = useState<UserProfile[] | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<Error | null>(null);
-  const [isAdmin, setIsAdmin] = useState(false);
-
-  useEffect(() => {
-    if (!firestore) {
-        setIsLoading(false);
-        return;
-    }
-
-    const checkAdminAndFetchUsers = async () => {
-        setIsLoading(true);
-        setError(null);
-
-        if (!user) {
-          setIsAdmin(false);
-          setIsLoading(false);
-          return;
-        }
-        
-        try {
-            const userDocRef = doc(firestore, 'users', user.uid);
-            const userDoc = await getDoc(userDocRef);
-            
-            let currentIsAdmin = userDoc.exists() && userDoc.data().isAdmin;
-
-            if (userDoc.exists() && !currentIsAdmin) {
-                await setDoc(userDocRef, { isAdmin: true }, { merge: true });
-                currentIsAdmin = true;
-            }
-            
-            if (currentIsAdmin) {
-                setIsAdmin(true);
-                const q = query(collection(firestore, 'users'), orderBy('createdAt', 'desc'));
-                const usersSnapshot = await getDocs(q);
-                setUsers(usersSnapshot.docs.map(doc => ({...doc.data() as UserProfile, id: doc.id})));
-            } else {
-                setIsAdmin(false);
-            }
-        } catch (e) {
-            setError(e as Error);
-        } finally {
-            setIsLoading(false);
-        }
-    };
-    
-    checkAdminAndFetchUsers();
-
-}, [firestore, user]);
-
+  const { data: users, isLoading, error } = useUsers();
 
   const getKYCBadgeVariant = (status: string) => {
     switch (status) {
@@ -99,7 +44,7 @@ export default function AdminUsersPage() {
       );
     }
 
-    if (error || !isAdmin) {
+    if (error) {
        return (
         <TableRow>
             <TableCell colSpan={5}>
@@ -107,7 +52,7 @@ export default function AdminUsersPage() {
                     <AlertCircle className="h-4 w-4" />
                     <AlertTitle>Error Loading Users</AlertTitle>
                     <AlertDescription>
-                        Could not fetch user data. You may not have permission to view this page.
+                        {error.message || "Could not fetch user data. You may not have permission to view this page."}
                     </AlertDescription>
                 </Alert>
             </TableCell>
@@ -203,5 +148,3 @@ export default function AdminUsersPage() {
     </div>
   );
 }
-
-    

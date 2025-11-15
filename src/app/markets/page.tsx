@@ -35,6 +35,7 @@ export default function MarketsPage() {
       return;
     }
 
+    // This effect runs once to fetch the static definitions of markets and assets.
     const fetchStaticData = async () => {
       setIsLoading(true);
       setError(null);
@@ -63,7 +64,7 @@ export default function MarketsPage() {
 
     fetchStaticData();
 
-    // Subscribe to live market data
+    // This effect establishes a real-time listener for the live market data.
     const marketDataQuery = query(collection(firestore, 'market_data'), orderBy('id', 'asc'));
     const unsubscribe = onSnapshot(marketDataQuery, (snapshot) => {
         const liveData = snapshot.docs.map(doc => ({...doc.data() as MarketData, id: doc.id}));
@@ -71,6 +72,7 @@ export default function MarketsPage() {
     }, (err) => {
         console.error("Market live data subscription error:", err);
         // Don't set a blocking error for this, as static data might still be useful
+        // You could set a specific, non-blocking error state for the UI here if needed
     });
 
     return () => unsubscribe(); // Cleanup listener on unmount
@@ -115,13 +117,14 @@ export default function MarketsPage() {
             <AlertCircle className="h-4 w-4" />
             <AlertTitle>Error Loading Markets</AlertTitle>
             <AlertDescription>
-                Could not fetch market data. Please ensure your Firestore security rules allow list access for the 'markets' and 'assets' collections and try again.
+                {error.message || "Could not fetch market data. Please ensure your Firestore security rules allow list access for the 'markets' and 'assets' collections and try again."}
             </AlertDescription>
         </Alert>
       );
     }
     
-    if (markets?.length === 0) {
+    // This check is crucial. If `markets` is an empty array after loading, it means the seed is missing.
+    if (!isLoading && markets?.length === 0) {
       return (
         <div className="flex flex-col items-center justify-center rounded-lg border-2 border-dashed border-muted-foreground/30 p-12 text-center">
             <div className="flex h-20 w-20 items-center justify-center rounded-full bg-muted">

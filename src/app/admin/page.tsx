@@ -11,93 +11,28 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import Link from 'next/link';
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from '@/components/ui/tooltip';
-import { useFirestore, useUser } from "@/firebase";
-import { collection, getDocs, query, where, getCountFromServer, doc, getDoc, collectionGroup, orderBy, setDoc } from "firebase/firestore";
-import type { Withdrawal, Asset } from "@/lib/types";
-
+import { useUser } from "@/firebase";
+import { useWithdrawals } from "@/hooks/use-withdrawals";
+import { useUsersCount } from "@/hooks/use-users-count";
+import { useWithdrawalsCount } from "@/hooks/use-withdrawals-count";
+import { useAssets } from "@/hooks/use-assets";
+import { useMarketsCount } from "@/hooks/use-markets-count";
 
 export default function AdminPage() {
-  const firestore = useFirestore();
-  const { user } = useUser();
+  const { user, isUserLoading } = useUser();
+  const { data: withdrawals, isLoading: withdrawalsLoading, error: withdrawalsError } = useWithdrawals('PENDING');
+  const { data: assets, isLoading: assetsLoading, error: assetsError } = useAssets();
+  const { count: usersCount, isLoading: usersCountLoading, error: usersCountError } = useUsersCount();
+  const { count: marketsCount, isLoading: marketsCountLoading, error: marketsCountError } = useMarketsCount();
+  const { count: pendingWithdrawalsCount, isLoading: pendingWithdrawalsCountLoading, error: pendingWithdrawalsCountError } = useWithdrawalsCount('PENDING');
 
-  const [withdrawals, setWithdrawals] = useState<Withdrawal[] | null>(null);
-  const [assets, setAssets] = useState<Asset[] | null>(null);
-  const [usersCount, setUsersCount] = useState<number | null>(null);
-  const [marketsCount, setMarketsCount] = useState<number | null>(null);
-  const [withdrawalsCount, setWithdrawalsCount] = useState<number | null>(null);
-
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<Error | null>(null);
-  const [isAdmin, setIsAdmin] = useState(false);
-  
-  useEffect(() => {
-    if (!firestore) return;
-
-    const checkAdminAndFetchData = async () => {
-      setIsLoading(true);
-      setError(null);
-
-      if (!user) {
-        setIsAdmin(false);
-        setIsLoading(false);
-        return;
-      }
-      
-      try {
-        const userDocRef = doc(firestore, 'users', user.uid);
-        const docSnap = await getDoc(userDocRef);
-
-        let currentIsAdmin = docSnap.exists() && docSnap.data().isAdmin;
-
-        if (docSnap.exists() && !currentIsAdmin) {
-            // This is a dev-only convenience to make the current user an admin.
-            await setDoc(userDocRef, { isAdmin: true }, { merge: true });
-            currentIsAdmin = true;
-        }
-
-        if (currentIsAdmin) {
-          setIsAdmin(true);
-
-          // Fetch all data in parallel
-          const [
-            withdrawalsSnap,
-            assetsSnap,
-            usersCountSnap,
-            marketsCountSnap,
-            pendingWithdrawalsCountSnap
-          ] = await Promise.all([
-            getDocs(query(collectionGroup(firestore, 'withdrawals'), where('status', '==', 'PENDING'), orderBy('createdAt', 'desc'))),
-            getDocs(collection(firestore, 'assets')),
-            getCountFromServer(collection(firestore, 'users')),
-            getCountFromServer(collection(firestore, 'markets')),
-            getCountFromServer(query(collectionGroup(firestore, 'withdrawals'), where('status', '==', 'PENDING'))),
-          ]);
-          
-          setWithdrawals(withdrawalsSnap.docs.map(d => ({...d.data() as Withdrawal, id: d.id})));
-          setAssets(assetsSnap.docs.map(d => ({...d.data() as Asset, id: d.id})));
-          setUsersCount(usersCountSnap.data().count);
-          setMarketsCount(marketsCountSnap.data().count);
-          setWithdrawalsCount(pendingWithdrawalsCountSnap.data().count);
-
-        } else {
-          setIsAdmin(false);
-        }
-      } catch (e) {
-        setError(e as Error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    
-    checkAdminAndFetchData();
-    
-  }, [firestore, user]);
-
+  const isLoading = isUserLoading || withdrawalsLoading || assetsLoading || usersCountLoading || marketsCountLoading || pendingWithdrawalsCountLoading;
+  const error = withdrawalsError || assetsError || usersCountError || marketsCountError || pendingWithdrawalsCountError;
 
   const summaryStats = [
-    { title: "Total Users", value: usersCount, isLoading: isLoading, icon: Users, href: "/admin/users" },
-    { title: "Active Markets", value: marketsCount, isLoading: isLoading, icon: CandlestickChart, href: "/markets" },
-    { title: "Pending Withdrawals", value: withdrawalsCount, isLoading: isLoading, icon: ShieldAlert, href: "#moderation" },
+    { title: "Total Users", value: usersCount, isLoading: usersCountLoading, icon: Users, href: "/admin/users" },
+    { title: "Active Markets", value: marketsCount, isLoading: marketsCountLoading, icon: CandlestickChart, href: "/markets" },
+    { title: "Pending Withdrawals", value: pendingWithdrawalsCount, isLoading: pendingWithdrawalsCountLoading, icon: ShieldAlert, href: "#moderation" },
   ];
 
   const assetsMap = useMemo(() => {
@@ -146,30 +81,13 @@ export default function AdminPage() {
                     <AlertCircle className="h-4 w-4" />
                     <AlertTitle>Error Loading Data</AlertTitle>
                     <AlertDescription>
-                        Could not fetch withdrawal or asset data. Please check your Firestore security rules and network connection.
+                        {error.message || "Could not fetch data. Please check your security rules and network connection."}
                     </AlertDescription>
                 </Alert>
             </TableCell>
         </TableRow>
       );
     }
-    
-    if(!isAdmin) {
-      return (
-        <TableRow>
-          <TableCell colSpan={6}>
-              <Alert variant="destructive" className="mt-4">
-                  <AlertCircle className="h-4 w-4" />
-                  <AlertTitle>Permission Denied</AlertTitle>
-                  <AlertDescription>
-                      You do not have permission to view this page.
-                  </AlertDescription>
-              </Alert>
-          </TableCell>
-        </TableRow>
-      );
-    }
-
 
     if (!withdrawals || withdrawals.length === 0) {
       return (
@@ -283,5 +201,3 @@ export default function AdminPage() {
     </div>
   );
 }
-
-    

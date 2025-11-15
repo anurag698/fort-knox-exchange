@@ -9,13 +9,11 @@ import { Badge } from '@/components/ui/badge';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { approveKyc, rejectKyc } from '@/app/actions';
-import { useActionState, useTransition, useState, useEffect } from 'react';
+import { useActionState, useTransition } from 'react';
 import { useFormStatus } from 'react-dom';
-import { useFirestore } from "@/firebase";
-import { doc, getDoc } from "firebase/firestore";
-import type { UserProfile } from "@/lib/types";
+import { useUserById } from "@/hooks/use-user-by-id";
 
-function KycButtons({ disabled }: { disabled: boolean }) {
+function KycButtons({ disabled, userId }: { disabled: boolean, userId?: string }) {
   const [approvePending, startApproveTransition] = useTransition();
   const [rejectPending, startRejectTransition] = useTransition();
 
@@ -24,60 +22,39 @@ function KycButtons({ disabled }: { disabled: boolean }) {
 
   return (
     <div className="flex gap-2 w-full">
-       <Button 
-        className="w-full" 
-        disabled={disabled || pending}
-        onClick={() => startApproveTransition(() => (document.getElementById('approve-kyc-form') as HTMLFormElement | null)?.requestSubmit())}
-      >
-        {approvePending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-        Approve KYC
-      </Button>
-      <Button 
-        variant="destructive" 
-        className="w-full" 
-        disabled={disabled || pending}
-        onClick={() => startRejectTransition(() => (document.getElementById('reject-kyc-form') as HTMLFormElement | null)?.requestSubmit())}
-      >
-        {rejectPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-        Reject KYC
-      </Button>
+      <form id="approve-kyc-form" action={approveKyc} className="w-full">
+        <input type="hidden" name="userId" value={userId} />
+        <Button 
+          className="w-full" 
+          disabled={disabled || pending}
+          onClick={() => startApproveTransition(() => (document.getElementById('approve-kyc-form') as HTMLFormElement | null)?.requestSubmit())}
+        >
+          {approvePending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+          Approve KYC
+        </Button>
+      </form>
+      <form id="reject-kyc-form" action={rejectKyc} className="w-full">
+        <input type="hidden" name="userId" value={userId} />
+        <Button 
+          variant="destructive" 
+          className="w-full" 
+          disabled={disabled || pending}
+          onClick={() => startRejectTransition(() => (document.getElementById('reject-kyc-form') as HTMLFormElement | null)?.requestSubmit())}
+        >
+          {rejectPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+          Reject KYC
+        </Button>
+      </form>
     </div>
   );
 }
 
 
 export default function ManageUserPage({ params }: { params: { id: string } }) {
-  const firestore = useFirestore();
-  const [user, setUser] = useState<UserProfile | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<Error | null>(null);
+  const { data: user, isLoading, error } = useUserById(params.id);
   
   const [approveState, approveAction] = useActionState(approveKyc, { status: 'idle', message: '' });
   const [rejectState, rejectAction] = useActionState(rejectKyc, { status: 'idle', message: '' });
-
-  useEffect(() => {
-    if (!firestore || !params.id) {
-        setIsLoading(false);
-        return;
-    }
-    
-    const fetchUser = async () => {
-      setIsLoading(true);
-      setError(null);
-      try {
-        const userDoc = await getDoc(doc(firestore, 'users', params.id));
-        setUser(userDoc.exists() ? {...userDoc.data() as UserProfile, id: userDoc.id} : null);
-      } catch (err) {
-        setError(err as Error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    
-    fetchUser();
-
-  }, [firestore, params.id]);
-
 
   const getKYCBadgeVariant = (status?: string) => {
     switch (status) {
@@ -113,7 +90,7 @@ export default function ManageUserPage({ params }: { params: { id: string } }) {
           <AlertCircle className="h-4 w-4" />
           <AlertTitle>Error Loading User</AlertTitle>
           <AlertDescription>
-            Could not fetch user data. Please check your security rules or network and try again.
+            {error.message || "Could not fetch user data. Please check your security rules or network and try again."}
           </AlertDescription>
         </Alert>
       );
@@ -187,13 +164,7 @@ export default function ManageUserPage({ params }: { params: { id: string } }) {
                 {renderContent()}
             </CardContent>
             <CardFooter className="flex flex-col gap-2 border-t pt-6">
-                 <form id="approve-kyc-form" action={approveAction} className="hidden">
-                    <input type="hidden" name="userId" value={user?.id} />
-                </form>
-                <form id="reject-kyc-form" action={rejectAction} className="hidden">
-                    <input type="hidden" name="userId" value={user?.id} />
-                </form>
-                <KycButtons disabled={!user || user.kycStatus !== 'PENDING'} />
+                <KycButtons disabled={!user || user.kycStatus !== 'PENDING'} userId={user?.id} />
             </CardFooter>
         </Card>
     </div>

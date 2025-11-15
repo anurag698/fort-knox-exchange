@@ -11,14 +11,14 @@ import { Button } from '@/components/ui/button';
 import { approveWithdrawal, rejectWithdrawal } from '@/app/actions';
 import { useActionState, useTransition, useState, useEffect } from 'react';
 import { useFormStatus } from 'react-dom';
-import type { Withdrawal, Asset, UserProfile } from '@/lib/types';
+import type { Asset } from '@/lib/types';
 import { UserDeposits } from '@/components/wallet/user-deposits';
 import { UserWithdrawals } from '@/components/wallet/user-withdrawals';
-import { useFirestore } from "@/firebase";
-import { doc, getDoc, getDocs, query, collectionGroup, where, collection } from "firebase/firestore";
+import { useUserById } from "@/hooks/use-user-by-id";
+import { useWithdrawal } from "@/hooks/use-withdrawal";
+import { useAssets } from "@/hooks/use-assets";
 
-
-function ModerationButtons({ disabled }: { disabled: boolean }) {
+function ModerationButtons({ disabled, withdrawalId }: { disabled: boolean, withdrawalId?: string }) {
   const [approvePending, startApproveTransition] = useTransition();
   const [rejectPending, startRejectTransition] = useTransition();
   
@@ -27,82 +27,45 @@ function ModerationButtons({ disabled }: { disabled: boolean }) {
 
   return (
     <div className="flex gap-2 w-full">
-      <Button 
-        className="w-full" 
-        disabled={disabled || pending} 
-        onClick={() => startApproveTransition(() => (document.getElementById('approve-form') as HTMLFormElement | null)?.requestSubmit())}
-      >
-        {approvePending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-        Approve
-      </Button>
-      <Button 
-        variant="destructive" 
-        className="w-full" 
-        disabled={disabled || pending}
-        onClick={() => startRejectTransition(() => (document.getElementById('reject-form') as HTMLFormElement | null)?.requestSubmit())}
-      >
-        {rejectPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-        Reject
-      </Button>
+       <form id="approve-form" action={approveAction} className="w-full">
+         <input type="hidden" name="withdrawalId" value={withdrawalId} />
+        <Button 
+          className="w-full" 
+          disabled={disabled || pending} 
+          onClick={() => startApproveTransition(() => (document.getElementById('approve-form') as HTMLFormElement | null)?.requestSubmit())}
+        >
+          {approvePending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+          Approve
+        </Button>
+      </form>
+      <form id="reject-form" action={rejectAction} className="w-full">
+        <input type="hidden" name="withdrawalId" value={withdrawalId} />
+        <Button 
+          variant="destructive" 
+          className="w-full" 
+          disabled={disabled || pending}
+          onClick={() => startRejectTransition(() => (document.getElementById('reject-form') as HTMLFormElement | null)?.requestSubmit())}
+        >
+          {rejectPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+          Reject
+        </Button>
+      </form>
     </div>
   );
 }
 
-
 export default function ReviewWithdrawalPage({ params }: { params: { id: string } }) {
-  const firestore = useFirestore();
-  const [withdrawal, setWithdrawal] = useState<Withdrawal | null>(null);
-  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
-  const [assets, setAssets] = useState<Asset[] | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<Error | null>(null);
-
+  const { data: withdrawal, isLoading: withdrawalLoading, error: withdrawalError } = useWithdrawal(params.id);
+  const { data: userProfile, isLoading: userLoading, error: userError } = useUserById(withdrawal?.userId);
+  const { data: assets, isLoading: assetsLoading, error: assetsError } = useAssets();
+  
   const [approveState, approveAction] = useActionState(approveWithdrawal, { status: 'idle', message: '' });
   const [rejectState, rejectAction] = useActionState(rejectWithdrawal, { status: 'idle', message: '' });
-  
+
+  const isLoading = withdrawalLoading || userLoading || assetsLoading;
+  const error = withdrawalError || userError || assetsError;
+
   const asset = assets?.find(a => a.id === withdrawal?.assetId);
-
-  useEffect(() => {
-    if (!firestore) {
-      setIsLoading(false);
-      return;
-    }
-
-    const fetchData = async () => {
-      setIsLoading(true);
-      setError(null);
-      try {
-        const q = query(collectionGroup(firestore, 'withdrawals'), where('id', '==', params.id));
-        const withdrawalSnapshot = await getDocs(q);
-
-        if (withdrawalSnapshot.empty) {
-          setWithdrawal(null);
-          setIsLoading(false);
-          return;
-        }
-
-        const withdrawalData = { ...withdrawalSnapshot.docs[0].data() as Withdrawal, id: withdrawalSnapshot.docs[0].id };
-        setWithdrawal(withdrawalData);
-        
-        const [assetsSnapshot, userSnapshot] = await Promise.all([
-          getDocs(collection(firestore, 'assets')),
-          getDoc(doc(firestore, 'users', withdrawalData.userId))
-        ]);
-
-        setAssets(assetsSnapshot.docs.map(d => ({...d.data() as Asset, id: d.id})));
-        setUserProfile(userSnapshot.exists() ? {...userSnapshot.data() as UserProfile, id: userSnapshot.id} : null);
-
-      } catch (err) {
-        setError(err as Error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    
-    fetchData();
-
-  }, [firestore, params.id]);
-
 
   const renderContent = () => {
     if (isLoading) {
@@ -125,7 +88,7 @@ export default function ReviewWithdrawalPage({ params }: { params: { id: string 
           <AlertCircle className="h-4 w-4" />
           <AlertTitle>Error Loading Data</AlertTitle>
           <AlertDescription>
-            Could not fetch the required data. Please check your security rules or network and try again.
+            {error.message || "Could not fetch the required data. Please check your security rules or network and try again."}
           </AlertDescription>
         </Alert>
       );
@@ -237,14 +200,7 @@ export default function ReviewWithdrawalPage({ params }: { params: { id: string 
                   {renderAnalysis()}
                 </CardContent>
                 <CardFooter className="flex flex-col gap-2">
-                    {/* Hidden forms for actions */}
-                    <form id="approve-form" action={approveAction} className="hidden">
-                         <input type="hidden" name="withdrawalId" value={withdrawal?.id} />
-                    </form>
-                     <form id="reject-form" action={rejectAction} className="hidden">
-                         <input type="hidden" name="withdrawalId" value={withdrawal?.id} />
-                    </form>
-                    <ModerationButtons disabled={!withdrawal || withdrawal.status !== 'PENDING' } />
+                    <ModerationButtons disabled={!withdrawal || withdrawal.status !== 'PENDING' } withdrawalId={withdrawal?.id} />
                 </CardFooter>
             </Card>
         </div>

@@ -6,41 +6,10 @@ import { LedgerTable } from "@/components/ledger/ledger-table";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { AlertCircle, BookOpen } from "lucide-react";
-import { useFirestore, useUser } from "@/firebase";
-import { useState, useEffect } from "react";
-import { collection, query, orderBy, getDocs } from "firebase/firestore";
-import type { LedgerEntry } from "@/lib/types";
+import { useLedger } from "@/hooks/use-ledger";
 
 export default function LedgerPage() {
-  const firestore = useFirestore();
-  const { user } = useUser();
-  const [ledgerEntries, setLedgerEntries] = useState<LedgerEntry[] | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<Error | null>(null);
-
-  useEffect(() => {
-    if (!firestore || !user?.uid) {
-      setIsLoading(false);
-      return;
-    }
-    
-    const fetchLedger = async () => {
-      setIsLoading(true);
-      setError(null);
-      try {
-        const ledgerQuery = query(collection(firestore, 'users', user.uid, 'ledgerEntries'), orderBy('createdAt', 'desc'));
-        const snapshot = await getDocs(ledgerQuery);
-        setLedgerEntries(snapshot.docs.map(doc => ({...doc.data() as LedgerEntry, id: doc.id})));
-      } catch (e) {
-        setError(e as Error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    fetchLedger();
-  }, [firestore, user?.uid]);
-
+  const { data: ledgerEntries, isLoading, error } = useLedger();
 
   const renderContent = () => {
     if (isLoading) {
@@ -60,7 +29,7 @@ export default function LedgerPage() {
           <AlertCircle className="h-4 w-4" />
           <AlertTitle>Error</AlertTitle>
           <AlertDescription>
-            Failed to load ledger history. Please try again later.
+            {error.message || "Failed to load ledger history. Please try again later."}
           </AlertDescription>
         </Alert>
       );

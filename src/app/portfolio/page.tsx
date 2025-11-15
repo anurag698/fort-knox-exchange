@@ -13,59 +13,20 @@ import { DepositForm } from '@/components/wallet/deposit-form';
 import { WithdrawalForm } from '@/components/wallet/withdrawal-form';
 import { UserDeposits } from '@/components/wallet/user-deposits';
 import { UserWithdrawals } from '@/components/wallet/user-withdrawals';
-import { useFirestore, useUser } from '@/firebase';
-import { collection, onSnapshot, query, orderBy, getDocs } from 'firebase/firestore';
-import type { Asset, Balance } from '@/lib/types';
+import type { Asset } from '@/lib/types';
+import { useAssets } from '@/hooks/use-assets';
+import { useBalances } from '@/hooks/use-balances';
 
 
 export default function WalletPage() {
-  const firestore = useFirestore();
-  const { user } = useUser();
-
-  const [balances, setBalances] = useState<Balance[] | null>(null);
-  const [assets, setAssets] = useState<Asset[] | null>(null);
+  const { data: balances, isLoading: balancesLoading, error: balancesError } = useBalances();
+  const { data: assets, isLoading: assetsLoading, error: assetsError } = useAssets();
+  
   const [prices, setPrices] = useState<Record<string, number>>({});
-  
-  const [balancesLoading, setBalancesLoading] = useState(true);
-  const [assetsLoading, setAssetsLoading] = useState(true);
   const [pricesLoading, setPricesLoading] = useState(true);
-  const [error, setError] = useState<Error | null>(null);
-
-  useEffect(() => {
-    if (!firestore) return;
-    
-    const fetchAssets = async () => {
-      setAssetsLoading(true);
-      try {
-        const assetsQuery = query(collection(firestore, 'assets'), orderBy('name', 'asc'));
-        const snapshot = await getDocs(assetsQuery);
-        setAssets(snapshot.docs.map(doc => ({...doc.data() as Asset, id: doc.id})));
-      } catch (e) {
-        setError(e as Error);
-      } finally {
-        setAssetsLoading(false);
-      }
-    };
-    
-    fetchAssets();
-  }, [firestore]);
   
-  useEffect(() => {
-    if (!firestore || !user?.uid) {
-        setBalancesLoading(false);
-        return;
-    }
-    const unsubBalances = onSnapshot(collection(firestore, 'users', user.uid, 'balances'), (snapshot) => {
-        setBalances(snapshot.docs.map(doc => ({...doc.data() as Balance, id: doc.id})));
-        setBalancesLoading(false);
-    }, (e) => {
-        setError(e);
-        setBalancesLoading(false);
-    });
-    return () => unsubBalances();
-  }, [firestore, user?.uid]);
-
-
+  const error = balancesError || assetsError;
+  
   useEffect(() => {
     if (!assets || assets.length === 0) {
       setPricesLoading(false);
@@ -150,7 +111,7 @@ export default function WalletPage() {
           <AlertCircle className="h-4 w-4" />
           <AlertTitle>Error</AlertTitle>
           <AlertDescription>
-            Failed to load wallet data. Please try again later.
+            {error.message || "Failed to load wallet data. Please try again later."}
           </AlertDescription>
         </Alert>
       );

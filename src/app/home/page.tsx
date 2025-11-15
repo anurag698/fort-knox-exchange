@@ -9,41 +9,18 @@ import { DownloadApp } from '@/components/home/download-app';
 import { Faq } from '@/components/home/faq';
 import { BookOpen } from 'lucide-react';
 import { useUser, useFirestore } from '@/firebase';
-import { doc, getDoc, getDocs, collection } from 'firebase/firestore';
 import type { UserProfile, Balance } from '@/lib/types';
 import { useMemo, useState, useEffect } from 'react';
+import { useBalances } from '@/hooks/use-balances';
+import { useUserById } from '@/hooks/use-user-by-id';
+import { Skeleton } from '@/components/ui/skeleton';
 
 export default function Home() {
   const { user } = useUser();
-  const firestore = useFirestore();
-  const [balances, setBalances] = useState<Balance[] | null>(null);
-  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const { data: userProfile, isLoading: isProfileLoading } = useUserById(user?.uid);
+  const { data: balances, isLoading: areBalancesLoading } = useBalances();
 
-  useEffect(() => {
-    if (!firestore || !user?.uid) {
-      setIsLoading(false);
-      return;
-    }
-    
-    const fetchData = async () => {
-      setIsLoading(true);
-      try {
-        const profileSnap = await getDoc(doc(firestore, 'users', user.uid));
-        setUserProfile(profileSnap.exists() ? {...profileSnap.data() as UserProfile, id: profileSnap.id} : null);
-
-        const balancesSnap = await getDocs(collection(firestore, 'users', user.uid, 'balances'));
-        setBalances(balancesSnap.docs.map(d => ({...d.data() as Balance, id: d.id})));
-
-      } catch (error) {
-        console.error("Error fetching home page data:", error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    
-    fetchData();
-  }, [firestore, user?.uid]);
+  const isLoading = isProfileLoading || areBalancesLoading;
 
   const estimatedBalance = useMemo(() => {
     // A real implementation would fetch live prices and calculate total value
@@ -57,7 +34,12 @@ export default function Home() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           <div className="lg:col-span-2 flex flex-col justify-center gap-8">
             <div className="flex flex-col gap-4">
-              {userProfile ? (
+              {isLoading ? (
+                 <div className="space-y-4">
+                    <Skeleton className="h-16 w-3/4" />
+                    <Skeleton className="h-16 w-1/2" />
+                 </div>
+              ) : userProfile ? (
                  <h1 className="text-5xl md:text-7xl font-bold tracking-tighter">
                   Welcome Back,
                   <br />
@@ -74,8 +56,12 @@ export default function Home() {
               )}
               <div className="mt-6">
                 <p className="text-sm text-muted-foreground">Your Estimated Balance</p>
-                <p className="text-3xl font-bold">{estimatedBalance.toFixed(2)} BTC <span className="text-xl text-muted-foreground">≈ $0.00</span></p>
-                <p className="text-sm text-muted-foreground mt-1">Today's PnL $0.00 (0.00%)</p>
+                {isLoading ? <Skeleton className="h-10 w-48 mt-1" /> : (
+                  <>
+                    <p className="text-3xl font-bold">{estimatedBalance.toFixed(2)} BTC <span className="text-xl text-muted-foreground">≈ $0.00</span></p>
+                    <p className="text-sm text-muted-foreground mt-1">Today's PnL $0.00 (0.00%)</p>
+                  </>
+                )}
               </div>
             </div>
             <div className="flex items-center gap-4">

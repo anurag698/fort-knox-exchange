@@ -22,16 +22,18 @@ export function getFirebaseAdmin() {
         };
     }
 
-    const serviceAccount = process.env.FIREBASE_SERVICE_ACCOUNT;
-    if (!serviceAccount) {
+    const serviceAccountString = process.env.FIREBASE_SERVICE_ACCOUNT;
+    if (!serviceAccountString) {
         throw new Error('FIREBASE_SERVICE_ACCOUNT environment variable is not set.');
     }
 
     try {
+        const serviceAccount = JSON.parse(serviceAccountString);
+
         const credential = {
             projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
-            clientEmail: JSON.parse(serviceAccount).client_email,
-            privateKey: JSON.parse(serviceAccount).private_key.replace(/\\n/g, '\n'),
+            clientEmail: serviceAccount.client_email,
+            privateKey: serviceAccount.private_key.replace(/\\n/g, '\n'),
         };
 
         const adminApp = initializeApp({ credential }, appName);

@@ -10,26 +10,27 @@ export function useOrders(marketId?: string) {
   const { user } = useUser();
 
   const ordersQuery = useMemoFirebase(() => {
-    // CRITICAL: Do not build a query until both firestore and user are available.
+    // CRITICAL: Do not build a query until both firestore and the user's UID are available.
+    // This prevents an unauthorized query from being built and sent.
     if (!firestore || !user?.uid) {
       return null;
     }
 
+    // Base constraints: always filter by the current user's ID.
     const queryConstraints: QueryConstraint[] = [
       where('userId', '==', user.uid),
       orderBy('createdAt', 'desc')
     ];
     
-    // Only filter by marketId if it is provided.
-    // This allows the hook to be used to fetch all orders for a user, or just for a specific market.
+    // If a marketId is provided, add it as an additional filter.
     if (marketId) {
         queryConstraints.push(where('marketId', '==', marketId));
     }
 
-
+    // Construct and return the final query.
     return query(collection(firestore, 'orders'), ...queryConstraints);
 
-  }, [firestore, user?.uid, marketId]);
+  }, [firestore, user?.uid, marketId]); // Dependencies ensure the query rebuilds if user or market changes.
 
   return useCollection<Order>(ordersQuery);
 }

@@ -8,11 +8,10 @@ import type { Order } from '@/lib/types';
 export function useOrders(userId?: string, marketId?: string) {
   const firestore = useFirestore();
 
-  // This is the definitive fix.
-  // The query is only constructed inside useMemoFirebase, and the memoization
-  // now depends directly on `userId`. If `userId` is undefined or null,
-  // the factory function will return `null`, preventing any query from being created.
   const ordersQuery = useMemoFirebase(() => {
+    // This is the definitive guard. If userId is not provided (because the parent
+    // component is still loading it), this factory function returns null,
+    // and useCollection will not execute a query.
     if (!firestore || !userId) {
       return null;
     }
@@ -23,12 +22,14 @@ export function useOrders(userId?: string, marketId?: string) {
     ];
 
     if (marketId) {
+      // Use unshift to ensure the marketId filter comes before the orderBy,
+      // which can be more efficient for Firestore.
       constraints.unshift(where('marketId', '==', marketId));
     }
 
     return query(collection(firestore, 'orders'), ...constraints);
     
-  }, [firestore, userId, marketId]);
+  }, [firestore, userId, marketId]); // The hook now correctly depends on userId
 
   return useCollection<Order>(ordersQuery);
 }

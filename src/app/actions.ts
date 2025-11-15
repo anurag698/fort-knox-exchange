@@ -468,17 +468,12 @@ export async function requestWithdrawal(prevState: FormState, formData: FormData
         const { firestore, FieldValue } = getFirebaseAdmin();
         const batch = firestore.batch();
 
-        // Fetch user and asset data required for AI analysis
-        const userRef = firestore.collection('users').doc(userId);
-        const userSnap = await userRef.get();
-        const userProfile = userSnap.data();
-
         const assetRef = firestore.collection('assets').doc(assetId);
         const assetSnap = await assetRef.get();
         const asset = assetSnap.data();
         
-        if (!userProfile || !asset) {
-            return { status: 'error', message: 'Could not retrieve user or asset data for analysis.' };
+        if (!asset) {
+            return { status: 'error', message: 'Could not retrieve asset data for analysis.' };
         }
 
         const newWithdrawalRef = firestore.collection('users').doc(userId).collection('withdrawals').doc();
@@ -516,19 +511,12 @@ export async function requestWithdrawal(prevState: FormState, formData: FormData
         // Now, asynchronously perform AI analysis and update the doc
         (async () => {
             try {
-                // Simplified withdrawal history for the flow
-                const historySnapshot = await firestore.collection('users').doc(userId).collection('withdrawals').get();
-                const historySummary = `${historySnapshot.size} past withdrawals.`;
-
                 const moderationInput: ModerateWithdrawalRequestInput = {
                     userId,
                     withdrawalId: newWithdrawalRef.id,
                     amount,
                     asset: asset.symbol,
                     withdrawalAddress,
-                    userKYCStatus: userProfile.kycStatus,
-                    userAccountCreationDate: userProfile.createdAt.toDate().toISOString(),
-                    userWithdrawalHistory: historySummary,
                 };
                 
                 const result = await moderateWithdrawalRequest(moderationInput);

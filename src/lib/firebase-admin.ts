@@ -25,6 +25,8 @@ export function getFirebaseAdmin() {
 
     try {
         // Initialize the app with default credentials from the environment.
+        // Explicitly setting the projectId is crucial in some environments where
+        // default discovery can fail. This is the key fix for the session error.
         const adminApp = initializeApp({
             credential: applicationDefault(),
             projectId: firebaseConfig.projectId,

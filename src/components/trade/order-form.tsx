@@ -1,25 +1,24 @@
+'use client';
 
-"use client";
-
-import { useEffect, useState } from "react";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { z } from "zod";
-import { useUser, useFirestore, errorEmitter, FirestorePermissionError } from "@/firebase";
-import { createMarketOrder } from "@/app/actions";
-import { useToast } from "@/hooks/use-toast";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
-import { cn } from "@/lib/utils";
-import { doc, runTransaction, serverTimestamp, type Timestamp, collection } from "firebase/firestore";
-import type { Order } from "@/lib/types";
-import { useActionState } from "react";
-import type { SecurityRuleContext } from "@/firebase/errors";
+import { useEffect, useState } from 'react';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
+import { useUser, useFirestore, errorEmitter, FirestorePermissionError } from '@/firebase';
+import { createMarketOrder } from '@/app/actions';
+import { useToast } from '@/hooks/use-toast';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
+import { cn } from '@/lib/utils';
+import { doc, runTransaction, serverTimestamp, type Timestamp, collection } from 'firebase/firestore';
+import type { Order } from '@/lib/types';
+import { useActionState } from 'react';
+import type { SecurityRuleContext } from '@/firebase/errors';
 
 
 const orderSchema = z.object({
@@ -286,5 +285,3 @@ export function OrderForm({ selectedPrice, marketId }: OrderFormProps) {
     </Card>
   );
 }
-
-    

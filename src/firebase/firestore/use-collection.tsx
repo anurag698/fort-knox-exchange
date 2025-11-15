@@ -26,18 +26,6 @@ export interface UseCollectionResult<T> {
   error: FirestoreError | Error | null; // Error object, or null.
 }
 
-/* Internal implementation of Query:
-  https://github.com/firebase/firebase-js-sdk/blob/c5f08a9bc5da0d2b0207802c972d53724ccef055/packages/firestore/src/lite-api/reference.ts#L143
-*/
-export interface InternalQuery extends Query<DocumentData> {
-  _query: {
-    path: {
-      canonicalString(): string;
-      toString(): string;
-    }
-  }
-}
-
 /**
  * React hook to subscribe to a Firestore collection or query in real-time.
  * Handles nullable references/queries.
@@ -58,19 +46,18 @@ export function useCollection<T = any>(
   type StateDataType = ResultItemType[] | null;
 
   const [data, setData] = useState<StateDataType>(null);
-  // Start with loading true only if the query is initially ready.
-  const [isLoading, setIsLoading] = useState<boolean>(!!memoizedTargetRefOrQuery);
+  const [isLoading, setIsLoading] = useState<boolean>(true); // Start as true
   const [error, setError] = useState<FirestoreError | Error | null>(null);
 
   useEffect(() => {
+    // If the query is not ready, set loading to false and do nothing.
     if (!memoizedTargetRefOrQuery) {
-      // If the query isn't ready (e.g., waiting for firestore instance),
-      // ensure we are not in a loading state.
-      setData(null);
       setIsLoading(false);
+      setData(null);
       return;
     }
 
+    // Set loading to true when we have a query and are about to fetch.
     setIsLoading(true);
     setError(null);
 
@@ -86,14 +73,10 @@ export function useCollection<T = any>(
             setIsLoading(false);
         },
         (err: FirestoreError) => {
-             const path: string =
-                memoizedTargetRefOrQuery.type === 'collection'
-                    ? (memoizedTargetRefOrQuery as CollectionReference).path
-                    : (memoizedTargetRefOrQuery as unknown as InternalQuery)._query.path.canonicalString()
-
+            console.error(`Firestore Error on path: ${(memoizedTargetRefOrQuery as any)._query?.path?.canonicalString() || 'unknown'}`, err);
             const contextualError = new FirestorePermissionError({
                 operation: 'list',
-                path,
+                path: (memoizedTargetRefOrQuery as any)._query?.path?.canonicalString() || 'unknown',
             });
 
             setError(contextualError);
@@ -109,4 +92,3 @@ export function useCollection<T = any>(
 
   return { data, isLoading, error };
 }
-

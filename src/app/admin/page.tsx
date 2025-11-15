@@ -6,7 +6,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Users, CandlestickChart, ShieldAlert, ArrowRight, AlertCircle, Hourglass } from "lucide-react";
-import { useMemo, useState, useEffect } from 'react';
+import { useMemo } from 'react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import Link from 'next/link';
@@ -56,7 +56,7 @@ export default function AdminPage() {
   };
 
   const renderWithdrawals = () => {
-    if (isLoading) {
+    if (withdrawalsLoading) {
       return (
         <>
           {[...Array(3)].map((_, i) => (
@@ -73,7 +73,7 @@ export default function AdminPage() {
       );
     }
 
-    if (error) {
+    if (withdrawalsError) {
        return (
         <TableRow>
             <TableCell colSpan={6}>
@@ -81,7 +81,7 @@ export default function AdminPage() {
                     <AlertCircle className="h-4 w-4" />
                     <AlertTitle>Error Loading Data</AlertTitle>
                     <AlertDescription>
-                        {error.message || "Could not fetch data. Please check your security rules and network connection."}
+                        {withdrawalsError.message || "Could not fetch data. Please check your security rules and network connection."}
                     </AlertDescription>
                 </Alert>
             </TableCell>

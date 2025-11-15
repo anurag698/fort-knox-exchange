@@ -50,7 +50,7 @@ export default function MarketsPage() {
         setAssetsData(assets);
       } catch (err) {
         console.error("Markets snapshot error:", err);
-        setError(err instanceof Error ? err : new Error("An unknown error occurred while fetching data."));
+        setError(err instanceof Error ? err : new Error("An unknown error occurred while fetching data. Check security rules."));
       } finally {
         setIsLoading(false);
       }
@@ -94,7 +94,7 @@ export default function MarketsPage() {
             <AlertCircle className="h-4 w-4" />
             <AlertTitle>Error Loading Markets</AlertTitle>
             <AlertDescription>
-                Could not fetch market data. Please check your Firestore security rules and network connection.
+                Could not fetch market data. Please ensure your Firestore security rules allow list access for the 'markets' and 'assets' collections and try again.
             </AlertDescription>
         </Alert>
       );

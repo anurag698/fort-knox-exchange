@@ -1,7 +1,6 @@
 
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
 import type { Market, Asset } from '@/lib/types';
 import {
   Table,
@@ -11,8 +10,9 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { cn } from '@/lib/utils';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Button } from '../ui/button';
+import Link from 'next/link';
 
 type EnrichedMarket = Market & {
   baseAsset?: Asset;
@@ -33,6 +33,7 @@ export function MarketsTable({ markets }: MarketsTableProps) {
             <TableHead>Last Price</TableHead>
             <TableHead>24h Change</TableHead>
             <TableHead className="text-right">24h Volume</TableHead>
+             <TableHead className="text-right">Action</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -44,6 +45,7 @@ export function MarketsTable({ markets }: MarketsTableProps) {
                   <span className="text-muted-foreground">/</span>
                   <span className="text-muted-foreground">{market.quoteAsset?.symbol ?? '...'}</span>
                 </div>
+                <div className="text-xs text-muted-foreground">{market.baseAsset?.name}</div>
               </TableCell>
               <TableCell className="font-mono text-muted-foreground">
                 <Skeleton className="h-4 w-20" />
@@ -53,6 +55,11 @@ export function MarketsTable({ markets }: MarketsTableProps) {
               </TableCell>
               <TableCell className="text-right font-mono">
                 <Skeleton className="h-4 w-24 ml-auto" />
+              </TableCell>
+               <TableCell className="text-right">
+                <Button variant="outline" size="sm" asChild>
+                    <Link href={`/trade`}>Trade</Link>
+                </Button>
               </TableCell>
             </TableRow>
           ))}

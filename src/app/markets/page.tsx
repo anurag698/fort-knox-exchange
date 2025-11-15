@@ -1,8 +1,8 @@
 
 'use client';
 
-import { useState, useEffect } from 'react';
-import type { Market } from '@/lib/types';
+import { useState, useEffect, useMemo } from 'react';
+import type { Market, Asset } from '@/lib/types';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { MarketsTable } from '@/components/markets/markets-table';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -13,60 +13,108 @@ import { collection, getDocs, query } from 'firebase/firestore';
 
 export default function MarketsPage() {
   const [markets, setMarkets] = useState<Market[]>([]);
+  const [assets, setAssets] = useState<Asset[]>([]);
+  const [prices, setPrices] = useState<Record<string, number>>({});
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
   const firestore = useFirestore();
 
   useEffect(() => {
-    // Only attempt to fetch data if the firestore instance is available.
-    if (firestore) {
-      const fetchMarkets = async () => {
-        setIsLoading(true);
-        setError(null);
-        try {
-          const marketsQuery = query(collection(firestore, 'markets'));
-          const querySnapshot = await getDocs(marketsQuery);
-          const marketsData = querySnapshot.docs.map(doc => {
-            const data = doc.data();
-            // This ensures we have some default values for fields used in MarketsTable
-            return {
-              id: doc.id,
-              baseAssetId: data.baseAssetId,
-              quoteAssetId: data.quoteAssetId,
-              minOrderSize: data.minOrderSize,
-              pricePrecision: data.pricePrecision,
-              quantityPrecision: data.quantityPrecision,
-              makerFee: data.makerFee,
-              takerFee: data.takerFee,
-              createdAt: data.createdAt,
-              change: 0, // Default value
-              volume: 0, // Default value
-            } as Market;
-          });
-          setMarkets(marketsData);
-        } catch (err) {
-          console.error("Failed to fetch markets:", err);
-          setError(err instanceof Error ? err : new Error('An unknown error occurred while fetching markets.'));
-        } finally {
-          setIsLoading(false);
-        }
-      };
+    if (!firestore) return;
 
-      fetchMarkets();
-    } else {
-      // If firestore is not yet available, we are technically still loading.
+    const fetchData = async () => {
       setIsLoading(true);
+      setError(null);
+      try {
+        const marketsQuery = query(collection(firestore, 'markets'));
+        const assetsQuery = query(collection(firestore, 'assets'));
+
+        const [marketsSnapshot, assetsSnapshot] = await Promise.all([
+          getDocs(marketsQuery),
+          getDocs(assetsQuery),
+        ]);
+
+        const marketsData = marketsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Market));
+        const assetsData = assetsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Asset));
+        
+        setMarkets(marketsData);
+        setAssets(assetsData);
+
+        // Don't stop loading here, wait for price socket to connect
+      } catch (err) {
+        console.error("Failed to fetch initial data:", err);
+        setError(err instanceof Error ? err : new Error('An unknown error occurred.'));
+        setIsLoading(false); // Stop loading on error
+      }
+    };
+
+    fetchData();
+  }, [firestore]);
+
+  useEffect(() => {
+    if (markets.length === 0) return;
+
+    const marketSymbols = markets.map(m => `${m.baseAssetId}${m.quoteAssetId}`);
+    if (marketSymbols.length === 0) {
+        setIsLoading(false);
+        return;
     }
-  }, [firestore]); // This effect re-runs when the firestore instance becomes available.
+
+    const ws = new WebSocket(`wss://stream.binance.com:9443/ws/${marketSymbols.map(s => `${s.toLowerCase()}@trade`).join('/')}`);
+    
+    ws.onmessage = (event) => {
+      const data = JSON.parse(event.data);
+      if (data && data.s && data.p) {
+        setPrices(prevPrices => ({
+          ...prevPrices,
+          [data.s]: parseFloat(data.p),
+        }));
+      }
+    };
+
+    ws.onopen = () => {
+      // Now we have initial data and a price feed, so loading is complete
+      setIsLoading(false);
+    }
+    
+    ws.onerror = (err) => {
+        console.error("Markets WebSocket error:", err);
+        setError(new Error("Failed to connect to live price feed."));
+        setIsLoading(false);
+    }
+
+    return () => {
+      ws.close();
+    };
+  }, [markets]);
+
+  const enrichedMarkets = useMemo(() => {
+    const assetsMap = new Map(assets.map(asset => [asset.id, asset]));
+
+    return markets.map(market => {
+      const baseAsset = assetsMap.get(market.baseAssetId);
+      const quoteAsset = assetsMap.get(market.quoteAssetId);
+      const price = prices[`${market.baseAssetId}${market.quoteAssetId}`] ?? 0;
+      // Mock change and volume for display
+      const change = (market.id.charCodeAt(0) % 11) - 5 + Math.random() * 2 - 1;
+      const volume = (market.id.charCodeAt(1) % 100) * 100000 + Math.random() * 50000;
+
+      return {
+        ...market,
+        baseAsset,
+        quoteAsset,
+        price,
+        change,
+        volume,
+      };
+    });
+  }, [markets, assets, prices]);
 
   const renderContent = () => {
     if (isLoading) {
       return (
         <div className="space-y-4">
-          <Skeleton className="h-12 w-full" />
-          <Skeleton className="h-12 w-full" />
-          <Skeleton className="h-12 w-full" />
-          <Skeleton className="h-12 w-full" />
+          {[...Array(5)].map(i => <Skeleton key={i} className="h-12 w-full" />)}
         </div>
       );
     }
@@ -83,7 +131,7 @@ export default function MarketsPage() {
       );
     }
 
-    if (!markets || markets.length === 0) {
+    if (enrichedMarkets.length === 0) {
       return (
          <div className="flex flex-col items-center justify-center rounded-lg border-2 border-dashed border-muted-foreground/30 p-12 text-center">
           <div className="flex h-20 w-20 items-center justify-center rounded-full bg-muted">
@@ -97,9 +145,8 @@ export default function MarketsPage() {
       );
     }
     
-    return <MarketsTable markets={markets} />;
+    return <MarketsTable markets={enrichedMarkets} />;
   }
-
 
   return (
     <div className="flex flex-col gap-8">

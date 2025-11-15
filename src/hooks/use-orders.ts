@@ -7,7 +7,7 @@ import type { Order } from '@/lib/types';
 
 export function useOrders(marketId?: string) {
   const firestore = useFirestore();
-  const { user } = useUser();
+  const { user, isUserLoading } = useUser();
 
   const ordersQuery = useMemoFirebase(() => {
     // CRITICAL: Do not build a query until both firestore and the user's UID are available.
@@ -24,6 +24,8 @@ export function useOrders(marketId?: string) {
     
     // If a marketId is provided, add it as an additional filter.
     if (marketId) {
+        // This line was incorrect. It should be prepended to the array.
+        // Also, the field path needs to be correct.
         queryConstraints.unshift(where('marketId', '==', marketId));
     }
 
@@ -31,6 +33,9 @@ export function useOrders(marketId?: string) {
     return query(collection(firestore, 'orders'), ...queryConstraints);
 
   }, [firestore, user?.uid, marketId]); // Dependencies ensure the query rebuilds if user or market changes.
+  
+  const { data, isLoading, error } = useCollection<Order>(ordersQuery);
 
-  return useCollection<Order>(ordersQuery);
+  // If the user is loading, we should also be in a loading state.
+  return { data, isLoading: isUserLoading || isLoading, error };
 }

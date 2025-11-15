@@ -12,10 +12,7 @@ export function useOrders(marketId?: string) {
   const ordersQuery = useMemoFirebase(() => {
     // **CRITICAL FIX**: Do not create a query until user loading is complete and a user is present.
     // This prevents a race condition where an invalid query is created on initial render.
-    if (isUserLoading) {
-      return null;
-    }
-    if (!user) {
+    if (isUserLoading || !user) {
       return null;
     }
 
@@ -25,11 +22,12 @@ export function useOrders(marketId?: string) {
     ];
 
     if (marketId) {
+      // Using unshift to make sure the marketId filter is applied first, which can be better for indexing.
       constraints.unshift(where('marketId', '==', marketId));
     }
 
     return query(collection(firestore, 'orders'), ...constraints);
-  }, [firestore, user?.uid, marketId, isUserLoading]); 
+  }, [firestore, user?.uid, marketId, isUserLoading]); // isUserLoading and user.uid are the key dependencies
 
   const { data, isLoading, error } = useCollection<Order>(ordersQuery);
 

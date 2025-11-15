@@ -20,19 +20,19 @@ type MarketsTableProps = {
   markets: Market[];
 };
 
-export function MarketsTable({ markets: initialMarkets }: MarketsTableProps) {
+export function MarketsTable({ markets }: MarketsTableProps) {
     const { data: assets, isLoading: assetsLoading } = useAssets();
     const [prices, setPrices] = useState<Record<string, number>>({});
     const [pricesLoading, setPricesLoading] = useState(true);
 
-    const markets = useMemo(() => {
-        if (!initialMarkets) return [];
-        return initialMarkets.map(market => ({
+    const enrichedMarkets = useMemo(() => {
+        if (!markets) return [];
+        return markets.map(market => ({
             ...market,
             change: (market.id.charCodeAt(0) % 11) - 5 + Math.random() * 2 - 1, 
             volume: (market.id.charCodeAt(1) % 100) * 100000 + Math.random() * 50000,
         }));
-    }, [initialMarkets]);
+    }, [markets]);
 
     const marketSymbols = useMemo(() => {
         return markets.map(m => `${m.baseAssetId}${m.quoteAssetId}`);
@@ -76,7 +76,7 @@ export function MarketsTable({ markets: initialMarkets }: MarketsTableProps) {
     
     const isLoading = assetsLoading || pricesLoading;
 
-    if (isLoading && (!markets || markets.length === 0)) {
+    if (isLoading && (!enrichedMarkets || enrichedMarkets.length === 0)) {
       return (
         <div className="space-y-2">
             <Skeleton className="h-12 w-full" />
@@ -98,7 +98,7 @@ export function MarketsTable({ markets: initialMarkets }: MarketsTableProps) {
           </TableRow>
         </TableHeader>
         <TableBody>
-          {markets.map((market) => {
+          {enrichedMarkets.map((market) => {
             const baseAsset = assetsMap.get(market.baseAssetId) ?? { symbol: market.baseAssetId };
             const quoteAsset = assetsMap.get(market.quoteAssetId) ?? { symbol: market.quoteAssetId };
             const price = prices[`${market.baseAssetId}${market.quoteAssetId}`] ?? 0;

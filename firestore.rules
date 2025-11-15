@@ -83,7 +83,7 @@ service cloud.firestore {
         // Users can read their own orders. Admins can read any.
         allow get: if (isSignedIn() && resource.data.userId == request.auth.uid) || isAdmin();
         // Users can list their own orders. An index on `userId` is required.
-        allow list: if isSignedIn() && request.query.where.size() > 0 && request.query.where[0][0] == 'userId' && request.query.where[0][2] == request.auth.uid;
+        allow list: if isSignedIn() && request.query.where.keys().hasAny(['userId']) && request.query.where.userId == request.auth.uid;
         // Users can cancel their own open orders.
         allow update: if isSignedIn() 
                       && resource.data.userId == request.auth.uid

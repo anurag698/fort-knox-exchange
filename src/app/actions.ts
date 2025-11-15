@@ -445,11 +445,46 @@ export async function rejectWithdrawal(prevState: any, formData: FormData) {
 
 export async function createSession(idToken: string) {
   if (!idToken) {
-    return { status: 'error', message: 'ID token is required for session creation.' };
+    return { status: 'error', message: 'ID token is required.' };
   }
 
   try {
-    const { auth } = getFirebaseAdmin();
+    const { auth, firestore, FieldValue } = getFirebaseAdmin();
+    const decodedToken = await auth.verifyIdToken(idToken);
+    const { uid, email } = decodedToken;
+
+    // Check if user exists, create if not
+    const userRef = firestore.collection('users').doc(uid);
+    const userDoc = await userRef.get();
+
+    if (!userDoc.exists) {
+      console.log(`User document for ${uid} does not exist. Creating...`);
+      const batch = firestore.batch();
+      const newUser = {
+        id: uid,
+        email: email,
+        username: email?.split('@')[0] ?? `user_${Math.random().toString(36).substring(2, 8)}`,
+        kycStatus: 'NOT_STARTED',
+        role: email === 'admin@fortknox.exchange' ? 'ADMIN' : 'USER',
+        referralCode: Math.random().toString(36).substring(2, 8).toUpperCase(),
+        createdAt: FieldValue.serverTimestamp(),
+        updatedAt: FieldValue.serverTimestamp(),
+      };
+      batch.set(userRef, newUser);
+
+      // Seed initial balances
+      const balancesRef = userRef.collection('balances');
+      batch.set(balancesRef.doc('USDT'), { id: 'USDT', userId: uid, assetId: 'USDT', available: 100000, locked: 0, createdAt: FieldValue.serverTimestamp(), updatedAt: FieldValue.serverTimestamp() });
+      batch.set(balancesRef.doc('BTC'), { id: 'BTC', userId: uid, assetId: 'BTC', available: 1, locked: 0, createdAt: FieldValue.serverTimestamp(), updatedAt: FieldValue.serverTimestamp() });
+      batch.set(balancesRef.doc('ETH'), { id: 'ETH', userId: uid, assetId: 'ETH', available: 10, locked: 0, createdAt: FieldValue.serverTimestamp(), updatedAt: FieldValue.serverTimestamp() });
+      batch.set(balancesRef.doc('DOGE'), { id: 'DOGE', userId: uid, assetId: 'DOGE', available: 50000, locked: 0, createdAt: FieldValue.serverTimestamp(), updatedAt: FieldValue.serverTimestamp() });
+      batch.set(balancesRef.doc('MATIC'), { id: 'MATIC', userId: uid, assetId: 'MATIC', available: 2000, locked: 0, createdAt: FieldValue.serverTimestamp(), updatedAt: FieldValue.serverTimestamp() });
+      
+      await batch.commit();
+      console.log(`Successfully created user document and balances for ${uid}`);
+    }
+
+    // Create session cookie
     const expiresIn = 60 * 60 * 24 * 5 * 1000; // 5 days
     const sessionCookie = await auth.createSessionCookie(idToken, { expiresIn });
 
@@ -461,9 +496,9 @@ export async function createSession(idToken: string) {
     });
     
     return { status: 'success' };
+
   } catch (error: any) {
     console.error('Failed to create session:', error);
-    // Provide a more detailed error message for debugging
     const errorMessage = error.code ? `${error.code}: ${error.message}` : error.message;
     return { status: 'error', message: `Failed to create session. Server error: ${errorMessage}` };
   }

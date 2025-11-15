@@ -1,9 +1,7 @@
 
 'use client';
 
-import { useState, useEffect } from 'react';
-import { useFirestore } from '@/firebase';
-import { collection, getDocs, query } from 'firebase/firestore';
+import { useMarkets } from '@/hooks/use-markets';
 import type { Market } from '@/lib/types';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { MarketsTable } from '@/components/markets/markets-table';
@@ -12,36 +10,7 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { AlertCircle, CandlestickChart } from 'lucide-react';
 
 export default function MarketsPage() {
-  const firestore = useFirestore();
-  const [markets, setMarkets] = useState<Market[] | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<Error | null>(null);
-
-  useEffect(() => {
-    if (!firestore) {
-        setIsLoading(false);
-        return;
-    };
-
-    const fetchMarkets = async () => {
-        setIsLoading(true);
-        try {
-            const marketsQuery = query(collection(firestore, 'markets'));
-            const querySnapshot = await getDocs(marketsQuery);
-            const marketsData = querySnapshot.docs.map(doc => ({ ...doc.data() as Omit<Market, 'id'>, id: doc.id }));
-            setMarkets(marketsData);
-            setError(null);
-        } catch (err) {
-            console.error(err);
-            setError(err instanceof Error ? err : new Error('Failed to fetch markets'));
-        } finally {
-            setIsLoading(false);
-        }
-    };
-
-    fetchMarkets();
-  }, [firestore]);
-
+  const { data: markets, isLoading, error } = useMarkets();
 
   const renderContent = () => {
     if (isLoading) {

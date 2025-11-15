@@ -46,21 +46,22 @@ export function useCollection<T = any>(
   type StateDataType = ResultItemType[] | null;
 
   const [data, setData] = useState<StateDataType>(null);
-  const [isLoading, setIsLoading] = useState<boolean>(true); // Start as true
+  // Initialize isLoading based on whether the query is ready
+  const [isLoading, setIsLoading] = useState<boolean>(!memoizedTargetRefOrQuery);
   const [error, setError] = useState<FirestoreError | Error | null>(null);
 
   useEffect(() => {
-    // If the query is not ready, set loading to false and do nothing.
+    // If the query is not ready, set loading to true and wait.
     if (!memoizedTargetRefOrQuery) {
-      setIsLoading(false);
+      setIsLoading(true);
       setData(null);
+      setError(null);
       return;
     }
 
-    // Set loading to true when we have a query and are about to fetch.
+    // When the query is ready, attach the listener.
     setIsLoading(true);
-    setError(null);
-
+    
     const unsubscribe = onSnapshot(
         memoizedTargetRefOrQuery,
         (snapshot: QuerySnapshot<DocumentData>) => {
@@ -73,10 +74,11 @@ export function useCollection<T = any>(
             setIsLoading(false);
         },
         (err: FirestoreError) => {
-            console.error(`Firestore Error on path: ${(memoizedTargetRefOrQuery as any)._query?.path?.canonicalString() || 'unknown'}`, err);
+            const path = (memoizedTargetRefOrQuery as any)?._query?.path?.canonicalString() || 'unknown';
+            console.error(`Firestore Error on path: ${path}`, err);
             const contextualError = new FirestorePermissionError({
                 operation: 'list',
-                path: (memoizedTargetRefOrQuery as any)._query?.path?.canonicalString() || 'unknown',
+                path: path,
             });
 
             setError(contextualError);

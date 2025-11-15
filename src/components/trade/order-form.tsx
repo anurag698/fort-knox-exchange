@@ -36,7 +36,7 @@ interface OrderFormProps {
 export function OrderForm({ selectedPrice, marketId }: OrderFormProps) {
   const { user } = useUser();
   const { toast } = useToast();
-  const [baseAsset, quoteAsset] = marketId.split('-');
+  const [baseAsset, quoteAsset] = marketId ? marketId.split('-') : ['', ''];
   const [orderType, setOrderType] = useState<'LIMIT' | 'MARKET'>('LIMIT');
 
   const [buyState, buyAction] = useActionState(createOrder, { status: "idle", message: "" });
@@ -82,8 +82,10 @@ export function OrderForm({ selectedPrice, marketId }: OrderFormProps) {
   }, [selectedPrice, buyForm, sellForm]);
 
    useEffect(() => {
-    buyForm.setValue('marketId', marketId);
-    sellForm.setValue('marketId', marketId);
+    if (marketId) {
+      buyForm.setValue('marketId', marketId);
+      sellForm.setValue('marketId', marketId);
+    }
   }, [marketId, buyForm, sellForm]);
 
   useEffect(() => {
@@ -191,5 +193,3 @@ export function OrderForm({ selectedPrice, marketId }: OrderFormProps) {
     </Card>
   );
 }
-
-    

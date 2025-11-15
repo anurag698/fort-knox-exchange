@@ -16,9 +16,10 @@ import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { cn } from "@/lib/utils";
-import { doc, runTransaction, serverTimestamp, writeBatch, type Timestamp } from "firebase/firestore";
+import { doc, runTransaction, serverTimestamp, type Timestamp } from "firebase/firestore";
 import type { Order } from "@/lib/types";
 import { useActionState } from "react";
+import type { SecurityRuleContext } from "@/firebase/errors";
 
 
 const orderSchema = z.object({
@@ -120,7 +121,7 @@ export function OrderForm({ selectedPrice, marketId }: OrderFormProps) {
       return;
     }
 
-    const newOrderRef = doc(firestore, `orders/${doc(firestore, 'orders').id}`);
+    const newOrderRef = doc(firestore, 'orders', doc(collection(firestore, 'orders')).id);
     const newOrder: Omit<Order, 'createdAt' | 'updatedAt'> = {
         id: newOrderRef.id,
         userId: user.uid,
@@ -167,17 +168,14 @@ export function OrderForm({ selectedPrice, marketId }: OrderFormProps) {
         sellForm.reset(defaultValues);
     })
     .catch((error: any) => {
-        // This is the correct pattern for handling Firestore permission errors on the client.
-        if (error.code === 'permission-denied' || (error.message && error.message.toLowerCase().includes('permission-denied'))) {
+        if (error.code === 'permission-denied') {
             const permissionError = new FirestorePermissionError({
                 path: newOrderRef.path,
-                operation: 'create', // The transaction is creating a new order document
-                requestResourceData: newOrder // Pass the data that we tried to write
-            });
-            // Emit the error globally for the FirebaseErrorListener to catch
+                operation: 'create',
+                requestResourceData: newOrder
+            } satisfies SecurityRuleContext);
             errorEmitter.emit('permission-error', permissionError);
         } else {
-            // Handle other types of errors (e.g., insufficient funds) with a standard toast
             toast({
                 variant: 'destructive',
                 title: 'Order Failed',
@@ -288,3 +286,5 @@ export function OrderForm({ selectedPrice, marketId }: OrderFormProps) {
     </Card>
   );
 }
+
+    

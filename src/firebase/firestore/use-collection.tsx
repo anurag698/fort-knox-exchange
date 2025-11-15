@@ -45,10 +45,6 @@ export function useCollection<T = any>(
   type ResultItemType = WithId<T>;
   type StateDataType = ResultItemType[] | null;
 
-  const collectionPath = (memoizedTargetRefOrQuery as any)?._query?.path?.canonicalString();
-  console.log(`useCollection (${collectionPath}): Hook initiated.`);
-
-
   const [data, setData] = useState<StateDataType>(null);
   // Initialize isLoading based on whether the query is ready
   const [isLoading, setIsLoading] = useState<boolean>(!memoizedTargetRefOrQuery);
@@ -57,7 +53,6 @@ export function useCollection<T = any>(
   useEffect(() => {
     // If the query is not ready, set loading to true and wait.
     if (!memoizedTargetRefOrQuery) {
-      console.log(`useCollection (${collectionPath}): Query is not ready. Setting loading to true.`);
       setIsLoading(true);
       setData(null);
       setError(null);
@@ -65,13 +60,11 @@ export function useCollection<T = any>(
     }
 
     // When the query is ready, attach the listener.
-    console.log(`useCollection (${collectionPath}): Query is ready. Attaching onSnapshot listener.`);
     setIsLoading(true);
     
     const unsubscribe = onSnapshot(
         memoizedTargetRefOrQuery,
         (snapshot: QuerySnapshot<DocumentData>) => {
-            console.log(`useCollection (${collectionPath}): onSnapshot fired with ${snapshot.docs.length} documents.`);
             const results: ResultItemType[] = snapshot.docs.map(doc => ({
                 ...(doc.data() as T),
                 id: doc.id,
@@ -79,11 +72,9 @@ export function useCollection<T = any>(
             setData(results);
             setError(null);
             setIsLoading(false);
-            console.log(`useCollection (${collectionPath}): State updated with new data.`, results);
         },
         (err: FirestoreError) => {
             const path = (memoizedTargetRefOrQuery as any)?._query?.path?.canonicalString() || 'unknown';
-            console.error(`useCollection (${collectionPath}): Firestore Error on path: ${path}`, err);
             const contextualError = new FirestorePermissionError({
                 operation: 'list',
                 path: path,
@@ -98,7 +89,6 @@ export function useCollection<T = any>(
 
     // Cleanup function
     return () => {
-        console.log(`useCollection (${collectionPath}): Unsubscribing from onSnapshot listener.`);
         unsubscribe();
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps

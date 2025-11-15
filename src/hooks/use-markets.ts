@@ -11,7 +11,6 @@ export function useMarkets() {
 
   const marketsCollectionRef = useMemoFirebase(
     () => {
-      console.log('useMarkets: Creating collection reference for "markets"');
       return firestore ? collection(firestore, 'markets') : null;
     },
     [firestore]
@@ -23,12 +22,10 @@ export function useMarkets() {
   );
 
   const { data, ...rest } = useCollection<Market>(marketsQuery);
-  console.log('useMarkets: Data received from useCollection:', data);
   
   // Add mock data for change and volume, as it's not in the database
   const marketsWithMockData = useMemo(() => {
     if (!data) {
-      console.log('useMarkets: No data from useCollection, returning null.');
       return null;
     }
     const result = data.map(market => ({
@@ -36,7 +33,6 @@ export function useMarkets() {
       change: (market.id.charCodeAt(0) % 11) - 5 + Math.random() * 2 - 1,
       volume: Math.random() * 1000000,
     }));
-    console.log('useMarkets: Processed markets with mock data:', result);
     return result;
   }, [data]);
 

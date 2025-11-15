@@ -1,17 +1,15 @@
 'use client';
 
-import { useState, use } from "react";
+import { useState } from "react";
 import { Balances } from "@/components/trade/balances";
 import { MemoizedTradingViewChart } from "@/components/trade/trading-view-chart";
 import { OrderBook } from "@/components/trade/order-book";
 import { OrderForm } from "@/components/trade/order-form";
 import { UserTrades } from "@/components/trade/user-trades";
 
-export default function MarketTradePage({ params }: { params: { marketId: string } }) {
+// This is now a Client Component that receives marketId as a direct prop.
+function TradePageClient({ marketId }: { marketId: string }) {
   const [selectedPrice, setSelectedPrice] = useState<number | undefined>(undefined);
-  
-  // Use React.use() to unwrap the params promise as recommended by Next.js
-  const { marketId } = use(Promise.resolve(params));
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
@@ -26,4 +24,10 @@ export default function MarketTradePage({ params }: { params: { marketId: string
       </div>
     </div>
   );
+}
+
+// The default export is a Server Component that handles params.
+export default function MarketTradePage({ params }: { params: { marketId: string } }) {
+  const { marketId } = params;
+  return <TradePageClient marketId={marketId} />;
 }

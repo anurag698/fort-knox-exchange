@@ -24,15 +24,13 @@ export default function MarketsPage() {
   
   const [markets, setMarkets] = useState<Market[] | null>(null);
   const [assets, setAssets] = useState<Asset[] | null>(null);
-  const [marketData, setMarketData] = useState<MarketData[] | null>(null);
+  const [marketData, setMarketData] = useState<Record<string, MarketData>>({});
   
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
 
   useEffect(() => {
     if (!firestore) {
-      // This can happen briefly on initial load.
-      // We don't want to set loading to false here, just wait for firestore.
       return;
     }
 
@@ -53,16 +51,18 @@ export default function MarketsPage() {
         
         setMarkets(marketsList);
         setAssets(assetsList);
-
-        // Only return the unsubscribe function for the live listener
-        const marketDataQuery = query(collection(firestore, 'market_data'), orderBy('id', 'asc'));
+        
+        // After static data is loaded, set up the live listener
+        const marketDataQuery = query(collection(firestore, 'market_data'));
         const unsubscribe = onSnapshot(marketDataQuery, (snapshot) => {
-            const liveData = snapshot.docs.map(doc => ({...doc.data() as MarketData, id: doc.id}));
+            const liveData: Record<string, MarketData> = {};
+            snapshot.forEach(doc => {
+                liveData[doc.id] = { ...doc.data() as MarketData, id: doc.id };
+            });
             setMarketData(liveData);
         }, (err) => {
             console.error("Market live data subscription error:", err);
-            // This is a non-critical error, the page can still function with static data.
-            // We won't set a blocking error for the whole page.
+            // Non-critical, the page can function with static data.
         });
         
         return unsubscribe;
@@ -93,13 +93,12 @@ export default function MarketsPage() {
       return [];
     }
     const assetsMap = new Map(assets.map(asset => [asset.id, asset]));
-    const marketDataMap = new Map(marketData?.map(md => [md.id, md]));
 
     return markets.map(market => ({
       ...market,
       baseAsset: assetsMap.get(market.baseAssetId),
       quoteAsset: assetsMap.get(market.quoteAssetId),
-      marketData: marketDataMap.get(market.id),
+      marketData: marketData[market.id],
     }));
   }, [markets, assets, marketData]);
 

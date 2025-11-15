@@ -8,6 +8,7 @@ import { redirect } from 'next/navigation';
 import { cookies } from "next/headers";
 import { getFirebaseAdmin, getUserIdFromSession } from "@/lib/firebase-admin";
 import { seedInitialData } from "@/lib/seed-data";
+import axios from 'axios';
 
 type FormState = {
   status: 'success' | 'error' | 'idle';
@@ -22,6 +23,57 @@ export async function seedDatabase(prevState: any, formData: FormData) {
   } catch (error) {
     console.error("Database Seeding Error:", error);
     return { status: 'error', message: 'Failed to seed database.' };
+  }
+}
+
+export async function updateMarketData(prevState: any, formData: FormData) {
+  try {
+    const { firestore, FieldValue } = getFirebaseAdmin();
+    const marketsSnapshot = await firestore.collection('markets').get();
+    if (marketsSnapshot.empty) {
+      return { status: 'error', message: 'No markets found. Please seed the database first.' };
+    }
+
+    const batch = firestore.batch();
+    const marketDataCol = firestore.collection('market_data');
+
+    const symbols = marketsSnapshot.docs.map(doc => `${doc.data().baseAssetId}${doc.data().quoteAssetId}`);
+
+    // Binance API allows fetching all tickers at once
+    const response = await axios.get(`https://api.binance.com/api/v3/ticker/24hr`);
+    const tickers: any[] = response.data;
+    
+    const tickerMap = new Map(tickers.map(t => [t.symbol, t]));
+
+    for (const doc of marketsSnapshot.docs) {
+      const market = doc.data();
+      const symbol = `${market.baseAssetId}${market.quoteAssetId}`;
+      const ticker = tickerMap.get(symbol);
+
+      if (ticker) {
+        const marketData = {
+          id: doc.id,
+          price: parseFloat(ticker.lastPrice),
+          priceChangePercent: parseFloat(ticker.priceChangePercent),
+          high: parseFloat(ticker.highPrice),
+          low: parseFloat(ticker.lowPrice),
+          volume: parseFloat(ticker.volume),
+          marketCap: 0, // Binance API doesn't provide this in the ticker endpoint
+          lastUpdated: FieldValue.serverTimestamp(),
+        };
+        const docRef = marketDataCol.doc(doc.id);
+        batch.set(docRef, marketData, { merge: true });
+      }
+    }
+    
+    await batch.commit();
+
+    revalidatePath('/markets');
+    return { status: 'success', message: 'Market data updated successfully!' };
+
+  } catch (error) {
+    console.error("Market Data Update Error:", error);
+    return { status: 'error', message: 'Failed to update market data.' };
   }
 }
 

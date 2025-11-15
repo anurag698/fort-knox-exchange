@@ -2,7 +2,7 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
-import type { Market, Asset } from '@/lib/types';
+import type { Market, Asset, MarketData } from '@/lib/types';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { MarketsTable } from '@/components/markets/markets-table';
 import { AlertCircle, DatabaseZap } from 'lucide-react';
@@ -11,17 +11,21 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { useFirestore } from '@/firebase';
-import { collection, getDocs, query, orderBy } from 'firebase/firestore';
+import { collection, getDocs, onSnapshot, query, orderBy } from 'firebase/firestore';
 
-type EnrichedMarket = Market & {
+export type EnrichedMarket = Market & {
   baseAsset?: Asset;
   quoteAsset?: Asset;
+  marketData?: MarketData;
 };
 
 export default function MarketsPage() {
   const firestore = useFirestore();
-  const [marketsData, setMarketsData] = useState<Market[] | null>(null);
-  const [assetsData, setAssetsData] = useState<Asset[] | null>(null);
+  
+  const [markets, setMarkets] = useState<Market[] | null>(null);
+  const [assets, setAssets] = useState<Asset[] | null>(null);
+  const [marketData, setMarketData] = useState<MarketData[] | null>(null);
+  
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
 
@@ -31,7 +35,7 @@ export default function MarketsPage() {
       return;
     }
 
-    const fetchData = async () => {
+    const fetchStaticData = async () => {
       setIsLoading(true);
       setError(null);
       try {
@@ -43,33 +47,50 @@ export default function MarketsPage() {
           getDocs(assetsQuery),
         ]);
 
-        const markets = marketsSnapshot.docs.map(doc => ({ ...doc.data() as Market, id: doc.id }));
-        const assets = assetsSnapshot.docs.map(doc => ({ ...doc.data() as Asset, id: doc.id }));
+        const marketsList = marketsSnapshot.docs.map(doc => ({ ...doc.data() as Market, id: doc.id }));
+        const assetsList = assetsSnapshot.docs.map(doc => ({ ...doc.data() as Asset, id: doc.id }));
+        
+        setMarkets(marketsList);
+        setAssets(assetsList);
 
-        setMarketsData(markets);
-        setAssetsData(assets);
       } catch (err) {
-        console.error("Markets snapshot error:", err);
+        console.error("Markets static data fetch error:", err);
         setError(err instanceof Error ? err : new Error("An unknown error occurred while fetching data. Check security rules."));
       } finally {
         setIsLoading(false);
       }
     };
 
-    fetchData();
+    fetchStaticData();
+
+    // Subscribe to live market data
+    const marketDataQuery = query(collection(firestore, 'market_data'), orderBy('id', 'asc'));
+    const unsubscribe = onSnapshot(marketDataQuery, (snapshot) => {
+        const liveData = snapshot.docs.map(doc => ({...doc.data() as MarketData, id: doc.id}));
+        setMarketData(liveData);
+    }, (err) => {
+        console.error("Market live data subscription error:", err);
+        // Don't set a blocking error for this, as static data might still be useful
+    });
+
+    return () => unsubscribe(); // Cleanup listener on unmount
+
   }, [firestore]);
 
   const enrichedMarkets: EnrichedMarket[] = useMemo(() => {
-    if (!marketsData || !assetsData) {
+    if (!markets || !assets) {
       return [];
     }
-    const assetsMap = new Map(assetsData.map(asset => [asset.id, asset]));
-    return marketsData.map(market => ({
+    const assetsMap = new Map(assets.map(asset => [asset.id, asset]));
+    const marketDataMap = new Map(marketData?.map(md => [md.id, md]));
+
+    return markets.map(market => ({
       ...market,
       baseAsset: assetsMap.get(market.baseAssetId),
       quoteAsset: assetsMap.get(market.quoteAssetId),
+      marketData: marketDataMap.get(market.id),
     }));
-  }, [marketsData, assetsData]);
+  }, [markets, assets, marketData]);
 
 
   const renderContent = () => {
@@ -100,7 +121,7 @@ export default function MarketsPage() {
       );
     }
     
-    if (enrichedMarkets.length === 0) {
+    if (markets?.length === 0) {
       return (
         <div className="flex flex-col items-center justify-center rounded-lg border-2 border-dashed border-muted-foreground/30 p-12 text-center">
             <div className="flex h-20 w-20 items-center justify-center rounded-full bg-muted">

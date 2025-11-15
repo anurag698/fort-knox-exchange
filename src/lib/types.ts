@@ -1,4 +1,5 @@
 
+
 export type Market = {
   id: string;
   baseAssetId: string;
@@ -17,6 +18,17 @@ export type Asset = {
   name: string;
   createdAt: string;
 };
+
+export type MarketData = {
+  id: string;
+  price: number;
+  priceChangePercent: number;
+  high: number;
+  low: number;
+  volume: number;
+  marketCap: number;
+  lastUpdated: any;
+}
 
 export type Order = {
   id: string;

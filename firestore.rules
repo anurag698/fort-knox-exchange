@@ -42,6 +42,11 @@ service cloud.firestore {
       allow write: if false; // Should only be seeded by admin
     }
 
+    match /market_data/{marketId} {
+      allow get, list: if true;
+      allow write: if false; // Should only be written by backend function
+    }
+
     // TRANSACTIONAL DATA
     // Orders can be created by users, but only read publicly.
     // Trades are public, but only created by the backend.

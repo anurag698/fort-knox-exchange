@@ -1,10 +1,4 @@
-// This is the Server Component that handles params.
-// It destructures the marketId directly from params.
-export default function TradePage({ params }: { params: { marketId: string } }) {
-  const { marketId } = params;
-  return <TradePageClient marketId={marketId} />;
-}
-
+// The 'use client' directive MUST be at the top of the file.
 'use client';
 
 import { useState } from "react";
@@ -14,8 +8,10 @@ import { OrderBook } from "@/components/trade/order-book";
 import { OrderForm } from "@/components/trade/order-form";
 import { UserTrades } from "@/components/trade/user-trades";
 
-// This is the Client Component that contains all the interactive UI.
-function TradePageClient({ marketId }: { marketId: string }) {
+// The entire file is now a Client Component.
+// The `params` object can be directly accessed in the props.
+export default function TradePage({ params }: { params: { marketId: string } }) {
+  const { marketId } = params;
   const [selectedPrice, setSelectedPrice] = useState<number | undefined>(undefined);
 
   return (

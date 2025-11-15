@@ -105,7 +105,7 @@ export function OrderForm({ selectedPrice, marketId }: OrderFormProps) {
     }
   }, [marketOrderState, toast, buyForm, sellForm, defaultValues]);
   
-  const handleLimitOrderSubmit = (values: OrderFormValues) => {
+ const handleLimitOrderSubmit = (values: OrderFormValues) => {
     if (!firestore || !user) {
         toast({ variant: 'destructive', title: 'Error', description: 'User or database not available.' });
         return;
@@ -160,22 +160,24 @@ export function OrderForm({ selectedPrice, marketId }: OrderFormProps) {
     })
     .then(() => {
         toast({
-            status: 'success',
             title: 'Success',
-            description: `Limit ${side} order placed successfully and is now open.`,
+            description: `Limit ${side} order placed successfully.`,
         });
         buyForm.reset(defaultValues);
         sellForm.reset(defaultValues);
     })
-    .catch((error) => {
-        if (error.code === 'permission-denied' || error.message.includes('permission-denied')) {
+    .catch((error: any) => {
+        // This is the correct pattern for handling Firestore permission errors on the client.
+        if (error.code === 'permission-denied') {
             const permissionError = new FirestorePermissionError({
                 path: newOrderRef.path,
-                operation: 'create',
-                requestResourceData: newOrder
+                operation: 'create', // The transaction is creating a new order document
+                requestResourceData: newOrder // Pass the data that we tried to write
             });
+            // Emit the error globally for the FirebaseErrorListener to catch
             errorEmitter.emit('permission-error', permissionError);
         } else {
+            // Handle other types of errors (e.g., insufficient funds) with a standard toast
             toast({
                 variant: 'destructive',
                 title: 'Order Failed',

@@ -32,9 +32,10 @@ service cloud.firestore {
     
     // ORDERS can only be managed by the user who owns them
     match /orders/{orderId} {
-      // A user can read (get, list) their own orders.
-      // This rule works for list queries as long as the query includes a `where('userId', '==', request.auth.uid)` clause.
-      allow read: if request.auth.uid == resource.data.userId;
+      // A user can read (get) a single order if they own it.
+      allow get: if request.auth.uid == resource.data.userId;
+      // A user can list orders only if they are querying for their own orders.
+      allow list: if request.auth.uid == request.query.filters.userId;
       // A user can create an order if the order's userId matches their own.
       allow create: if request.auth.uid == request.resource.data.userId;
       // A user can update their own order only to cancel it.

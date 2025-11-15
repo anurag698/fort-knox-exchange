@@ -1,6 +1,7 @@
 
 
 
+
 export type Market = {
   id: string;
   baseAssetId: string;
@@ -65,7 +66,7 @@ export type Deposit = {
     userId: string;
     assetId: string;
     amount: number;
-    status: 'REQUESTED' | 'PENDING' | 'COMPLETED' | 'FAILED';
+    status: 'PENDING' | 'COMPLETED' | 'FAILED';
     transactionHash?: string;
     createdAt: any;
     updatedAt: any;
@@ -76,7 +77,7 @@ export type Withdrawal = {
     userId: string;
     assetId: string;
     amount: number;
-    status: 'REQUESTED' | 'PENDING' | 'APPROVED' | 'SENT' | 'REJECTED';
+    status: 'PENDING' | 'APPROVED' | 'SENT' | 'REJECTED' | 'FAILED';
     withdrawalAddress: string;
     transactionHash?: string;
     createdAt: any;

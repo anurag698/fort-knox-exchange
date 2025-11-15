@@ -4,7 +4,6 @@
 import { collection, query, where, orderBy, type QueryConstraint } from 'firebase/firestore';
 import { useCollection, useFirestore, useUser, useMemoFirebase } from '@/firebase';
 import type { Order } from '@/lib/types';
-import { useMemo } from 'react';
 
 export function useOrders(marketId?: string) {
   const firestore = useFirestore();
@@ -21,7 +20,8 @@ export function useOrders(marketId?: string) {
       orderBy('createdAt', 'desc')
     ];
     
-    // Only filter by marketId if it is provided
+    // Only filter by marketId if it is provided.
+    // This allows the hook to be used to fetch all orders for a user, or just for a specific market.
     if (marketId) {
         queryConstraints.push(where('marketId', '==', marketId));
     }

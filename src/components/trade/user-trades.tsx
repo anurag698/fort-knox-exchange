@@ -53,6 +53,7 @@ export function UserTrades({ marketId }: { marketId: string }) {
             case 'EXECUTING':
                 return 'default';
             case 'CANCELED':
+            case 'FAILED':
                 return 'destructive';
             case 'FILLED':
                 return 'default'; // Success state, could be green

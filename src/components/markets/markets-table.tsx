@@ -1,6 +1,8 @@
 
 'use client';
 
+import { useState, useEffect } from 'react';
+import type { Market, Asset } from '@/lib/types';
 import {
   Table,
   TableBody,
@@ -9,10 +11,11 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import type { Market, Asset } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { ArrowUp, ArrowDown } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
+import { AlertCircle } from 'lucide-react';
 
 type EnrichedMarket = Market & {
   baseAsset?: Asset;
@@ -21,11 +24,61 @@ type EnrichedMarket = Market & {
 };
 
 type MarketsTableProps = {
-  markets: EnrichedMarket[];
+  initialMarkets: EnrichedMarket[];
 };
 
-export function MarketsTable({ markets }: MarketsTableProps) {
+export function MarketsTable({ initialMarkets }: MarketsTableProps) {
+  const [markets, setMarkets] = useState<EnrichedMarket[]>(initialMarkets);
+  const [prices, setPrices] = useState<Record<string, number>>({});
+  const [wsError, setWsError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!initialMarkets || initialMarkets.length === 0) return;
+
+    const marketSymbols = initialMarkets.map(m => `${m.baseAssetId}${m.quoteAssetId}`);
+    if (marketSymbols.length === 0) return;
+
+    const ws = new WebSocket(`wss://stream.binance.com:9443/ws/${marketSymbols.map(s => `${s.toLowerCase()}@trade`).join('/')}`);
+    
+    ws.onmessage = (event) => {
+      const wsData = JSON.parse(event.data);
+      if (wsData && wsData.s && wsData.p) {
+        setPrices(prevPrices => ({
+          ...prevPrices,
+          [wsData.s]: parseFloat(wsData.p),
+        }));
+      }
+    };
+    
+    ws.onerror = (err) => {
+        console.error("Markets WebSocket error:", err);
+        setWsError("Failed to connect to live price feed. Displaying static data.");
+    }
+
+    return () => {
+      ws.close();
+    };
+  }, [initialMarkets]);
+
+  useEffect(() => {
+    // Update market prices when the `prices` state changes
+    setMarkets(prevMarkets => 
+        prevMarkets.map(market => ({
+            ...market,
+            price: prices[`${market.baseAssetId}${market.quoteAssetId}`] ?? market.price,
+        }))
+    );
+  }, [prices]);
+
   return (
+    <>
+    {wsError && (
+       <Alert variant="destructive" className="mb-4">
+        <AlertCircle className="h-4 w-4" />
+        <AlertTitle>Live Data Error</AlertTitle>
+        <AlertDescription>{wsError}</AlertDescription>
+      </Alert>
+    )}
     <div className="rounded-md border">
       <Table>
         <TableHeader>
@@ -63,5 +116,6 @@ export function MarketsTable({ markets }: MarketsTableProps) {
         </TableBody>
       </Table>
     </div>
+    </>
   );
 }

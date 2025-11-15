@@ -8,6 +8,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
+  DialogDescription,
 } from "@/components/ui/dialog"
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -79,6 +80,9 @@ export function TokenSelector({ chainId, onSelectToken, selectedToken }: TokenSe
       <DialogContent className="max-w-md">
         <DialogHeader>
           <DialogTitle>Select a Token</DialogTitle>
+          <DialogDescription>
+            Search for a token by name, symbol, or address, or select one from the list.
+          </DialogDescription>
         </DialogHeader>
         <div className="space-y-4">
           <Input 

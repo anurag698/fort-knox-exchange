@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { AlertCircle, XCircle } from "lucide-react";
+import { AlertCircle, XCircle, LogIn } from "lucide-react";
 import { useEffect } from "react";
 import { useActionState } from "react";
 import { cancelOrder } from "@/app/actions";
@@ -41,8 +41,9 @@ function CancelOrderButton({ orderId, userId }: { orderId: string, userId: strin
 }
 
 export function UserTrades({ marketId }: { marketId: string }) {
-    const { user } = useUser();
+    const { user, isUserLoading } = useUser();
     // Pass the marketId directly to the hook
+    // The hook is now safe and will not run a query until the user is loaded.
     const { data: orders, isLoading, error } = useOrders(marketId);
 
     const getStatusBadgeVariant = (status: Order['status']) => {
@@ -64,7 +65,7 @@ export function UserTrades({ marketId }: { marketId: string }) {
 
 
     const renderContent = () => {
-        if (isLoading) {
+        if (isLoading || isUserLoading) {
             return (
                 <div className="space-y-2">
                     <Skeleton className="h-10 w-full" />
@@ -84,6 +85,15 @@ export function UserTrades({ marketId }: { marketId: string }) {
                     </AlertDescription>
                 </Alert>
             );
+        }
+
+        if (!user) {
+            return (
+                <div className="text-center py-12 text-muted-foreground flex flex-col items-center gap-2">
+                    <LogIn className="h-6 w-6" />
+                    <p>Please sign in to view your orders.</p>
+                </div>
+            )
         }
         
         if (!orders || orders.length === 0) {

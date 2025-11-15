@@ -10,8 +10,8 @@ export function useOrders(marketId?: string) {
   const { user, isUserLoading } = useUser();
 
   const ordersQuery = useMemoFirebase(() => {
-    // Await user authentication before constructing the query.
-    // If we are loading or there is no user, return null to prevent an invalid query.
+    // Explicitly return null if the user is loading or not authenticated.
+    // This prevents an invalid query from ever being created.
     if (isUserLoading || !user?.uid) {
       return null;
     }
@@ -22,6 +22,8 @@ export function useOrders(marketId?: string) {
     ];
 
     if (marketId) {
+      // Add the marketId filter to the beginning of the constraints array
+      // for optimal query performance.
       constraints.unshift(where('marketId', '==', marketId));
     }
 

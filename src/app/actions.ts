@@ -12,6 +12,8 @@ import axios from 'axios';
 import { headers } from 'next/headers';
 import type { DexBuildTxResponse } from '@/lib/dex/dex.types';
 import { broadcastAndReconcileTransaction } from "@/lib/wallet-service";
+import { FirestorePermissionError, type SecurityRuleContext } from '@/firebase/errors';
+import { errorEmitter } from '@/firebase/error-emitter';
 
 type FormState = {
   status: 'success' | 'error' | 'idle';
@@ -229,6 +231,19 @@ export async function createOrder(prevState: FormState, formData: FormData): Pro
     const [baseAssetId, quoteAssetId] = marketId.split('-');
     
     const orderRef = firestore.collection('orders').doc();
+    const newOrder = {
+        id: orderRef.id,
+        userId,
+        marketId,
+        side,
+        type,
+        quantity,
+        price,
+        status: type === 'LIMIT' ? 'OPEN' : 'EXECUTING',
+        filledAmount: 0,
+        createdAt: FieldValue.serverTimestamp(),
+        updatedAt: FieldValue.serverTimestamp(),
+    };
 
     try {
         if(type === 'LIMIT' && price) {
@@ -253,19 +268,6 @@ export async function createOrder(prevState: FormState, formData: FormData): Pro
                 transaction.update(balanceRef, { available: newAvailable, locked: newLocked, updatedAt: FieldValue.serverTimestamp() });
 
                 // Create order
-                const newOrder = {
-                    id: orderRef.id,
-                    userId,
-                    marketId,
-                    side,
-                    price,
-                    quantity,
-                    type: 'LIMIT',
-                    status: 'OPEN',
-                    filledAmount: 0,
-                    createdAt: FieldValue.serverTimestamp(),
-                    updatedAt: FieldValue.serverTimestamp(),
-                };
                 transaction.set(orderRef, newOrder);
             });
 
@@ -318,18 +320,7 @@ export async function createOrder(prevState: FormState, formData: FormData): Pro
                     available: FieldValue.increment(-amountToLock), 
                     locked: FieldValue.increment(amountToLock) 
                 });
-                t.set(orderRef, {
-                    id: orderRef.id,
-                    userId,
-                    marketId,
-                    side,
-                    quantity,
-                    type: 'MARKET',
-                    status: 'EXECUTING',
-                    filledAmount: 0,
-                    createdAt: FieldValue.serverTimestamp(),
-                    updatedAt: FieldValue.serverTimestamp(),
-                });
+                t.set(orderRef, newOrder);
             });
 
             const hotWalletAddress = "0xc4248A802613B40B515B35C15809774635607311"; // Placeholder
@@ -374,7 +365,19 @@ export async function createOrder(prevState: FormState, formData: FormData): Pro
              return { status: 'error', message: 'Invalid order type or missing price for limit order.' };
         }
 
-    } catch (e) {
+    } catch (e: any) {
+        // This is the new, targeted error handling block.
+        if (e.message.includes('permission-denied') || e.message.includes('insufficient permissions')) {
+             const permissionError = new FirestorePermissionError({
+                path: orderRef.path,
+                operation: 'create',
+                requestResourceData: newOrder
+            });
+            // This error will now be caught by the FirebaseErrorListener
+            // and displayed in the Next.js error overlay.
+            throw permissionError;
+        }
+
         const error = e as Error;
         console.error("Create Order Error:", error);
         return {
@@ -719,3 +722,5 @@ export async function submitKyc(prevState: any, formData: FormData): Promise<For
     };
   }
 }
+
+    

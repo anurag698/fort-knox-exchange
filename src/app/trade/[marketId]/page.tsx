@@ -8,7 +8,7 @@ import { OrderForm } from "@/components/trade/order-form";
 import { UserTrades } from "@/components/trade/user-trades";
 
 // This is the Client Component that contains all the interactive UI.
-function TradePageClient({ marketId }: { marketId: string }) {
+export default function TradePageClient({ marketId }: { marketId: string }) {
   const [selectedPrice, setSelectedPrice] = useState<number | undefined>(undefined);
 
   return (
@@ -24,14 +24,4 @@ function TradePageClient({ marketId }: { marketId: string }) {
       </div>
     </div>
   );
-}
-
-// NOTE: We are keeping the 'use client' directive at the top of this file.
-// The default export will now be the client component.
-// Any server-side logic for this route should be moved to a parent Server Component
-// or handled via API routes. Since this page is purely interactive, making it
-// fully client-side is the most direct way to resolve the rendering errors.
-export default function MarketTradePage({ params }: { params: { marketId: string } }) {
-  const { marketId } = params;
-  return <TradePageClient marketId={marketId} />;
 }

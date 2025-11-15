@@ -295,6 +295,10 @@ export async function createSession(token: string) {
     const userDoc = await userRef.get();
 
     if (!userDoc.exists) {
+      // Check if this is the first user
+      const usersSnapshot = await firestore.collection('users').limit(1).get();
+      const isFirstUser = usersSnapshot.empty;
+
       // Create user document and seed balances if it's their first time.
       const batch = firestore.batch();
       const newUser = {
@@ -305,7 +309,8 @@ export async function createSession(token: string) {
         referralCode: Math.random().toString(36).substring(2, 8).toUpperCase(),
         createdAt: FieldValue.serverTimestamp(),
         updatedAt: FieldValue.serverTimestamp(),
-        isAdmin: decodedToken.email === 'admin@fortknox.exchange'
+        // Make the first user an admin, OR if the specific admin email is used.
+        isAdmin: isFirstUser || decodedToken.email === 'admin@fortknox.exchange'
       };
       batch.set(userRef, newUser);
 
@@ -642,3 +647,5 @@ export async function submitKyc(prevState: any, formData: FormData): Promise<For
     };
   }
 }
+
+    

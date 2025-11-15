@@ -2,12 +2,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useActionState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { useUser } from "@/firebase";
-import { createOrder } from "@/app/actions";
+import { useUser, useFirestore, errorEmitter, FirestorePermissionError } from "@/firebase";
+import { createMarketOrder } from "@/app/actions";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -17,12 +16,17 @@ import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { cn } from "@/lib/utils";
+import { doc, runTransaction, serverTimestamp, writeBatch } from "firebase/firestore";
+import type { Order } from "@/lib/types";
+import { useActionState } from "react";
+
 
 const orderSchema = z.object({
   price: z.coerce.number().optional(),
   quantity: z.coerce.number().positive({ message: "Amount must be positive." }),
   marketId: z.string(),
   type: z.enum(['LIMIT', 'MARKET']),
+  side: z.enum(['BUY', 'SELL']),
   userId: z.string(),
 });
 
@@ -35,34 +39,39 @@ interface OrderFormProps {
 
 export function OrderForm({ selectedPrice, marketId }: OrderFormProps) {
   const { user } = useUser();
+  const firestore = useFirestore();
   const { toast } = useToast();
   const [baseAsset, quoteAsset] = marketId ? marketId.split('-') : ['', ''];
   const [orderType, setOrderType] = useState<'LIMIT' | 'MARKET'>('LIMIT');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  
+  const [marketOrderState, marketOrderAction] = useActionState(createMarketOrder, { status: "idle", message: "" });
 
-  const [buyState, buyAction] = useActionState(createOrder, { status: "idle", message: "" });
-  const [sellState, sellAction] = useActionState(createOrder, { status: "idle", message: "" });
 
-  const defaultValues = {
+  const defaultValues: Partial<OrderFormValues> = {
       price: undefined,
       quantity: undefined,
       marketId,
-      type: 'LIMIT' as 'LIMIT' | 'MARKET',
+      type: 'LIMIT',
       userId: user?.uid || '',
   }
 
   const buyForm = useForm<OrderFormValues>({
     resolver: zodResolver(orderSchema),
-    defaultValues
+    defaultValues: {...defaultValues, side: 'BUY'}
   });
 
   const sellForm = useForm<OrderFormValues>({
     resolver: zodResolver(orderSchema),
-    defaultValues
+    defaultValues: {...defaultValues, side: 'SELL' }
   });
-
+  
+  // Effects to synchronize form state with props and user state
   useEffect(() => {
-    buyForm.setValue('userId', user?.uid || '');
-    sellForm.setValue('userId', user?.uid || '');
+    if (user?.uid) {
+      buyForm.setValue('userId', user.uid);
+      sellForm.setValue('userId', user.uid);
+    }
   }, [user, buyForm, sellForm]);
 
   useEffect(() => {
@@ -89,46 +98,138 @@ export function OrderForm({ selectedPrice, marketId }: OrderFormProps) {
   }, [marketId, buyForm, sellForm]);
 
   useEffect(() => {
-    if (buyState.status === 'success' && buyState.message) {
-      toast({ title: "Success", description: buyState.message });
-      buyForm.reset({ ...defaultValues, price: buyForm.getValues('price') });
-    } else if (buyState.status === 'error' && buyState.message) {
-      toast({ variant: "destructive", title: "Error", description: buyState.message });
+    if (marketOrderState.status === 'success') {
+      toast({ title: "Success", description: marketOrderState.message });
+      buyForm.reset(defaultValues);
+      sellForm.reset(defaultValues);
+    } else if (marketOrderState.status === 'error') {
+      toast({ variant: "destructive", title: "Error", description: marketOrderState.message });
     }
-  }, [buyState, toast, buyForm, marketId, orderType, defaultValues]);
+  }, [marketOrderState, toast, buyForm, sellForm, defaultValues]);
+  
+  const handleLimitOrderSubmit = async (values: OrderFormValues) => {
+      if (!firestore || !user) {
+          toast({ variant: 'destructive', title: 'Error', description: 'User or database not available.' });
+          return;
+      }
+      setIsSubmitting(true);
 
-  useEffect(() => {
-    if (sellState.status === 'success' && sellState.message) {
-      toast({ title: "Success", description: sellState.message });
-      sellForm.reset({ ...defaultValues, price: sellForm.getValues('price') });
-    } else if (sellState.status === 'error' && sellState.message) {
-      toast({ variant: "destructive", title: "Error", description: sellState.message });
-    }
-  }, [sellState, toast, sellForm, marketId, orderType, defaultValues]);
+      const { price, quantity, side, marketId, type } = values;
+      
+      if (type === 'LIMIT' && (!price || price <= 0)) {
+        toast({ variant: 'destructive', title: 'Error', description: 'A positive price is required for Limit orders.' });
+        setIsSubmitting(false);
+        return;
+      }
 
-  const OrderTabContent = ({ side, form, action }: { side: 'BUY' | 'SELL', form: any, action: any }) => {
-    const price = form.watch("price");
-    const quantity = form.watch("quantity");
+      const newOrderRef = doc(firestore, `orders/${doc(firestore, 'orders').id}`);
+      const newOrder: Omit<Order, 'createdAt' | 'updatedAt'> = {
+          id: newOrderRef.id,
+          userId: user.uid,
+          marketId,
+          side,
+          type,
+          quantity,
+          price,
+          status: 'OPEN',
+          filledAmount: 0,
+      };
+
+      try {
+          await runTransaction(firestore, async (transaction) => {
+              const assetToLock = side === 'BUY' ? quoteAsset : baseAsset;
+              const amountToLock = side === 'BUY' ? (price || 0) * quantity : quantity;
+              
+              const balanceRef = doc(firestore, 'users', user.uid, 'balances', assetToLock);
+              const balanceSnap = await transaction.get(balanceRef);
+
+              if (!balanceSnap.exists()) {
+                  throw new Error(`You have no balance for ${assetToLock}.`);
+              }
+              const balanceData = balanceSnap.data()!;
+              if (balanceData.available < amountToLock) {
+                  throw new Error(`Insufficient funds. You need ${amountToLock} ${assetToLock}, but only have ${balanceData.available}.`);
+              }
+              
+              const newAvailable = balanceData.available - amountToLock;
+              const newLocked = (balanceData.locked || 0) + amountToLock;
+              transaction.update(balanceRef, { available: newAvailable, locked: newLocked, updatedAt: serverTimestamp() });
+
+              transaction.set(newOrderRef, {
+                  ...newOrder,
+                  createdAt: serverTimestamp(),
+                  updatedAt: serverTimestamp()
+              });
+          });
+
+          toast({
+              status: 'success',
+              title: 'Success',
+              description: `Limit ${side} order placed successfully and is now open.`,
+          });
+          buyForm.reset(defaultValues);
+          sellForm.reset(defaultValues);
+      } catch (e: any) {
+          if (e.code === 'permission-denied' || e.name === 'FirebaseError' && e.message.includes('permission-denied')) {
+                const permissionError = new FirestorePermissionError({
+                    path: newOrderRef.path,
+                    operation: 'create',
+                    requestResourceData: newOrder
+                });
+                errorEmitter.emit('permission-error', permissionError);
+                
+                toast({
+                    variant: 'destructive',
+                    title: 'Permission Denied',
+                    description: 'Your request was blocked by security rules. More info in console.',
+                });
+          } else {
+              toast({
+                  variant: 'destructive',
+                  title: 'Order Failed',
+                  description: e.message || 'An unknown error occurred.',
+              });
+          }
+      } finally {
+          setIsSubmitting(false);
+      }
+  };
+
+
+  const OrderTabContent = ({ side }: { side: 'BUY' | 'SELL' }) => {
+    const form = side === 'BUY' ? buyForm : sellForm;
+    const { watch, control, handleSubmit } = form;
+    const price = watch("price");
+    const quantity = watch("quantity");
     const total = price && quantity ? price * quantity : 0;
-    const currentOrderType = form.watch("type");
+    
+    const onSubmit = (data: OrderFormValues) => {
+        if (orderType === 'LIMIT') {
+            handleLimitOrderSubmit(data);
+        } else {
+            // For market orders, we still use a server action.
+            const formData = new FormData();
+            Object.entries(data).forEach(([key, value]) => {
+                if (value !== undefined && value !== null) {
+                    formData.append(key, String(value));
+                }
+            });
+            marketOrderAction(formData);
+        }
+    };
 
     return (
       <Form {...form}>
-        <form action={action} className="mt-4 space-y-4">
-          <input type="hidden" name="side" value={side} />
-           <input type="hidden" name="marketId" value={marketId} />
-           <input type="hidden" name="type" value={currentOrderType} />
-           <input type="hidden" name="userId" value={user?.uid || ''} />
-          
-           {currentOrderType === 'LIMIT' && (
+        <form onSubmit={handleSubmit(onSubmit)} className="mt-4 space-y-4">
+           {orderType === 'LIMIT' && (
              <FormField
-                control={form.control}
+                control={control}
                 name="price"
                 render={({ field }) => (
                 <FormItem>
                     <FormLabel>Price ({quoteAsset})</FormLabel>
                     <FormControl>
-                    <Input placeholder="0.00" type="number" step="0.01" {...field} />
+                    <Input placeholder="0.00" type="number" step="0.01" {...field} value={field.value ?? ''} />
                     </FormControl>
                     <FormMessage />
                 </FormItem>
@@ -136,19 +237,19 @@ export function OrderForm({ selectedPrice, marketId }: OrderFormProps) {
             />
            )}
           <FormField
-            control={form.control}
+            control={control}
             name="quantity"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Amount ({baseAsset})</FormLabel>
+                <FormLabel>Amount ({orderType === 'MARKET' && side === 'BUY' ? quoteAsset : baseAsset})</FormLabel>
                 <FormControl>
-                  <Input placeholder="0.00" type="number" step="0.0001" {...field} />
+                  <Input placeholder="0.00" type="number" step="0.0001" {...field} value={field.value ?? ''} />
                 </FormControl>
                 <FormMessage />
               </FormItem>
             )}
           />
-          {currentOrderType === 'LIMIT' && (
+          {orderType === 'LIMIT' && (
             <div className="space-y-2">
                 <Label>Total</Label>
                 <Input placeholder="0.00" type="number" readOnly value={total.toFixed(2)} />
@@ -158,7 +259,7 @@ export function OrderForm({ selectedPrice, marketId }: OrderFormProps) {
             type="submit"
             className={cn("w-full", side === 'BUY' ? "bg-green-600 hover:bg-green-700 text-white" : "")}
             variant={side === 'SELL' ? 'destructive' : 'default'}
-            disabled={!user}
+            disabled={!user || isSubmitting || (orderType === 'MARKET' && marketOrderState.status === 'executing')}
           >
             {user ? `${side} ${baseAsset}` : 'Please sign in'}
           </Button>
@@ -183,10 +284,10 @@ export function OrderForm({ selectedPrice, marketId }: OrderFormProps) {
             <TabsTrigger value="sell">Sell</TabsTrigger>
           </TabsList>
           <TabsContent value="buy">
-            <OrderTabContent side="BUY" form={buyForm} action={buyAction} />
+            <OrderTabContent side="BUY" />
           </TabsContent>
           <TabsContent value="sell">
-            <OrderTabContent side="SELL" form={sellForm} action={sellAction} />
+            <OrderTabContent side="SELL" />
           </TabsContent>
         </Tabs>
       </CardContent>

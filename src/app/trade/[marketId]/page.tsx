@@ -1,6 +1,7 @@
+
 'use client';
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Balances } from "@/components/trade/balances";
 import { Charting } from "@/components/trade/charting";
 import { OrderBook } from "@/components/trade/order-book";
@@ -10,6 +11,10 @@ import { UserTrades } from "@/components/trade/user-trades";
 export default function MarketTradePage({ params }: { params: { marketId: string } }) {
   const [selectedPrice, setSelectedPrice] = useState<number | undefined>(undefined);
   const [marketId, setMarketId] = useState<string>(params.marketId || 'BTC-USDT');
+
+  useEffect(() => {
+    setMarketId(params.marketId || 'BTC-USDT');
+  }, [params.marketId]);
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">

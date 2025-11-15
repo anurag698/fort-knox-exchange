@@ -28,12 +28,12 @@ export function useMarkets() {
     if (!data) {
       return null;
     }
-    const result = data.map(market => ({
+    return data.map(market => ({
       ...market,
+      // The change and volume are mocked as they are not in our DB
       change: (market.id.charCodeAt(0) % 11) - 5 + Math.random() * 2 - 1,
       volume: Math.random() * 1000000,
     }));
-    return result;
   }, [data]);
 
   return { data: marketsWithMockData, ...rest };

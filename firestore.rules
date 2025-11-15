@@ -31,7 +31,7 @@ service cloud.firestore {
     }
 
     // PUBLIC DATA
-    // Anyone can read markets and assets. Only backend can write.
+    // Anyone can read markets and assets. Only authenticated users (admins) can write.
     match /markets/{marketId} {
       allow read: if true;
       allow write: if isSignedIn();

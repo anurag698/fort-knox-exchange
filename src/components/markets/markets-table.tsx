@@ -50,7 +50,7 @@ export function MarketsTable({ markets }: MarketsTableProps) {
                   </div>
                 </TableCell>
                 <TableCell className={cn("font-mono", market.price > 0 ? (isPositive ? 'text-green-600' : 'text-red-600') : 'text-muted-foreground')}>
-                  {market.price > 0 ? `$${market.price.toLocaleString()}` : <Skeleton className="h-4 w-20" />}
+                  {market.price > 0 ? `$${market.price.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: market.pricePrecision})}` : <Skeleton className="h-4 w-20" />}
                 </TableCell>
                 <TableCell className={cn("flex items-center gap-1", isPositive ? 'text-green-600' : 'text-red-600')}>
                   {isPositive ? <ArrowUp className="h-4 w-4" /> : <ArrowDown className="h-4 w-4" />}

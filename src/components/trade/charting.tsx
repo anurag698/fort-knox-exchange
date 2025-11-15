@@ -46,10 +46,10 @@ const useLivePrice = (symbol: string) => {
             }
         };
 
-        ws.onerror = (err) => {
-            // Don't log the raw event, which is an empty object on connection close.
-            console.error(`WebSocket error for symbol: ${symbol}`);
-            setError(new Error("WebSocket connection failed."));
+        ws.onerror = () => {
+            // This error often fires on page navigation or hot-reloads, logging a generic empty object.
+            // The browser console will show a more specific "WebSocket connection failed" message if it's a real issue.
+            setError(new Error("WebSocket connection failed. Live price updates may be unavailable."));
         };
 
         ws.onclose = () => {
@@ -498,5 +498,3 @@ export function Charting({ marketId, setMarketId }: { marketId: string, setMarke
     </Card>
   )
 }
-
-    

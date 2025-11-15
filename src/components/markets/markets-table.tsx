@@ -20,6 +20,7 @@ import { AlertCircle } from 'lucide-react';
 type EnrichedMarket = Market & {
   baseAsset?: Asset;
   quoteAsset?: Asset;
+  price?: number;
 };
 
 type MarketsTableProps = {

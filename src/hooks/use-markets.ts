@@ -7,10 +7,12 @@ import type { Market } from '@/lib/types';
 
 export function useMarkets() {
   const firestore = useFirestore();
+  
   const marketsCollection = useMemoFirebase(
     () => (firestore ? collection(firestore, 'markets') : null),
     [firestore]
   );
+
   const marketsQuery = useMemoFirebase(
     () => (marketsCollection ? query(marketsCollection) : null),
     [marketsCollection]

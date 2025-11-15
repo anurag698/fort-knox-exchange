@@ -8,32 +8,36 @@ import { useEffect, useState } from 'react';
 
 export function useUsers() {
   const firestore = useFirestore();
-  const { user } = useUser();
+  const { user, isUserLoading } = useUser();
   const [isAdmin, setIsAdmin] = useState(false);
-  const [isLoadingAdmin, setIsLoadingAdmin] = useState(true);
+  const [isCheckingAdmin, setIsCheckingAdmin] = useState(true);
 
   useEffect(() => {
-    const checkAdmin = async () => {
-      setIsLoadingAdmin(true);
-      if (user && firestore) {
-        try {
-          const userDoc = await getDoc(doc(firestore, 'users', user.uid));
+    // Only run the check if the user object is available.
+    if (user && firestore) {
+      setIsCheckingAdmin(true);
+      const userDocRef = doc(firestore, 'users', user.uid);
+      getDoc(userDocRef)
+        .then(userDoc => {
           if (userDoc.exists() && userDoc.data().isAdmin) {
             setIsAdmin(true);
           } else {
             setIsAdmin(false);
           }
-        } catch (error) {
+        })
+        .catch(error => {
           console.error("Failed to check admin status", error);
           setIsAdmin(false);
-        }
-      } else {
-        setIsAdmin(false);
-      }
-      setIsLoadingAdmin(false);
-    };
-    checkAdmin();
-  }, [user, firestore]);
+        })
+        .finally(() => {
+          setIsCheckingAdmin(false);
+        });
+    } else if (!isUserLoading) {
+      // If there's no user and we're not loading one, they're not an admin.
+      setIsAdmin(false);
+      setIsCheckingAdmin(false);
+    }
+  }, [user, firestore, isUserLoading]);
 
   const usersCollection = useMemoFirebase(
     () => (firestore && isAdmin ? collection(firestore, 'users') : null),
@@ -45,15 +49,24 @@ export function useUsers() {
     [usersCollection]
   );
   
+  // Fetch data only if the user is an admin.
   const { data, isLoading, error } = useCollection<UserProfile>(usersQuery);
 
-  const finalIsLoading = isLoading || isLoadingAdmin;
+  const showLoading = isLoading || isCheckingAdmin;
+  
+  // If we're done checking and the user is not an admin, return empty with an error.
+  if (!showLoading && !isAdmin) {
+      return {
+          data: [],
+          isLoading: false,
+          error: new Error("You do not have permission to view users.")
+      }
+  }
 
+  // Otherwise, return the result of the collection query.
   return {
-      data: !finalIsLoading && isAdmin ? data : [],
-      isLoading: finalIsLoading,
-      error: !finalIsLoading && !isAdmin ? new Error("You do not have permission to view users.") : error
+      data,
+      isLoading: showLoading,
+      error
   }
 }
-
-    

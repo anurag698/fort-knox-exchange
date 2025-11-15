@@ -12,6 +12,8 @@ import { approveKyc, rejectKyc } from '@/app/actions';
 import { useActionState, useTransition } from 'react';
 import { useFormStatus } from 'react-dom';
 import { useUserById } from "@/hooks/use-user-by-id";
+import { UserDeposits } from "@/components/wallet/user-deposits";
+import { UserWithdrawals } from "@/components/wallet/user-withdrawals";
 
 function KycButtons({ disabled, userId }: { disabled: boolean, userId?: string }) {
   const [approvePending, startApproveTransition] = useTransition();
@@ -167,6 +169,11 @@ export default function ManageUserPage({ params }: { params: { id: string } }) {
                 <KycButtons disabled={!user || user.kycStatus !== 'PENDING'} userId={user?.id} />
             </CardFooter>
         </Card>
+
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            <UserDeposits userId={params.id} />
+            <UserWithdrawals userId={params.id} />
+        </div>
     </div>
   );
 }

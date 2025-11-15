@@ -4,7 +4,7 @@
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { AlertCircle, ArrowLeft, ShieldAlert, ShieldCheck, Loader2, History } from 'lucide-react';
+import { AlertCircle, ArrowLeft, ShieldAlert, ShieldCheck, Loader2, History, User } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
@@ -109,10 +109,22 @@ export default function ReviewWithdrawalPage({ params }: { params: { id: string 
     return (
       <div className="space-y-6">
         <div>
-            <h3 className="text-lg font-medium">User Details</h3>
-            <p className="text-sm text-muted-foreground">User ID: {userProfile?.id ?? '...'}</p>
-            <p className="text-sm text-muted-foreground">Email: {userProfile?.email ?? '...'}</p>
-            <p className="text-sm text-muted-foreground">KYC Status: <Badge variant={userProfile?.kycStatus === 'VERIFIED' ? 'default' : 'secondary'}>{userProfile?.kycStatus}</Badge></p>
+            <div className="flex justify-between items-start">
+                <div>
+                    <h3 className="text-lg font-medium">User Details</h3>
+                    <p className="text-sm text-muted-foreground">User ID: {userProfile?.id ?? '...'}</p>
+                    <p className="text-sm text-muted-foreground">Email: {userProfile?.email ?? '...'}</p>
+                </div>
+                {userProfile && (
+                     <Button variant="outline" size="sm" asChild>
+                        <Link href={`/admin/users/${userProfile.id}`}>
+                            <User className="mr-2 h-4 w-4" />
+                            Manage User
+                        </Link>
+                    </Button>
+                )}
+            </div>
+             <p className="text-sm text-muted-foreground mt-2">KYC Status: <Badge variant={userProfile?.kycStatus === 'VERIFIED' ? 'default' : 'secondary'}>{userProfile?.kycStatus}</Badge></p>
         </div>
         <div>
             <h3 className="text-lg font-medium">Withdrawal Details</h3>

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from "react";
+import { useState, use } from "react";
 import { Balances } from "@/components/trade/balances";
 import { MemoizedTradingViewChart } from "@/components/trade/trading-view-chart";
 import { OrderBook } from "@/components/trade/order-book";

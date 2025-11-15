@@ -10,8 +10,8 @@ export function useOrders(marketId?: string) {
   const { user, isUserLoading } = useUser();
 
   const ordersQuery = useMemoFirebase(() => {
-    // **CRITICAL FIX**: Do not create a query until user loading is complete and a user is present.
-    // This prevents a race condition where an invalid query is created on initial render.
+    // Do not create a query until user loading is complete and a user is present.
+    // This prevents a race condition where an unauthenticated query is sent.
     if (isUserLoading || !user) {
       return null;
     }
@@ -22,15 +22,11 @@ export function useOrders(marketId?: string) {
     ];
 
     if (marketId) {
-      // This will add the marketId filter to the beginning of the constraints array.
-      // Firestore requires that the field in the first orderBy clause must also be
-      // present in an inequality filter, but here we are using '==' which is fine.
-      // If we were using >, <, >=, <= on another field, we'd need a composite index.
       constraints.unshift(where('marketId', '==', marketId));
     }
 
     return query(collection(firestore, 'orders'), ...constraints);
-  }, [firestore, user?.uid, marketId, isUserLoading]); // Depend on user.uid directly
+  }, [firestore, user, marketId, isUserLoading]); // Add isUserLoading to the dependency array
 
   const { data, isLoading, error } = useCollection<Order>(ordersQuery);
 

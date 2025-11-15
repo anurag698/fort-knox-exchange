@@ -10,8 +10,8 @@ export function useOrders(marketId?: string) {
   const { user, isUserLoading } = useUser();
 
   const ordersQuery = useMemoFirebase(() => {
-    // This is the critical guard. If the user state is still loading,
-    // or if there is no user, we must not build a query. Return null.
+    // CRITICAL FIX: Do not build the query if auth state is loading or there's no user.
+    // This prevents the race condition that causes the permission error.
     if (isUserLoading || !user) {
       return null;
     }

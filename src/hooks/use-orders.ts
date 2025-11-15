@@ -8,9 +8,12 @@ import type { Order } from '@/lib/types';
 export function useOrders(userId?: string, marketId?: string) {
   const firestore = useFirestore();
 
+  // This is the definitive fix.
+  // The query is only constructed inside useMemoFirebase, and the memoization
+  // now depends directly on `userId`. If `userId` is undefined or null,
+  // the factory function will return `null`, preventing any query from being created.
   const ordersQuery = useMemoFirebase(() => {
-    // If there is no user ID, we cannot fetch orders.
-    if (!userId) {
+    if (!firestore || !userId) {
       return null;
     }
 

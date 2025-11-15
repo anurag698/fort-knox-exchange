@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useEffect, useState } from 'react';
@@ -167,7 +168,8 @@ export function OrderForm({ selectedPrice, marketId }: OrderFormProps) {
         sellForm.reset(defaultValues);
     })
     .catch((error: any) => {
-        if (error.code === 'permission-denied') {
+        // This is the correct way to catch permission-denied errors from runTransaction
+        if (error.code === 'permission-denied' || (error.toString && error.toString().includes('permission_denied'))) {
             const permissionError = new FirestorePermissionError({
                 path: newOrderRef.path,
                 operation: 'create',
@@ -178,7 +180,7 @@ export function OrderForm({ selectedPrice, marketId }: OrderFormProps) {
             toast({
                 variant: 'destructive',
                 title: 'Order Failed',
-                description: error.message || 'An unknown error occurred.',
+                description: error.message || 'An unknown error occurred during the transaction.',
             });
         }
     })
@@ -285,3 +287,5 @@ export function OrderForm({ selectedPrice, marketId }: OrderFormProps) {
     </Card>
   );
 }
+
+    

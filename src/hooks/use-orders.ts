@@ -10,9 +10,12 @@ export function useOrders(marketId?: string) {
   const { user, isUserLoading } = useUser();
 
   const ordersQuery = useMemoFirebase(() => {
-    // Explicitly return null if the user is loading or not authenticated.
-    // This prevents an invalid query from ever being created.
-    if (isUserLoading || !user?.uid) {
+    // **CRITICAL FIX**: Do not create a query until user loading is complete and a user is present.
+    // This prevents a race condition where an invalid query is created on initial render.
+    if (isUserLoading) {
+      return null;
+    }
+    if (!user) {
       return null;
     }
 
@@ -22,8 +25,6 @@ export function useOrders(marketId?: string) {
     ];
 
     if (marketId) {
-      // Add the marketId filter to the beginning of the constraints array
-      // for optimal query performance.
       constraints.unshift(where('marketId', '==', marketId));
     }
 
@@ -32,6 +33,6 @@ export function useOrders(marketId?: string) {
 
   const { data, isLoading, error } = useCollection<Order>(ordersQuery);
 
-  // The overall loading state depends on both the user loading and the collection loading.
+  // The overall loading state depends on both the initial user loading and the subsequent collection loading.
   return { data, isLoading: isUserLoading || isLoading, error };
 }

@@ -17,7 +17,7 @@ function TradePageClient({ marketId }: { marketId: string }) {
         <MemoizedTradingViewChart marketId={marketId} />
         <UserTrades marketId={marketId} />
       </div>
-      <div className="lg:col-span-3 flex flex-col gap-4">
+      <div className="lg-col-span-3 flex flex-col gap-4">
         <OrderBook marketId={marketId} onPriceSelect={setSelectedPrice} />
         <Balances marketId={marketId} />
         <OrderForm marketId={marketId} selectedPrice={selectedPrice} />

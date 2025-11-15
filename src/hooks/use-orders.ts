@@ -1,17 +1,16 @@
 
 'use client';
 
-import { collection, query, where, orderBy, type QueryConstraint } from 'firebase/firestore';
+import { collection, query, where, type QueryConstraint } from 'firebase/firestore';
 import { useCollection, useFirestore, useUser, useMemoFirebase } from '@/firebase';
 import type { Order } from '@/lib/types';
+import { useMemo } from 'react';
 
 export function useOrders(marketId?: string) {
   const firestore = useFirestore();
   const { user } = useUser();
 
   const ordersQuery = useMemoFirebase(() => {
-    // CRITICAL FIX: Do not construct a query until both firestore and user are available.
-    // Returning null here was causing the useCollection hook to fail.
     if (!firestore || !user?.uid) {
       return null;
     }
@@ -24,11 +23,17 @@ export function useOrders(marketId?: string) {
       queryConstraints.push(where('marketId', '==', marketId));
     }
     
-    queryConstraints.push(orderBy('createdAt', 'desc'));
-
     return query(collection(firestore, 'orders'), ...queryConstraints);
 
   }, [firestore, user?.uid, marketId]);
 
-  return useCollection<Order>(ordersQuery);
+  const { data, isLoading, error } = useCollection<Order>(ordersQuery);
+
+  // Sort on the client side to avoid needing a composite index
+  const sortedData = useMemo(() => {
+    if (!data) return null;
+    return [...data].sort((a, b) => b.createdAt.toMillis() - a.createdAt.toMillis());
+  }, [data]);
+  
+  return { data: sortedData, isLoading, error };
 }

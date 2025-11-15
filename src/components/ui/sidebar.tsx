@@ -221,7 +221,7 @@ const Sidebar = React.forwardRef<
         data-side={side}
         data-collapsible={collapsible}
         className={cn(
-          "peer relative z-30 hidden flex-col bg-sidebar text-sidebar-foreground transition-[width,margin] ease-in-out",
+          "peer relative z-30 flex-col bg-sidebar text-sidebar-foreground transition-[width,margin] ease-in-out",
           "data-[variant=sidebar]:border-r data-[variant=sidebar]:border-sidebar-border",
           "data-[side=right]:order-last data-[side=right]:border-l data-[side=right]:border-sidebar-border",
           "data-[variant=inset]:m-2 data-[variant=inset]:h-[calc(100svh-theme(spacing.4))] data-[variant=inset]:rounded-xl",
@@ -745,5 +745,7 @@ export {
   SidebarTrigger,
   useSidebar,
 }
+
+    
 
     

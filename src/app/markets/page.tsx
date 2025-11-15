@@ -10,10 +10,8 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
-import { useFirestore, useMemoFirebase } from '@/firebase';
-import { useMarkets } from '@/hooks/use-markets';
-import { useAssets } from '@/hooks/use-assets';
-import { collection, onSnapshot, query } from 'firebase/firestore';
+import { useFirestore } from '@/firebase';
+import { collection, onSnapshot, query, getDocs } from 'firebase/firestore';
 
 export type EnrichedMarket = Market & {
   baseAsset?: Asset;
@@ -23,29 +21,62 @@ export type EnrichedMarket = Market & {
 
 export default function MarketsPage() {
   const firestore = useFirestore();
-  const { data: markets, isLoading: marketsLoading, error: marketsError } = useMarkets();
-  const { data: assets, isLoading: assetsLoading, error: assetsError } = useAssets();
-
+  const [markets, setMarkets] = useState<Market[]>([]);
+  const [assets, setAssets] = useState<Asset[]>([]);
   const [marketData, setMarketData] = useState<Record<string, MarketData>>({});
-  
-  const isLoading = marketsLoading || assetsLoading;
-  const error = marketsError || assetsError;
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<Error | null>(null);
 
   useEffect(() => {
     if (!firestore) return;
-    
-    const marketDataQuery = query(collection(firestore, 'market_data'));
-    const unsubscribe = onSnapshot(marketDataQuery, (snapshot) => {
-        const liveData: Record<string, MarketData> = {};
-        snapshot.forEach(doc => {
-            liveData[doc.id] = { ...doc.data() as MarketData, id: doc.id };
+
+    const fetchData = async () => {
+      setIsLoading(true);
+      setError(null);
+      try {
+        // 1. Fetch static data first
+        const marketsQuery = query(collection(firestore, 'markets'));
+        const assetsQuery = query(collection(firestore, 'assets'));
+        
+        const [marketsSnapshot, assetsSnapshot] = await Promise.all([
+            getDocs(marketsQuery),
+            getDocs(assetsQuery)
+        ]);
+
+        const marketsData = marketsSnapshot.docs.map(doc => ({ ...doc.data() as Market, id: doc.id }));
+        const assetsData = assetsSnapshot.docs.map(doc => ({ ...doc.data() as Asset, id: doc.id }));
+
+        setMarkets(marketsData);
+        setAssets(assetsData);
+        
+        // 2. After static data is loaded, set up the real-time listener
+        const marketDataQuery = query(collection(firestore, 'market_data'));
+        const unsubscribe = onSnapshot(marketDataQuery, (snapshot) => {
+            const liveData: Record<string, MarketData> = {};
+            snapshot.forEach(doc => {
+                liveData[doc.id] = { ...doc.data() as MarketData, id: doc.id };
+            });
+            setMarketData(liveData);
+        }, (err) => {
+            console.error("Market live data subscription error:", err);
+            // Non-fatal, the page can still render with static data
         });
-        setMarketData(liveData);
-    }, (err) => {
-        console.error("Market live data subscription error:", err);
-    });
-    
-    return () => unsubscribe();
+
+        setIsLoading(false);
+        return unsubscribe;
+
+      } catch (err: any) {
+        console.error("Error fetching initial market data:", err);
+        setError(err);
+        setIsLoading(false);
+      }
+    };
+
+    const unsubscribePromise = fetchData();
+
+    return () => {
+      unsubscribePromise.then(unsubscribe => unsubscribe && unsubscribe());
+    };
   }, [firestore]);
 
   const enrichedMarkets: EnrichedMarket[] = useMemo(() => {
@@ -82,7 +113,6 @@ export default function MarketsPage() {
     if (error) {
        return (
          <Alert variant="destructive">
-            <AlertCircle className="h-4 w-4" />
             <AlertTitle>Error Loading Markets</AlertTitle>
             <AlertDescription>
                 {error.message || "Could not fetch market data. Please ensure your Firestore security rules allow list access for the 'markets' and 'assets' collections and try again."}

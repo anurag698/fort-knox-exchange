@@ -15,6 +15,17 @@ type FormState = {
   message: string;
 }
 
+export async function seedDatabase(prevState: any, formData: FormData) {
+  try {
+    const { firestore, FieldValue } = getFirebaseAdmin();
+    await seedInitialData(firestore, FieldValue);
+    return { status: 'success', message: 'Database seeded successfully!' };
+  } catch (error: any) {
+    return { status: 'error', message: error.message || 'Failed to seed database.' };
+  }
+}
+
+
 export async function updateMarketData(prevState: any, formData: FormData) {
   try {
     const { firestore, FieldValue } = getFirebaseAdmin();
@@ -344,16 +355,6 @@ export async function createSession(token: string) {
     const userDoc = await userRef.get();
 
     if (!userDoc.exists) {
-      // Check if this is the first user
-      const usersSnapshot = await firestore.collection('users').limit(1).get();
-      const isFirstUser = usersSnapshot.empty;
-      
-      // If it's the first user, seed the database with assets and markets.
-      if (isFirstUser) {
-        console.log('First user signing up. Seeding database...');
-        await seedInitialData(firestore, FieldValue);
-      }
-
       // Create user document and seed balances.
       const batch = firestore.batch();
       const newUser = {
@@ -364,8 +365,7 @@ export async function createSession(token: string) {
         referralCode: Math.random().toString(36).substring(2, 8).toUpperCase(),
         createdAt: FieldValue.serverTimestamp(),
         updatedAt: FieldValue.serverTimestamp(),
-        // Make the first user an admin, OR if the specific admin email is used.
-        isAdmin: isFirstUser || decodedToken.email === 'admin@fortknox.exchange'
+        isAdmin: decodedToken.email === 'admin@fortknox.exchange'
       };
       batch.set(userRef, newUser);
 
@@ -702,5 +702,7 @@ export async function submitKyc(prevState: any, formData: FormData): Promise<For
     };
   }
 }
+
+    
 
     

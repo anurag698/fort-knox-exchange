@@ -159,11 +159,11 @@ export default function MarketsPage() {
             </div>
             <h3 className="mt-4 text-lg font-semibold">Database Not Seeded</h3>
             <p className="mb-4 mt-2 text-sm text-muted-foreground">
-                The exchange requires initial data for assets and markets. Please sign up a new user to seed the database automatically.
+                The exchange requires initial data for assets and markets. Please go to the Update Data page to seed the database.
             </p>
-             <form action="/actions" method="POST">
-                <Button type="submit" name="action" value="updateMarketData">Update Market Data</Button>
-            </form>
+            <Button asChild>
+                <Link href="/seed-data">Go to Update Data Page</Link>
+            </Button>
         </div>
       );
     }
@@ -214,3 +214,6 @@ export default function MarketsPage() {
   );
 }
 
+
+
+    

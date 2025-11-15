@@ -55,11 +55,8 @@ export default function Header() {
           const docSnap = await getDoc(userDocRef);
           if (docSnap.exists()) {
               const data = docSnap.data();
-              if (!data.isAdmin) {
-                  await setDoc(userDocRef, {isAdmin: true}, {merge: true});
-                  setUserProfile({ ...data, isAdmin: true, id: docSnap.id } as UserProfile);
-              } else {
-                 setUserProfile({ ...data as UserProfile, id: docSnap.id });
+              if (data) {
+                 setUserProfile({ ...data, id: docSnap.id } as UserProfile);
               }
           } else {
               setUserProfile(null);
@@ -180,5 +177,7 @@ export default function Header() {
     </header>
   );
 }
+
+    
 
     

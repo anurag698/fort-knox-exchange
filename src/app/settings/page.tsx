@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useEffect, useState } from 'react';
@@ -110,7 +111,7 @@ export default function SettingsPage() {
   });
 
   useEffect(() => {
-    if (userProfile) {
+    if (userProfile?.username) {
       form.reset({ username: userProfile.username });
     }
   }, [userProfile, form]);

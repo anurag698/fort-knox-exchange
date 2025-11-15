@@ -28,6 +28,10 @@
           "type": "string",
           "description": "User role (e.g., USER, ADMIN)."
         },
+        "referralCode": {
+            "type": "string",
+            "description": "A unique code for referring other users."
+        },
         "createdAt": {
           "type": "string",
           "description": "Timestamp of when the user account was created.",

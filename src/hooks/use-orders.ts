@@ -13,15 +13,25 @@ export function useOrders(marketId?: string) {
     if (!firestore || !user) return null;
     
     const ordersCollectionRef = collection(firestore, 'orders');
-    const queryConstraints = [where('userId', '==', user.uid)];
+    // Start with the base query for the user
+    let queryConstraints = [
+      where('userId', '==', user.uid),
+      orderBy('createdAt', 'desc')
+    ];
 
+    // If a marketId is provided, add it to the query
     if (marketId) {
-      queryConstraints.push(where('marketId', '==', marketId));
+      queryConstraints = [
+        where('userId', '==', user.uid),
+        where('marketId', '==', marketId),
+        orderBy('createdAt', 'desc')
+      ];
     }
-
-    queryConstraints.push(orderBy('createdAt', 'desc'));
-
+    
+    // The where and orderBy on different fields requires a composite index.
+    // The Firestore error message in the console will provide a direct link to create it.
     return query(ordersCollectionRef, ...queryConstraints);
+
   }, [firestore, marketId, user]);
 
   return useCollection<Order>(ordersQuery);

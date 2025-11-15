@@ -260,7 +260,7 @@ export async function createOrder(prevState: FormState, formData: FormData): Pro
                 price,
                 quantity,
                 type: 'LIMIT',
-                status: 'EXECUTING', // Set status to EXECUTING as per the plan
+                status: 'OPEN',
                 filledAmount: 0,
                 createdAt: FieldValue.serverTimestamp(),
                 updatedAt: FieldValue.serverTimestamp(),
@@ -270,11 +270,9 @@ export async function createOrder(prevState: FormState, formData: FormData): Pro
         
         revalidatePath('/trade');
         
-        // TODO: In a real implementation, trigger the next step of the execution flow here (e.g., call 1inch, wallet service)
-        
         return {
             status: 'success',
-            message: `${side} order placed successfully and is now executing.`,
+            message: `${side} order placed successfully and is now open.`,
         };
 
     } catch (e) {

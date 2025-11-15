@@ -15,7 +15,7 @@ service cloud.firestore {
     function isAdmin() {
       // In production, this should rely on a custom claim set securely by a backend process.
       // return request.auth.token.admin == true;
-      // For this project, we check a field in the user's document.
+      // For this prototype, we check a field in the user's document.
       return isSignedIn() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'ADMIN';
     }
 
@@ -23,7 +23,7 @@ service cloud.firestore {
     match /users/{userId} {
       // Users can read their own profile. Admins can read any profile.
       allow get: if isOwner(userId) || isAdmin();
-      // Users can update their own profile.
+      // Users can update their own profile (e.g. username).
       allow update: if isOwner(userId);
       // Only authenticated users can create their own user document.
       allow create: if isSignedIn();
@@ -31,24 +31,27 @@ service cloud.firestore {
       allow list: if isAdmin();
       
       // Balances can only be read by the owner. ALL writes must be from the backend.
-      match /balances/{tokenId} {
-          allow get: if isOwner(userId);
-          allow list: if isOwner(userId);
-          allow write: if false;
+      match /balances/{balanceId} {
+          allow get, list: if isOwner(userId);
+          allow write: if false; // Server-only
       }
+      
+      // Deposits can only be read by the owner or an admin. Writes are server-only.
       match /deposits/{depositId} {
-          allow get: if isOwner(userId) || isAdmin();
-          allow list: if isOwner(userId) || isAdmin();
+          allow get, list: if isOwner(userId) || isAdmin();
           allow write: if false; // Server-only
       }
+
+      // Withdrawals can only be read by the owner or an admin. Writes are server-only.
       match /withdrawals/{withdrawalId} {
-          allow get: if isOwner(userId) || isAdmin();
-          allow list: if isOwner(userId) || isAdmin();
+          allow get, list: if isOwner(userId) || isAdmin();
           allow write: if false; // Server-only
       }
+
+      // Ledger entries are personal and can only be read by the owner. Writes are server-only.
       match /ledgerEntries/{ledgerEntryId} {
           allow get, list: if isOwner(userId);
-          allow write: if false; // server-only
+          allow write: if false; // Server-only
       }
     }
 
@@ -58,18 +61,18 @@ service cloud.firestore {
         allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
         // Users can read their own orders. Admins can read any.
         allow get: if (isSignedIn() && resource.data.userId == request.auth.uid) || isAdmin();
-        // Users can list their own orders.
+        // Users can list their own orders. An index on `userId` is required.
         allow list: if isSignedIn() && request.query.where.size() > 0 && request.query.where[0][0] == 'userId' && request.query.where[0][2] == request.auth.uid;
         // Users can cancel their own open orders.
         allow update: if isSignedIn() 
                       && resource.data.userId == request.auth.uid
                       && request.resource.data.status == 'CANCELED';
+        // Deleting orders is not allowed.
         allow delete: if false;
 
-        // Trades are part of an order, readable by the order owner or an admin.
+        // Trades are part of an order, readable by the order owner or an admin. Writes are server-only.
         match /trades/{tradeId} {
-            allow get: if (isSignedIn() && get(/databases/$(database)/documents/orders/$(orderId)).data.userId == request.auth.uid) || isAdmin();
-            allow list: if (isSignedIn() && get(/databases/$(database)/documents/orders/$(orderId)).data.userId == request.auth.uid) || isAdmin();
+            allow get, list: if (isSignedIn() && get(/databases/$(database)/documents/orders/$(orderId)).data.userId == request.auth.uid) || isAdmin();
             allow write: if false; // Server-only
         }
     }
@@ -83,14 +86,13 @@ service cloud.firestore {
       allow get, list: if true;
       allow write: if false; // Server-only
     }
-     match /market_data/{marketId} {
+    match /market_data/{marketId} {
       allow get, list: if true;
       allow write: if false; // Server-only
     }
-    // Public assets collection
     match /assets/{assetId} { 
         allow get, list: if true;
-        allow write: if false;
+        allow write: if false; // Server-only
     }
 
     // SERVER-ONLY COLLECTIONS
@@ -105,8 +107,8 @@ service cloud.firestore {
       allow read, write: if false;
     }
     
-    // LEGACY COLLECTIONS (to be removed or migrated)
-    // Deny access to old data structures to enforce new schema.
+    // LEGACY & UNUSED COLLECTIONS
+    // Explicitly deny access to old data structures to enforce new schema.
     match /trades/{tradeId} { allow read, write: if false; }
     match /publicData/{docId} { allow read, write: if false; }
     match /adminUsers/{adminId} { allow read, write: if false; }

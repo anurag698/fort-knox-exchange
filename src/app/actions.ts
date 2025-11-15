@@ -51,8 +51,9 @@ export async function updateMarketData(prevState: any, formData: FormData) {
     const allMarketsSnapshot = await firestore.collection('markets').get();
 
     for (const doc of allMarketsSnapshot.docs) {
-      const market = doc.data();
-      const symbol = `${market.baseAssetId}${market.quoteAssetId}`;
+      // The market ID is already in the correct format, e.g., "BTC-USDT".
+      // We just need to remove the hyphen for the Binance API symbol.
+      const symbol = doc.id.replace('-', '');
       const ticker = tickerMap.get(symbol);
 
       if (ticker) {
@@ -278,9 +279,14 @@ export async function createOrder(prevState: FormState, formData: FormData): Pro
             const protocol = process.env.NODE_ENV === 'development' ? 'http' : 'https';
             const apiUrlBase = `${protocol}://${host}`;
 
-            const [srcToken, dstToken, amountToLock, assetToLock] = side === 'BUY'
-              ? [quoteAssetId, baseAssetId, quantity, quoteAssetId] // For a BUY, you spend the QUOTE asset. Amount to lock is the quantity of QUOTE asset.
-              : [baseAssetId, quoteAssetId, quantity, baseAssetId]; // For a SELL, you spend the BASE asset. Amount to lock is the quantity of BASE asset.
+            const [srcToken, dstToken] = side === 'BUY'
+              ? [quoteAssetId, baseAssetId]
+              : [baseAssetId, quoteAssetId];
+            
+            // For a market BUY, `quantity` is the amount of QUOTE asset to spend.
+            // For a market SELL, `quantity` is the amount of BASE asset to sell.
+            const amountToLock = quantity;
+            const assetToLock = srcToken;
             
             const tokens = (await firestore.collection('assets').get()).docs.reduce((acc, doc) => {
                 acc[doc.id] = doc.data();

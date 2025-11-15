@@ -13,7 +13,7 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { AlertCircle, ChevronDown } from "lucide-react";
-import { createChart, type CandlestickData, type IChartApi, type ISeriesApi, type Time, type LineData, type HistogramData } from "lightweight-charts";
+import { createChart, type CandlestickData, type IChartApi, type ISeriesApi, type Time, type LineData, type HistogramData, CrosshairMode, LineStyle } from "lightweight-charts";
 import { getThemeColor, cn } from "@/lib/utils";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
@@ -214,6 +214,9 @@ export function Charting({ marketId, setMarketId }: { marketId: string, setMarke
         },
         width: chartContainerRef.current.clientWidth,
         height: 500,
+        crosshair: {
+          mode: CrosshairMode.Normal,
+        },
     });
     chartRef.current = chart;
 
@@ -261,11 +264,7 @@ export function Charting({ marketId, setMarketId }: { marketId: string, setMarke
     setIsLoading(true);
     const binanceInterval = interval.toLowerCase();
     
-    axios.get(`https://api.binance.com/api/v3/klines?symbol=${binanceSymbol}&interval=${binanceInterval}&limit=1000`, {
-        headers: {
-            'X-MBX-APIKEY': process.env.NEXT_PUBLIC_BINANCE_API_KEY,
-        }
-    })
+    axios.get(`https://api.binance.com/api/v3/klines?symbol=${binanceSymbol}&interval=${binanceInterval}&limit=1000`)
     .then(res => {
         const data = res.data;
         if (!Array.isArray(data)) {
@@ -349,7 +348,19 @@ export function Charting({ marketId, setMarketId }: { marketId: string, setMarke
     }
 
     if (lastPrice !== null) {
-        setPriceChangeDirection(livePrice > lastPrice ? 'up' : 'down');
+        const direction = livePrice > lastPrice ? 'up' : 'down';
+        setPriceChangeDirection(direction);
+        const lastCandle = candlesRef.current[candlesRef.current.length - 1];
+        if (lastCandle) {
+             candlestickSeriesRef.current.createPriceLine({
+                price: livePrice,
+                color: direction === 'up' ? getThemeColor('success') : getThemeColor('destructive'),
+                lineWidth: 2,
+                lineStyle: LineStyle.Dashed,
+                axisLabelVisible: true,
+                title: 'Last',
+            });
+        }
     }
     setLastPrice(livePrice);
 
@@ -503,5 +514,3 @@ export function Charting({ marketId, setMarketId }: { marketId: string, setMarke
     </Card>
   )
 }
-
-    

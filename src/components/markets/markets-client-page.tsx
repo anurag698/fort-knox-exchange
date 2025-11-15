@@ -7,8 +7,7 @@ import { MarketsTable } from '@/components/markets/markets-table';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { AlertCircle, CandlestickChart } from 'lucide-react';
-import { useMarkets } from '@/hooks/use-markets';
-import { useAssets } from '@/hooks/use-assets';
+import { useMarketsData } from '@/hooks/use-markets-data';
 
 type EnrichedMarket = Market & {
   baseAsset?: Asset;
@@ -17,30 +16,29 @@ type EnrichedMarket = Market & {
 };
 
 export function MarketsClientPage() {
-  const { data: marketsData, isLoading: marketsLoading, error: marketsError } = useMarkets();
-  const { data: assetsData, isLoading: assetsLoading, error: assetsError } = useAssets();
+  const { data, isLoading, error } = useMarketsData();
   const [prices, setPrices] = useState<Record<string, number>>({});
   const [wsError, setWsError] = useState<string | null>(null);
 
   const assetsMap = useMemo(() => {
-    if (!assetsData) return new Map();
-    return new Map(assetsData.map(asset => [asset.id, asset]));
-  }, [assetsData]);
+    if (!data?.assets) return new Map();
+    return new Map(data.assets.map(asset => [asset.id, asset]));
+  }, [data?.assets]);
 
   useEffect(() => {
-    if (!marketsData || marketsData.length === 0) return;
+    if (!data?.markets || data.markets.length === 0) return;
 
-    const marketSymbols = marketsData.map(m => `${m.baseAssetId}${m.quoteAssetId}`);
+    const marketSymbols = data.markets.map(m => `${m.baseAssetId}${m.quoteAssetId}`);
     if (marketSymbols.length === 0) return;
 
     const ws = new WebSocket(`wss://stream.binance.com:9443/ws/${marketSymbols.map(s => `${s.toLowerCase()}@trade`).join('/')}`);
     
     ws.onmessage = (event) => {
-      const data = JSON.parse(event.data);
-      if (data && data.s && data.p) {
+      const wsData = JSON.parse(event.data);
+      if (wsData && wsData.s && wsData.p) {
         setPrices(prevPrices => ({
           ...prevPrices,
-          [data.s]: parseFloat(data.p),
+          [wsData.s]: parseFloat(wsData.p),
         }));
       }
     };
@@ -53,12 +51,12 @@ export function MarketsClientPage() {
     return () => {
       ws.close();
     };
-  }, [marketsData]);
+  }, [data?.markets]);
 
   const enrichedMarkets = useMemo(() => {
-    if (!marketsData || !assetsData) return [];
+    if (!data?.markets || !data?.assets) return [];
     
-    return marketsData.map(market => {
+    return data.markets.map(market => {
       const price = prices[`${market.baseAssetId}${market.quoteAssetId}`] ?? 0;
       return {
         ...market,
@@ -67,28 +65,26 @@ export function MarketsClientPage() {
         quoteAsset: assetsMap.get(market.quoteAssetId),
       };
     }).filter(m => m.baseAsset && m.quoteAsset);
-  }, [marketsData, assetsData, assetsMap, prices]);
+  }, [data, assetsMap, prices]);
   
-  const isLoading = marketsLoading || assetsLoading;
-  const error = marketsError || assetsError || wsError;
+  const finalError = error || wsError;
 
   if (isLoading) {
     return (
       <div className="w-full space-y-2">
-        <Skeleton className="h-12 w-full" />
-        <Skeleton className="h-12 w-full" />
-        <Skeleton className="h-12 w-full" />
-        <Skeleton className="h-12 w-full" />
+        {[...Array(5)].map((_, i) => (
+          <Skeleton key={i} className="h-12 w-full" />
+        ))}
       </div>
     );
   }
 
-  if (error) {
+  if (finalError) {
     return (
       <Alert variant="destructive">
         <AlertCircle className="h-4 w-4" />
         <AlertTitle>Error Loading Market Data</AlertTitle>
-        <AlertDescription>{typeof error === 'string' ? error : (error as Error).message}</AlertDescription>
+        <AlertDescription>{typeof finalError === 'string' ? finalError : (finalError as Error).message}</AlertDescription>
       </Alert>
     );
   }

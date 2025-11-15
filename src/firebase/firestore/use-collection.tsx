@@ -4,7 +4,7 @@
 import { useState, useEffect } from 'react';
 import {
   Query,
-  onSnapshot,
+  getDocs,
   DocumentData,
   FirestoreError,
   QuerySnapshot,
@@ -59,53 +59,45 @@ export function useCollection<T = any>(
   type StateDataType = ResultItemType[] | null;
 
   const [data, setData] = useState<StateDataType>(null);
-  // Start loading false until we know we have a query to run.
-  const [isLoading, setIsLoading] = useState<boolean>(!!memoizedTargetRefOrQuery);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<FirestoreError | Error | null>(null);
 
   useEffect(() => {
     if (!memoizedTargetRefOrQuery) {
-      // If the query is not ready, set loading to false and wait.
       setIsLoading(false);
-      setData(null);
-      setError(null);
       return;
     }
 
-    setIsLoading(true);
-    setError(null);
-
-    const unsubscribe = onSnapshot(
-      memoizedTargetRefOrQuery,
-      (snapshot: QuerySnapshot<DocumentData>) => {
-        const results: ResultItemType[] = snapshot.docs.map(doc => ({
-          ...(doc.data() as T),
-          id: doc.id,
-        }));
-        setData(results);
+    const fetchData = async () => {
+        setIsLoading(true);
         setError(null);
-        setIsLoading(false);
-      },
-      (error: FirestoreError) => {
-        const path: string =
-          memoizedTargetRefOrQuery.type === 'collection'
-            ? (memoizedTargetRefOrQuery as CollectionReference).path
-            : (memoizedTargetRefOrQuery as unknown as InternalQuery)._query.path.canonicalString()
+        try {
+            const snapshot = await getDocs(memoizedTargetRefOrQuery);
+            const results: ResultItemType[] = snapshot.docs.map(doc => ({
+                ...(doc.data() as T),
+                id: doc.id,
+            }));
+            setData(results);
+        } catch (err: any) {
+             const path: string =
+                memoizedTargetRefOrQuery.type === 'collection'
+                    ? (memoizedTargetRefOrQuery as CollectionReference).path
+                    : (memoizedTargetRefOrQuery as unknown as InternalQuery)._query.path.canonicalString()
 
-        const contextualError = new FirestorePermissionError({
-          operation: 'list',
-          path,
-        });
+            const contextualError = new FirestorePermissionError({
+                operation: 'list',
+                path,
+            });
 
-        setError(contextualError);
-        setData(null);
-        setIsLoading(false);
-
-        errorEmitter.emit('permission-error', contextualError);
-      }
-    );
-
-    return () => unsubscribe();
+            setError(contextualError);
+            setData(null);
+            errorEmitter.emit('permission-error', contextualError);
+        } finally {
+            setIsLoading(false);
+        }
+    };
+    
+    fetchData();
   }, [memoizedTargetRefOrQuery]);
 
   return { data, isLoading, error };

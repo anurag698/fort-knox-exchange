@@ -39,7 +39,9 @@ export function WithdrawalForm({ assets, balances }: { assets: Asset[], balances
     if (user?.uid && firestore) {
         const fetchProfile = async () => {
           const userDoc = await getDoc(doc(firestore, 'users', user.uid));
-          setUserProfile(userDoc.exists() ? doc.data() as UserProfile : null);
+          if (userDoc.exists()) {
+              setUserProfile(userDoc.data() as UserProfile);
+          }
         }
         fetchProfile();
     }

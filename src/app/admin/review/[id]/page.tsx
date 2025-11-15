@@ -27,7 +27,7 @@ function ModerationButtons({ disabled, withdrawalId }: { disabled: boolean, with
 
   return (
     <div className="flex gap-2 w-full">
-       <form id="approve-form" action={approveAction} className="w-full">
+       <form id="approve-form" action={approveWithdrawal} className="w-full">
          <input type="hidden" name="withdrawalId" value={withdrawalId} />
         <Button 
           className="w-full" 
@@ -38,7 +38,7 @@ function ModerationButtons({ disabled, withdrawalId }: { disabled: boolean, with
           Approve
         </Button>
       </form>
-      <form id="reject-form" action={rejectAction} className="w-full">
+      <form id="reject-form" action={rejectWithdrawal} className="w-full">
         <input type="hidden" name="withdrawalId" value={withdrawalId} />
         <Button 
           variant="destructive" 

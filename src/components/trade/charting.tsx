@@ -350,17 +350,6 @@ export function Charting({ marketId, setMarketId }: { marketId: string, setMarke
     if (lastPrice !== null) {
         const direction = livePrice > lastPrice ? 'up' : 'down';
         setPriceChangeDirection(direction);
-        const lastCandle = candlesRef.current[candlesRef.current.length - 1];
-        if (lastCandle) {
-             candlestickSeriesRef.current.createPriceLine({
-                price: livePrice,
-                color: direction === 'up' ? getThemeColor('success') : getThemeColor('destructive'),
-                lineWidth: 2,
-                lineStyle: LineStyle.Dashed,
-                axisLabelVisible: true,
-                title: 'Last',
-            });
-        }
     }
     setLastPrice(livePrice);
 
@@ -370,6 +359,16 @@ export function Charting({ marketId, setMarketId }: { marketId: string, setMarke
     const lastCandle = currentCandles[currentCandles.length - 1];
     const currentTimestamp = Math.floor(Date.now() / 1000);
     const candleTimestamp = lastCandle.time as number;
+
+    // Create a price line to show the live price
+    candlestickSeriesRef.current.createPriceLine({
+        price: livePrice,
+        color: priceChangeDirection === 'up' ? getThemeColor('success') : getThemeColor('destructive'),
+        lineWidth: 1,
+        lineStyle: LineStyle.Dashed,
+        axisLabelVisible: true,
+        title: '',
+    });
 
     const isNewCandle = currentTimestamp >= candleTimestamp + intervalSeconds;
 
@@ -396,7 +395,7 @@ export function Charting({ marketId, setMarketId }: { marketId: string, setMarke
         candlesRef.current = [...currentCandles.slice(0, -1), updatedCandle];
         candlestickSeriesRef.current.update(updatedCandle);
     }
-}, [livePrice, lastPrice, intervalSeconds]);
+}, [livePrice, lastPrice, intervalSeconds, priceChangeDirection]);
 
 
   const renderContent = () => {
@@ -514,3 +513,5 @@ export function Charting({ marketId, setMarketId }: { marketId: string, setMarke
     </Card>
   )
 }
+
+    

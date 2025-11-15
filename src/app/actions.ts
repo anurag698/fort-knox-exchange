@@ -11,7 +11,7 @@ import axios from 'axios';
 import { headers } from 'next/headers';
 import type { DexBuildTxResponse } from '@/lib/dex/dex.types';
 import { broadcastAndReconcileTransaction } from "@/lib/wallet-service";
-import { FirestorePermissionError, type SecurityRuleContext } from '@/firebase/errors';
+import { FirestorePermissionError } from '@/firebase/errors';
 import { errorEmitter } from '@/firebase/error-emitter';
 
 type FormState = {
@@ -362,16 +362,17 @@ export async function createOrder(prevState: FormState, formData: FormData): Pro
         }
 
     } catch (serverError: any) {
-        if (serverError.message.includes('permission-denied') || serverError.message.includes('insufficient permissions')) {
-             const permissionError = new FirestorePermissionError({
+        if (serverError.code === 'permission-denied' || (serverError.message && (serverError.message.includes('permission-denied') || serverError.message.includes('insufficient permissions')))) {
+            const permissionError = new FirestorePermissionError({
                 path: orderRef.path,
                 operation: 'create',
                 requestResourceData: newOrder
             });
             errorEmitter.emit('permission-error', permissionError);
+        } else {
+            console.error("Create Order Error:", serverError);
         }
-        
-        console.error("Create Order Error:", serverError);
+
         return {
             status: 'error',
             message: serverError.message || 'Failed to place order.',

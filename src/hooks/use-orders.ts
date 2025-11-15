@@ -10,26 +10,29 @@ export function useOrders(marketId?: string) {
   const { user, isUserLoading } = useUser();
 
   const ordersQuery = useMemoFirebase(() => {
-    // Do not create a query until user loading is complete and a user is present.
-    // This prevents a race condition where an unauthenticated query is sent.
+    // This is the critical guard. If the user state is still loading,
+    // or if there is no user, we must not build a query. Return null.
     if (isUserLoading || !user) {
       return null;
     }
 
+    // By the time we get here, we are guaranteed to have a user.
     const constraints: QueryConstraint[] = [
       where('userId', '==', user.uid),
       orderBy('createdAt', 'desc'),
     ];
 
     if (marketId) {
+      // Add the marketId filter to the beginning of the constraints array
+      // for optimal query performance.
       constraints.unshift(where('marketId', '==', marketId));
     }
 
     return query(collection(firestore, 'orders'), ...constraints);
-  }, [firestore, user, marketId, isUserLoading]); // Add isUserLoading to the dependency array
+  }, [firestore, user, isUserLoading, marketId]); // isUserLoading and user are now key dependencies
 
   const { data, isLoading, error } = useCollection<Order>(ordersQuery);
 
-  // The overall loading state depends on both the initial user loading and the subsequent collection loading.
+  // The overall loading state is true if the user is loading OR if the collection is loading.
   return { data, isLoading: isUserLoading || isLoading, error };
 }

@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useForm, useFormState } from 'react-hook-form';
+import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useUser, useFirestore, errorEmitter, FirestorePermissionError } from '@/firebase';
@@ -173,7 +173,8 @@ export function OrderForm({ selectedPrice, marketId }: OrderFormProps) {
           operation: 'create',
           requestResourceData: { 
             ...newOrderData, 
-            id: newOrderRef.id, 
+            id: newOrderRef.id,
+            // Use server-side timestamp placeholder for the error object
             createdAt: {".sv": "timestamp"}, 
             updatedAt: {".sv": "timestamp"} 
           },

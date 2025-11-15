@@ -103,9 +103,6 @@ export default function Header() {
                 <Link href={link.href}>{link.label}</Link>
              </Button>
           ))}
-           <Button asChild variant="link" className={cn("text-sm font-medium", pathname.startsWith('/seed-data') ? "text-primary" : "text-muted-foreground hover:text-foreground")}>
-              <Link href={'/seed-data'}>Seed Data</Link>
-           </Button>
           {userProfile?.isAdmin && (
                <Button asChild variant="link" className={cn("text-sm font-medium", pathname.startsWith(adminLink.href) ? "text-primary" : "text-muted-foreground hover:text-foreground")}>
                   <Link href={adminLink.href}>{adminLink.label}</Link>
@@ -157,6 +154,12 @@ export default function Header() {
                 <Settings className="mr-2 h-4 w-4" />
                 <span>Settings</span>
               </Link>
+            </DropdownMenuItem>
+            <DropdownMenuItem asChild>
+                <Link href="/seed-data">
+                  <Database className="mr-2 h-4 w-4" />
+                  <span>Update Data</span>
+                </Link>
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem onClick={handleSignOut}>

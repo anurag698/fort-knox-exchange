@@ -15,17 +15,6 @@ type FormState = {
   message: string;
 }
 
-export async function seedDatabase(prevState: any, formData: FormData) {
-  try {
-    const { firestore, FieldValue } = getFirebaseAdmin();
-    await seedInitialData(firestore, FieldValue);
-    return { status: 'success', message: 'Database seeded successfully!' };
-  } catch (error) {
-    console.error("Database Seeding Error:", error);
-    return { status: 'error', message: 'Failed to seed database.' };
-  }
-}
-
 export async function updateMarketData(prevState: any, formData: FormData) {
   try {
     const { firestore, FieldValue } = getFirebaseAdmin();
@@ -37,13 +26,11 @@ export async function updateMarketData(prevState: any, formData: FormData) {
     const batch = firestore.batch();
     const marketDataCol = firestore.collection('market_data');
 
-    // The API key is available through process.env in Server Actions
     const apiKey = process.env.BINANCE_API_KEY;
     if (!apiKey) {
       return { status: 'error', message: 'Binance API key is not configured.' };
     }
 
-    // Binance API allows fetching all tickers at once
     const response = await axios.get(`https://api.binance.com/api/v3/ticker/24hr`, {
       headers: {
         'X-MBX-APIKEY': apiKey,
@@ -66,7 +53,7 @@ export async function updateMarketData(prevState: any, formData: FormData) {
           high: parseFloat(ticker.highPrice),
           low: parseFloat(ticker.lowPrice),
           volume: parseFloat(ticker.volume),
-          marketCap: 0, // Binance API doesn't provide this in the ticker endpoint
+          marketCap: 0, 
           lastUpdated: FieldValue.serverTimestamp(),
         };
         const docRef = marketDataCol.doc(doc.id);
@@ -360,8 +347,14 @@ export async function createSession(token: string) {
       // Check if this is the first user
       const usersSnapshot = await firestore.collection('users').limit(1).get();
       const isFirstUser = usersSnapshot.empty;
+      
+      // If it's the first user, seed the database with assets and markets.
+      if (isFirstUser) {
+        console.log('First user signing up. Seeding database...');
+        await seedInitialData(firestore, FieldValue);
+      }
 
-      // Create user document and seed balances if it's their first time.
+      // Create user document and seed balances.
       const batch = firestore.batch();
       const newUser = {
         id: decodedToken.uid,

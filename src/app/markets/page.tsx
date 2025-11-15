@@ -11,7 +11,7 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { useFirestore } from '@/firebase';
-import { collection, onSnapshot, query, orderBy } from 'firebase/firestore';
+import { collection, getDocs, query, orderBy } from 'firebase/firestore';
 
 type EnrichedMarket = Market & {
   baseAsset?: Asset;
@@ -30,43 +30,34 @@ export default function MarketsPage() {
       setIsLoading(false);
       return;
     }
-    
-    // Set initial loading state
-    setIsLoading(true);
-    setError(null);
 
-    const marketsQuery = query(collection(firestore, 'markets'), orderBy('id', 'asc'));
-    const assetsQuery = query(collection(firestore, 'assets'), orderBy('name', 'asc'));
+    const fetchData = async () => {
+      setIsLoading(true);
+      setError(null);
+      try {
+        const marketsQuery = query(collection(firestore, 'markets'), orderBy('id', 'asc'));
+        const assetsQuery = query(collection(firestore, 'assets'), orderBy('name', 'asc'));
 
-    const unsubMarkets = onSnapshot(marketsQuery, (snapshot) => {
-      const markets = snapshot.docs.map(doc => ({ ...doc.data() as Omit<Market, 'id'>, id: doc.id }));
-      setMarketsData(markets);
-    }, (err) => {
-      console.error("Markets snapshot error:", err);
-      setError(err);
-    });
+        const [marketsSnapshot, assetsSnapshot] = await Promise.all([
+          getDocs(marketsQuery),
+          getDocs(assetsQuery),
+        ]);
 
-    const unsubAssets = onSnapshot(assetsQuery, (snapshot) => {
-      const assets = snapshot.docs.map(doc => ({ ...doc.data() as Omit<Asset, 'id'>, id: doc.id }));
-      setAssetsData(assets);
-    }, (err) => {
-      console.error("Assets snapshot error:", err);
-      setError(err);
-    });
-    
-    return () => {
-      unsubMarkets();
-      unsubAssets();
+        const markets = marketsSnapshot.docs.map(doc => ({ ...doc.data() as Market, id: doc.id }));
+        const assets = assetsSnapshot.docs.map(doc => ({ ...doc.data() as Asset, id: doc.id }));
+
+        setMarketsData(markets);
+        setAssetsData(assets);
+      } catch (err) {
+        console.error("Markets snapshot error:", err);
+        setError(err instanceof Error ? err : new Error("An unknown error occurred while fetching data."));
+      } finally {
+        setIsLoading(false);
+      }
     };
-  }, [firestore]);
-  
-  // This effect will run whenever the data changes to determine the loading state.
-  useEffect(() => {
-    if (marketsData !== null && assetsData !== null) {
-      setIsLoading(false);
-    }
-  }, [marketsData, assetsData]);
 
+    fetchData();
+  }, [firestore]);
 
   const enrichedMarkets: EnrichedMarket[] = useMemo(() => {
     if (!marketsData || !assetsData) {

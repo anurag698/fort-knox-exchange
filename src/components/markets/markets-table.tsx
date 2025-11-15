@@ -32,7 +32,7 @@ type MarketsTableProps = {
 };
 
 export function MarketsTable({ markets: initialMarkets }: MarketsTableProps) {
-  const [markets, setMarkets] = useState<MarketWithLiveData[]>(initialMarkets);
+  const [markets, setMarkets] = useState<MarketWithLiveData[]>(initialMarkets.map(m => ({ ...m })));
   const [wsError, setWsError] = useState<string | null>(null);
 
   const marketSymbols = useMemo(() => {
@@ -47,21 +47,29 @@ export function MarketsTable({ markets: initialMarkets }: MarketsTableProps) {
     const ws = new WebSocket(`wss://stream.binance.com:9443/ws/${marketSymbols.map(s => `${s.toLowerCase()}@ticker`).join('/')}`);
     
     ws.onmessage = (event) => {
-      const data = JSON.parse(event.data);
-      if (data && data.s && data.p && data.P && data.v) {
-        setMarkets(prevMarkets => 
-          prevMarkets.map(market => {
-            if (market.baseAsset && market.quoteAsset && `${market.baseAsset.symbol}${market.quoteAsset.symbol}` === data.s) {
-              return {
-                ...market,
-                price: parseFloat(data.p),
-                change24h: parseFloat(data.P),
-                volume24h: parseFloat(data.v) * parseFloat(data.p), // Volume in quote asset
-              };
-            }
-            return market;
-          })
-        );
+      try {
+        const data = JSON.parse(event.data);
+        if (data && data.s && data.p && data.P && data.v) {
+          setMarkets(prevMarkets => 
+            prevMarkets.map(market => {
+              const marketSymbol = market.baseAsset?.symbol && market.quoteAsset?.symbol
+                ? `${market.baseAsset.symbol}${market.quoteAsset.symbol}`
+                : '';
+              
+              if (marketSymbol === data.s) {
+                return {
+                  ...market,
+                  price: parseFloat(data.p),
+                  change24h: parseFloat(data.P),
+                  volume24h: parseFloat(data.v) * parseFloat(data.p), // Volume in quote asset
+                };
+              }
+              return market;
+            })
+          );
+        }
+      } catch (e) {
+        console.error("Failed to parse WebSocket message:", e);
       }
     };
     
@@ -71,7 +79,9 @@ export function MarketsTable({ markets: initialMarkets }: MarketsTableProps) {
     }
 
     return () => {
-      ws.close();
+      if (ws.readyState === WebSocket.OPEN) {
+        ws.close();
+      }
     };
   }, [marketSymbols]);
 
@@ -97,6 +107,9 @@ export function MarketsTable({ markets: initialMarkets }: MarketsTableProps) {
         <TableBody>
           {markets.map((market) => {
             const isPositive = market.change24h ? market.change24h >= 0 : true;
+            const price = market.price;
+            const change = market.change24h;
+            const volume = market.volume24h;
 
             return (
               <TableRow key={market.id}>
@@ -107,14 +120,14 @@ export function MarketsTable({ markets: initialMarkets }: MarketsTableProps) {
                     <span className="text-muted-foreground">{market.quoteAsset?.symbol ?? '...'}</span>
                   </div>
                 </TableCell>
-                <TableCell className={cn("font-mono", market.price ? (isPositive ? 'text-green-500' : 'text-red-500') : 'text-muted-foreground')}>
-                  {market.price ? `$${market.price.toLocaleString(undefined, { minimumFractionDigits: market.pricePrecision, maximumFractionDigits: market.pricePrecision})}` : <Skeleton className="h-4 w-20" />}
+                <TableCell className={cn("font-mono", price ? (isPositive ? 'text-green-500' : 'text-red-500') : 'text-muted-foreground')}>
+                  {price ? `$${price.toLocaleString(undefined, { minimumFractionDigits: market.pricePrecision, maximumFractionDigits: market.pricePrecision})}` : <Skeleton className="h-4 w-20" />}
                 </TableCell>
-                <TableCell className={cn(isPositive ? 'text-green-500' : 'text-red-500')}>
-                  {market.change24h ? `${market.change24h.toFixed(2)}%` : <Skeleton className="h-4 w-12" />}
+                <TableCell className={cn(change ? (isPositive ? 'text-green-500' : 'text-red-500') : 'text-muted-foreground')}>
+                  {change ? `${change.toFixed(2)}%` : <Skeleton className="h-4 w-12" />}
                 </TableCell>
                 <TableCell className="text-right font-mono">
-                  {market.volume24h ? `$${market.volume24h.toLocaleString(undefined, {maximumFractionDigits: 0})}` : <Skeleton className="h-4 w-24 ml-auto" />}
+                  {volume ? `$${volume.toLocaleString(undefined, {maximumFractionDigits: 0})}` : <Skeleton className="h-4 w-24 ml-auto" />}
                 </TableCell>
               </TableRow>
             );

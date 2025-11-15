@@ -6,10 +6,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { AlertCircle } from "lucide-react";
-import { useFirestore } from '@/firebase';
-import { collection, onSnapshot, query, where } from 'firebase/firestore';
-import type { Order } from '@/lib/types';
-
 
 export type ProcessedOrder = {
   price: number;
@@ -23,75 +19,65 @@ interface OrderBookProps {
 }
 
 export function OrderBook({ onPriceSelect, marketId }: OrderBookProps) {
-  const firestore = useFirestore();
-  const [orders, setOrders] = useState<Order[] | null>(null);
+  const [bids, setBids] = useState<[string, string][]>([]);
+  const [asks, setAsks] = useState<[string, string][]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
   const [baseAsset, quoteAsset] = marketId.split('-');
-  
+
   useEffect(() => {
-    if (!firestore) {
-      setIsLoading(false);
-      return;
-    };
     setIsLoading(true);
+    setError(null);
+    setBids([]);
+    setAsks([]);
 
-    const q = query(
-      collection(firestore, 'orders'),
-      where('marketId', '==', marketId),
-      where('status', '==', 'OPEN')
-    );
+    const ws = new WebSocket(`wss://stream.binance.com:9443/ws/${marketId.replace('-', '').toLowerCase()}@depth20@100ms`);
 
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const fetchedOrders = snapshot.docs.map(doc => ({...doc.data() as Order, id: doc.id}));
-      setOrders(fetchedOrders);
+    ws.onopen = () => {
       setIsLoading(false);
-    }, (err) => {
-      setError(err);
+    };
+
+    ws.onmessage = (event) => {
+      const data = JSON.parse(event.data);
+      if (data.bids && data.asks) {
+        setBids(data.bids);
+        setAsks(data.asks);
+      }
+    };
+
+    ws.onerror = (err) => {
+      console.error('OrderBook WebSocket error:', err);
+      setError(new Error('Failed to connect to the order book feed.'));
       setIsLoading(false);
+    };
+
+    ws.onclose = () => {
+      // You might want to implement a reconnection logic here
+    };
+
+    return () => {
+      ws.close();
+    };
+  }, [marketId]);
+
+  const processOrders = (orders: [string, string][]): ProcessedOrder[] => {
+    return orders.map(([price, quantity]) => {
+      const priceNum = parseFloat(price);
+      const quantityNum = parseFloat(quantity);
+      return {
+        price: priceNum,
+        quantity: quantityNum,
+        total: priceNum * quantityNum,
+      };
     });
+  };
 
-    return () => unsubscribe();
-  }, [firestore, marketId]);
-
-
-  const { bids, asks } = useMemo(() => {
-    if (!orders) {
-      return { bids: [], asks: [] };
-    }
-
-    const bidsMap = new Map<number, number>();
-    const asksMap = new Map<number, number>();
-
-    orders.forEach(order => {
-        if(order.price === undefined) return;
-
-        if (order.side === 'BUY') {
-            const existingQty = bidsMap.get(order.price) || 0;
-            bidsMap.set(order.price, existingQty + order.quantity);
-        } else {
-            const existingQty = asksMap.get(order.price) || 0;
-            asksMap.set(order.price, existingQty + order.quantity);
-        }
-    });
-
-    const processMap = (map: Map<number, number>): ProcessedOrder[] => {
-        return Array.from(map.entries()).map(([price, quantity]) => ({
-            price,
-            quantity,
-            total: price * quantity,
-        }));
-    }
-
-    const bids = processMap(bidsMap).sort((a, b) => b.price - a.price);
-    const asks = processMap(asksMap).sort((a, b) => a.price - b.price);
-
-    return { bids, asks };
-  }, [orders]);
+  const processedBids = useMemo(() => processOrders(bids), [bids]);
+  const processedAsks = useMemo(() => processOrders(asks).sort((a, b) => b.price - a.price), [asks]);
 
 
   const renderOrderList = (orders: ProcessedOrder[], isBid: boolean) => {
-    if (orders.length === 0) {
+    if (orders.length === 0 && !isLoading) {
       return (
         <div className="text-center text-xs text-muted-foreground py-4">
           No {isBid ? 'bids' : 'asks'}
@@ -99,19 +85,18 @@ export function OrderBook({ onPriceSelect, marketId }: OrderBookProps) {
       )
     }
 
-    // Determine the max total for visualization
     const maxTotal = Math.max(...orders.map(o => o.total), 0);
 
     return (
       <div className="space-y-1">
-        {orders.slice(0, 7).map((order, index) => (
+        {orders.map((order, index) => (
           <div 
             key={index} 
             className="flex justify-between text-xs font-mono relative cursor-pointer hover:bg-muted/50 p-0.5"
             onClick={() => onPriceSelect(order.price)}
           >
             <div 
-              className={`absolute top-0 right-0 h-full ${isBid ? 'bg-green-500/10' : 'bg-red-500/10'}`} 
+              className={`absolute top-0 ${isBid ? 'left-0' : 'right-0'} h-full ${isBid ? 'bg-green-500/10' : 'bg-red-500/10'}`} 
               style={{ width: `${(order.total / maxTotal) * 100}%`}}
             />
             <span className={`z-10 ${isBid ? "text-green-500" : "text-red-500"}`}>{order.price.toFixed(2)}</span>
@@ -126,9 +111,8 @@ export function OrderBook({ onPriceSelect, marketId }: OrderBookProps) {
   const renderContent = () => {
     if (isLoading) {
       return (
-        <div className="space-y-4">
-          <Skeleton className="h-24 w-full" />
-          <Skeleton className="h-24 w-full" />
+        <div className="space-y-2">
+          {[...Array(15)].map((_, i) => <Skeleton key={i} className="h-4 w-full" />)}
         </div>
       );
     }
@@ -139,7 +123,7 @@ export function OrderBook({ onPriceSelect, marketId }: OrderBookProps) {
           <AlertCircle className="h-4 w-4" />
           <AlertTitle>Error</AlertTitle>
           <AlertDescription>
-              Failed to load order book.
+              {error.message}
           </AlertDescription>
         </Alert>
       );
@@ -153,15 +137,15 @@ export function OrderBook({ onPriceSelect, marketId }: OrderBookProps) {
             <span>Amount ({baseAsset})</span>
             <span>Total</span>
           </div>
-          {renderOrderList(asks.reverse(), false)}
+          {renderOrderList(processedAsks, false)}
         </div>
 
         <div className="py-2 text-center text-lg font-bold">
-            {bids[0]?.price.toFixed(2) ?? '---'}
+            {processedBids[0]?.price.toFixed(2) ?? '---'}
         </div>
 
         <div>
-          {renderOrderList(bids, true)}
+          {renderOrderList(processedBids, true)}
         </div>
       </div>
     );

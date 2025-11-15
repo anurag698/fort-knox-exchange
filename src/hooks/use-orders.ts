@@ -24,7 +24,7 @@ export function useOrders(marketId?: string) {
     
     // If a marketId is provided, add it as an additional filter.
     if (marketId) {
-        queryConstraints.push(where('marketId', '==', marketId));
+        queryConstraints.unshift(where('marketId', '==', marketId));
     }
 
     // Construct and return the final query.

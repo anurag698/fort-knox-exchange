@@ -30,6 +30,9 @@ const nextConfig: NextConfig = {
       },
     ],
   },
+  env: {
+    BINANCE_API_KEY: process.env.BINANCE_API_KEY,
+  }
 };
 
 export default nextConfig;

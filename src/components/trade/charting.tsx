@@ -2,6 +2,7 @@
 "use client"
 
 import { useMemo, useState, useEffect, useRef } from "react";
+import axios from 'axios';
 import {
   Card,
   CardContent,
@@ -259,35 +260,39 @@ export function Charting({ marketId, setMarketId }: { marketId: string, setMarke
   useEffect(() => {
     setIsLoading(true);
     const binanceInterval = interval.toLowerCase();
-    fetch(`https://api.binance.com/api/v3/klines?symbol=${binanceSymbol}&interval=${binanceInterval}&limit=1000`)
-        .then(res => res.json())
-        .then(data => {
-            if (!Array.isArray(data)) {
-                // handle error case where binance returns {code:..., msg:...}
-                console.error("Failed to fetch klines from Binance:", data);
-                setCandles([]);
-                setIsLoading(false);
-                return;
-            }
-            const formattedCandles: Candle[] = data.map((d: any) => ({
-                time: d[0] / 1000,
-                open: parseFloat(d[1]),
-                high: parseFloat(d[2]),
-                low: parseFloat(d[3]),
-                close: parseFloat(d[4]),
-                volume: parseFloat(d[5]),
-            }));
-            setCandles(formattedCandles);
-            if (formattedCandles.length > 0) {
-                setLastPrice(formattedCandles[formattedCandles.length - 1].close);
-            }
-            setIsLoading(false);
-        })
-        .catch(err => {
-            console.error(err);
+    
+    axios.get(`https://api.binance.com/api/v3/klines?symbol=${binanceSymbol}&interval=${binanceInterval}&limit=1000`, {
+        headers: {
+            'X-MBX-APIKEY': process.env.NEXT_PUBLIC_BINANCE_API_KEY,
+        }
+    })
+    .then(res => {
+        const data = res.data;
+        if (!Array.isArray(data)) {
+            console.error("Failed to fetch klines from Binance:", data);
             setCandles([]);
             setIsLoading(false);
-        });
+            return;
+        }
+        const formattedCandles: Candle[] = data.map((d: any) => ({
+            time: d[0] / 1000,
+            open: parseFloat(d[1]),
+            high: parseFloat(d[2]),
+            low: parseFloat(d[3]),
+            close: parseFloat(d[4]),
+            volume: parseFloat(d[5]),
+        }));
+        setCandles(formattedCandles);
+        if (formattedCandles.length > 0) {
+            setLastPrice(formattedCandles[formattedCandles.length - 1].close);
+        }
+        setIsLoading(false);
+    })
+    .catch(err => {
+        console.error(err);
+        setCandles([]);
+        setIsLoading(false);
+    });
 
   }, [interval, binanceSymbol]);
 

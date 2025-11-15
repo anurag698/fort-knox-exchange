@@ -40,7 +40,11 @@ export async function updateMarketData(prevState: any, formData: FormData) {
     const symbols = marketsSnapshot.docs.map(doc => `${doc.data().baseAssetId}${doc.data().quoteAssetId}`);
 
     // Binance API allows fetching all tickers at once
-    const response = await axios.get(`https://api.binance.com/api/v3/ticker/24hr`);
+    const response = await axios.get(`https://api.binance.com/api/v3/ticker/24hr`, {
+      headers: {
+        'X-MBX-APIKEY': process.env.BINANCE_API_KEY,
+      },
+    });
     const tickers: any[] = response.data;
     
     const tickerMap = new Map(tickers.map(t => [t.symbol, t]));

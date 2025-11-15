@@ -11,12 +11,18 @@ import type { DexQuoteResponse, TokenInfo, DexBuildTxResponse } from '@/lib/dex/
 import { BrowserProvider, parseUnits, formatUnits, type TransactionRequest } from 'ethers';
 import { Loader2, ArrowDown } from 'lucide-react';
 import { TokenSelector } from './token-selector';
+import { useUser, useFirestore } from '@/firebase';
+import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
+import axios from 'axios';
+
 
 // Helper to check if window.ethereum is available
 const isMetamaskAvailable = () => typeof window.ethereum !== 'undefined';
 
 export function SwapWidget() {
   const { toast } = useToast();
+  const { user } = useUser();
+  const firestore = useFirestore();
 
   // Wallet State
   const [provider, setProvider] = useState<BrowserProvider | null>(null);
@@ -46,24 +52,22 @@ export function SwapWidget() {
     setQuote(null);
     try {
         const amountInWei = parseUnits(fromAmount, fromToken.decimals).toString();
-        const query = new URLSearchParams({
+        
+        const { data } = await axios.get<DexQuoteResponse>('/api/dex/quote', {
+          params: {
             chainId: chainId.toString(),
             fromTokenAddress: fromToken.address,
             toTokenAddress: toToken.address,
             amount: amountInWei,
-        }).toString();
+          }
+        });
         
-        const response = await fetch(`/api/dex/quote?${query}`);
-        if(!response.ok) {
-            const errorData = await response.json();
-            throw new Error(errorData.message || 'Failed to fetch quote');
-        }
-        const data: DexQuoteResponse = await response.json();
         setQuote(data);
         setToAmount(formatUnits(data.toAmount, data.toToken.decimals));
 
     } catch (error) {
-        toast({ variant: 'destructive', title: 'Could not get quote', description: (error as Error).message });
+      const message = axios.isAxiosError(error) ? error.response?.data.message : (error as Error).message;
+      toast({ variant: 'destructive', title: 'Could not get quote', description: message });
     } finally {
         setIsFetchingQuote(false);
     }
@@ -145,7 +149,7 @@ export function SwapWidget() {
   };
   
   const handleSwap = async () => {
-    if (!signer || !fromToken || !toToken || !fromAmount || !quote) {
+    if (!signer || !fromToken || !toToken || !fromAmount || !quote || !user || !firestore) {
         toast({ variant: 'destructive', title: 'Please fill all fields and connect wallet.' });
         return;
     }
@@ -155,25 +159,14 @@ export function SwapWidget() {
 
     try {
         // Step 1: Build the transaction via our backend
-        const buildTxResponse = await fetch('/api/dex/build-tx', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                chainId,
-                fromTokenAddress: fromToken.address,
-                toTokenAddress: toToken.address,
-                amount: fromAmountInWei,
-                userAddress: userAddress,
-                slippage: 1, // default 1%
-            }),
+        const { data: txData } = await axios.post<DexBuildTxResponse>('/api/dex/build-tx', {
+            chainId,
+            src: fromToken.address,
+            dst: toToken.address,
+            amount: fromAmountInWei,
+            from: userAddress, // For non-custodial, `from` is the user's address
+            slippage: 1, // default 1%
         });
-
-        if (!buildTxResponse.ok) {
-            const errorData = await buildTxResponse.json();
-            throw new Error(errorData.message || 'Failed to build transaction');
-        }
-        
-        const txData: DexBuildTxResponse = await buildTxResponse.json();
 
         // Step 2: Send the transaction using the user's wallet
         const tx: TransactionRequest = {
@@ -186,12 +179,38 @@ export function SwapWidget() {
         
         toast({ title: "Transaction Sent", description: "Waiting for confirmation..." });
 
-        await txResponse.wait();
+        const receipt = await txResponse.wait();
 
-        toast({ title: "Swap Successful!", description: `Transaction confirmed successfully.` });
+        if (receipt.status === 1) {
+          toast({ title: "Swap Successful!", description: `Transaction confirmed successfully.` });
+          
+          // Step 3: Record the non-custodial order in Firestore for history
+          const ordersRef = collection(firestore, 'orders');
+          await addDoc(ordersRef, {
+            userId: user.uid,
+            marketId: `${fromToken.symbol}-${toToken.symbol}`,
+            side: 'SELL', // A swap is effectively selling the 'from' token
+            type: 'MARKET',
+            mode: 'NON_CUSTODIAL',
+            price: parseFloat(toAmount) / parseFloat(fromAmount),
+            quantity: parseFloat(fromAmount),
+            status: 'FILLED',
+            filledAmount: parseFloat(fromAmount),
+            createdAt: serverTimestamp(),
+            updatedAt: serverTimestamp(),
+            meta: {
+              txHash: txResponse.hash,
+              chainId,
+            }
+          });
+
+        } else {
+           throw new Error("Transaction failed on-chain.");
+        }
 
     } catch (error) {
-        toast({ variant: 'destructive', title: 'Swap Failed', description: (error as Error).message });
+        const message = axios.isAxiosError(error) ? error.response?.data.message : (error as Error).message;
+        toast({ variant: 'destructive', title: 'Swap Failed', description: message });
     } finally {
         setIsSwapping(false);
     }

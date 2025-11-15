@@ -37,12 +37,14 @@ export type Order = {
   marketId: string;
   side: 'BUY' | 'SELL';
   type: 'LIMIT' | 'MARKET';
+  mode?: 'CUSTODIAL' | 'NON_CUSTODIAL';
   price?: number; // Optional for MARKET orders
   quantity: number;
   status: 'OPEN' | 'PARTIAL' | 'FILLED' | 'CANCELED' | 'EXECUTING' | 'FAILED';
   filledAmount: number;
   createdAt: any;
   updatedAt: any;
+  meta?: any;
 };
 
 export type DexTransaction = {

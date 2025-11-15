@@ -33,3 +33,6 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Failed to build transaction', message: e.message }, { status: 500 });
   }
 }
+
+// This is required to enable streaming responses
+export const dynamic = 'force-dynamic';

@@ -33,17 +33,20 @@ service cloud.firestore {
     // PUBLIC DATA
     // Anyone can read markets and assets.
     match /markets/{marketId} {
-      allow get, list: if true;
+      allow get: if true;
+      allow list: if true;
       allow write: if false; // Should only be seeded by admin
     }
 
     match /assets/{assetId} {
-      allow get, list: if true;
+      allow get: if true;
+      allow list: if true;
       allow write: if false; // Should only be seeded by admin
     }
 
-    match /market_data/{marketId} {
-      allow get, list: if true;
+    match /market_data/{marketDataId} {
+      allow get: if true;
+      allow list: if true;
       allow write: if false; // Should only be written by backend function
     }
 

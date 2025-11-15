@@ -35,7 +35,6 @@ export default function MarketsPage() {
       return;
     }
 
-    // This effect runs once to fetch the static definitions of markets and assets.
     const fetchStaticData = async () => {
       setIsLoading(true);
       setError(null);
@@ -53,6 +52,18 @@ export default function MarketsPage() {
         
         setMarkets(marketsList);
         setAssets(assetsList);
+        
+        // Only set up the live listener after static data is successfully fetched
+        const marketDataQuery = query(collection(firestore, 'market_data'), orderBy('id', 'asc'));
+        const unsubscribe = onSnapshot(marketDataQuery, (snapshot) => {
+            const liveData = snapshot.docs.map(doc => ({...doc.data() as MarketData, id: doc.id}));
+            setMarketData(liveData);
+        }, (err) => {
+            console.error("Market live data subscription error:", err);
+            // Non-blocking error for live data
+        });
+
+        return unsubscribe;
 
       } catch (err) {
         console.error("Markets static data fetch error:", err);
@@ -62,21 +73,16 @@ export default function MarketsPage() {
       }
     };
 
-    fetchStaticData();
-
-    // This effect establishes a real-time listener for the live market data.
-    const marketDataQuery = query(collection(firestore, 'market_data'), orderBy('id', 'asc'));
-    const unsubscribe = onSnapshot(marketDataQuery, (snapshot) => {
-        const liveData = snapshot.docs.map(doc => ({...doc.data() as MarketData, id: doc.id}));
-        setMarketData(liveData);
-    }, (err) => {
-        console.error("Market live data subscription error:", err);
-        // Don't set a blocking error for this, as static data might still be useful
-        // You could set a specific, non-blocking error state for the UI here if needed
+    let unsubscribe: (() => void) | undefined;
+    fetchStaticData().then(unsub => {
+      unsubscribe = unsub;
     });
 
-    return () => unsubscribe(); // Cleanup listener on unmount
-
+    return () => {
+        if (unsubscribe) {
+            unsubscribe();
+        }
+    };
   }, [firestore]);
 
   const enrichedMarkets: EnrichedMarket[] = useMemo(() => {
@@ -123,7 +129,6 @@ export default function MarketsPage() {
       );
     }
     
-    // This check is crucial. If `markets` is an empty array after loading, it means the seed is missing.
     if (!isLoading && markets?.length === 0) {
       return (
         <div className="flex flex-col items-center justify-center rounded-lg border-2 border-dashed border-muted-foreground/30 p-12 text-center">

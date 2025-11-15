@@ -168,25 +168,25 @@ export function OrderForm({ selectedPrice, marketId }: OrderFormProps) {
       sellForm.reset(defaultValues);
 
     } catch (error: any) {
-      if (error?.code === 'permission-denied') {
-        const permissionError = new FirestorePermissionError({
-          path: newOrderRef.path,
-          operation: 'create',
-          requestResourceData: { 
-            ...newOrderData, 
-            id: newOrderRef.id,
-            createdAt: {".sv": "timestamp"}, 
-            updatedAt: {".sv": "timestamp"} 
-          },
-        } satisfies SecurityRuleContext);
-        errorEmitter.emit('permission-error', permissionError);
-      } else {
-        toast({
-          variant: 'destructive',
-          title: 'Order Failed',
-          description: error.message || 'An unknown error occurred during the transaction.',
-        });
-      }
+        if (error?.code === 'permission-denied') {
+            const permissionError = new FirestorePermissionError({
+              path: newOrderRef.path,
+              operation: 'create',
+              requestResourceData: { 
+                ...newOrderData, 
+                id: newOrderRef.id,
+                createdAt: {".sv": "timestamp"}, // Represent server value
+                updatedAt: {".sv": "timestamp"} 
+              },
+            } satisfies SecurityRuleContext);
+            errorEmitter.emit('permission-error', permissionError);
+        } else {
+            toast({
+                variant: 'destructive',
+                title: 'Order Failed',
+                description: error.message || 'An unknown error occurred during the transaction.',
+            });
+        }
     } finally {
       setIsSubmitting(false);
     }

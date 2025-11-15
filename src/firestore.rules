@@ -32,8 +32,9 @@ service cloud.firestore {
     
     // ORDERS can only be managed by the user who owns them
     match /orders/{orderId} {
-      // A user can read (get) a single order if they own it.
-      allow get: if request.auth.uid == resource.data.userId;
+      // A user can read their own orders (both get and list operations).
+      // The `list` operation is allowed only if the query includes `where('userId', '==', request.auth.uid)`.
+      allow read: if request.auth.uid == resource.data.userId;
       // A user can create an order if the order's userId matches their own.
       allow create: if request.auth.uid == request.resource.data.userId;
       // A user can update their own order only to cancel it.
@@ -41,12 +42,6 @@ service cloud.firestore {
       // A user cannot delete orders.
       allow delete: if false;
     }
-
-    // A user can list orders only if they are querying for their own orders.
-    match /orders/{orderId} {
-        allow list: if request.auth.uid == request.query.filters.userId;
-    }
-
 
     // Admins can read/write anything.
     match /{document=**} {

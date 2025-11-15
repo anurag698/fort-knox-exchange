@@ -34,7 +34,6 @@ export async function updateMarketData(prevState: any, formData: FormData) {
     const { firestore, FieldValue } = getFirebaseAdmin();
     const marketsSnapshot = await firestore.collection('markets').limit(1).get();
     
-    // If markets are empty, seed the database first. This makes the action idempotent.
     if (marketsSnapshot.empty) {
       console.log('No markets found. Seeding initial database data...');
       await seedInitialData(firestore, FieldValue);
@@ -44,15 +43,11 @@ export async function updateMarketData(prevState: any, formData: FormData) {
     const batch = firestore.batch();
     const marketDataCol = firestore.collection('market_data');
 
-    // As per prompt, use the provided key directly
-    const apiKey = 'n7vYfn4JWkisRdkbfycph7OLW36YWp4l';
-
     const response = await axios.get(`https://api.binance.com/api/v3/ticker/24hr`);
 
     const tickers: any[] = response.data;
     const tickerMap = new Map(tickers.map(t => [t.symbol, t]));
 
-    // Re-fetch all markets after potential seeding
     const allMarketsSnapshot = await firestore.collection('markets').get();
 
     for (const doc of allMarketsSnapshot.docs) {
@@ -163,7 +158,6 @@ export async function cancelOrder(prevState: FormState, formData: FormData): Pro
     const { firestore, FieldValue } = getFirebaseAdmin();
     const orderRef = firestore.collection('orders').doc(orderId);
     
-    // This transaction ensures we only cancel an order that belongs to the user and is in a cancellable state.
     await firestore.runTransaction(async (transaction) => {
       const orderDoc = await transaction.get(orderRef);
       if (!orderDoc.exists) {
@@ -285,8 +279,8 @@ export async function createOrder(prevState: FormState, formData: FormData): Pro
             const apiUrlBase = `${protocol}://${host}`;
 
             const [srcToken, dstToken, amountToLock, assetToLock] = side === 'BUY'
-              ? [quoteAssetId, baseAssetId, quantity, quoteAssetId] // Approximation: lock quote currency needed for estimated price
-              : [baseAssetId, quoteAssetId, quantity, baseAssetId];
+              ? [quoteAssetId, baseAssetId, quantity, quoteAssetId] // For a BUY, you spend the QUOTE asset. Amount to lock is the quantity of QUOTE asset.
+              : [baseAssetId, quoteAssetId, quantity, baseAssetId]; // For a SELL, you spend the BASE asset. Amount to lock is the quantity of BASE asset.
             
             const tokens = (await firestore.collection('assets').get()).docs.reduce((acc, doc) => {
                 acc[doc.id] = doc.data();

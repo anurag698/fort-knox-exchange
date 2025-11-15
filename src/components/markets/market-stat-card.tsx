@@ -14,7 +14,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "../ui/avatar";
 
 // Mock icons for coins - you would replace these with real image URLs
 const coinIcons: { [key: string]: React.ElementType | string } = {
-  BTC: Bitcoin,
+  BTC: 'https://cdn.jsdelivr.net/gh/atomiclabs/cryptocurrency-icons@1a63530e6e374711a8de441d91584965e5441c4a/128/color/btc.png',
   ETH: 'https://cdn.jsdelivr.net/gh/atomiclabs/cryptocurrency-icons@1a63530e6e374711a8de441d91584965e5441c4a/128/color/eth.png',
   USDT: 'https://cdn.jsdelivr.net/gh/atomiclabs/cryptocurrency-icons@1a63530e6e374711a8de441d91584965e5441c4a/128/color/usdt.png',
   SOL: 'https://cdn.jsdelivr.net/gh/atomiclabs/cryptocurrency-icons@1a63530e6e374711a8de441d91584965e5441c4a/128/color/sol.png',
@@ -22,7 +22,7 @@ const coinIcons: { [key: string]: React.ElementType | string } = {
   MATIC: 'https://cdn.jsdelivr.net/gh/atomiclabs/cryptocurrency-icons@1a63530e6e374711a8de441d91584965e5441c4a/128/color/matic.png',
   DOGE: 'https://cdn.jsdelivr.net/gh/atomiclabs/cryptocurrency-icons@1a63530e6e374711a8de441d91584965e5441c4a/128/color/doge.png',
   XRP: 'https://cdn.jsdelivr.net/gh/atomiclabs/cryptocurrency-icons@1a63530e6e374711a8de441d91584965e5441c4a/128/color/xrp.png',
-  DOT: 'https://cdn.jsdelivrnet/gh/atomiclabs/cryptocurrency-icons@1a63530e6e374711a8de441d91584965e5441c4a/128/color/dot.png',
+  DOT: 'https://cdn.jsdelivr.net/gh/atomiclabs/cryptocurrency-icons@1a63530e6e374711a8de441d91584965e5441c4a/128/color/dot.png',
   LINK: 'https://cdn.jsdelivr.net/gh/atomiclabs/cryptocurrency-icons@1a63530e6e374711a8de441d91584965e5441c4a/128/color/link.png',
   SHIB: 'https://cdn.jsdelivr.net/gh/atomiclabs/cryptocurrency-icons@1a63530e6e374711a8de441d91584965e5441c4a/128/color/shib.png',
   AVAX: 'https://cdn.jsdelivr.net/gh/atomiclabs/cryptocurrency-icons@1a63530e6e374711a8de441d91584965e5441c4a/128/color/avax.png',
@@ -111,7 +111,7 @@ export function MarketStatCard({ title, markets, isLoading }: MarketStatCardProp
             <CardHeader className="flex flex-row items-center justify-between pb-2">
                 <CardTitle className="text-md font-semibold">{title}</CardTitle>
                  <Button variant="link" size="sm" className="p-0 h-auto text-xs" asChild>
-                    <Link href="#">More <ArrowRight className="h-3 w-3 ml-1" /></Link>
+                    <Link href="/markets">More <ArrowRight className="h-3 w-3 ml-1" /></Link>
                 </Button>
             </CardHeader>
             <CardContent>

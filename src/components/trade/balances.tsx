@@ -3,17 +3,47 @@
 
 import { useBalances } from '@/hooks/use-balances';
 import { useAssets } from '@/hooks/use-assets';
-import { useMarkets } from '@/hooks/use-markets';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
-import { useMemo } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { Wallet, AlertCircle } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { useFirestore } from '@/firebase';
+import { collection, getDocs, query } from 'firebase/firestore';
+import type { Market } from '@/lib/types';
+
 
 export function Balances({ marketId = 'BTC-USDT' }: { marketId?: string }) {
   const { data: balances, isLoading: balancesLoading, error: balancesError } = useBalances();
   const { data: assets, isLoading: assetsLoading, error: assetsError } = useAssets();
-  const { data: markets, isLoading: marketsLoading, error: marketsError } = useMarkets();
+  
+  const firestore = useFirestore();
+  const [markets, setMarkets] = useState<Market[]>([]);
+  const [marketsLoading, setMarketsLoading] = useState(true);
+  const [marketsError, setMarketsError] = useState<Error | null>(null);
+
+  useEffect(() => {
+    if (!firestore) return;
+
+    const fetchMarkets = async () => {
+      setMarketsLoading(true);
+      try {
+        const marketsQuery = query(collection(firestore, 'markets'));
+        const querySnapshot = await getDocs(marketsQuery);
+        const marketsData = querySnapshot.docs.map(doc => ({ ...doc.data() as Omit<Market, 'id'>, id: doc.id }));
+        setMarkets(marketsData);
+        setMarketsError(null);
+      } catch (err) {
+        console.error("Error fetching markets:", err);
+        setMarketsError(err instanceof Error ? err : new Error('An unknown error occurred'));
+      } finally {
+        setMarketsLoading(false);
+      }
+    };
+
+    fetchMarkets();
+  }, [firestore]);
+
 
   const isLoading = balancesLoading || assetsLoading || marketsLoading;
   const error = balancesError || assetsError || marketsError;

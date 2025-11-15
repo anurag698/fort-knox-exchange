@@ -33,12 +33,12 @@ service cloud.firestore {
     // PUBLIC DATA
     // Anyone can read markets and assets. Only backend can write.
     match /markets/{marketId} {
-      allow get, list: if true;
+      allow read: if true;
       allow write: if false; 
     }
 
     match /assets/{assetId} {
-      allow get, list: if true;
+      allow read: if true;
       allow write: if false;
     }
 

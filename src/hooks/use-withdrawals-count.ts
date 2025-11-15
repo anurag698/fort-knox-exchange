@@ -1,4 +1,3 @@
-
 'use client';
 
 import { collectionGroup, getCountFromServer, query, where } from 'firebase/firestore';

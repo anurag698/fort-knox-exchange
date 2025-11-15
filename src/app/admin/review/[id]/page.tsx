@@ -1,4 +1,3 @@
-
 'use client';
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
@@ -9,7 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { approveWithdrawal, rejectWithdrawal } from '@/app/actions';
-import { useActionState, useTransition, useState, useEffect } from 'react';
+import { useTransition } from 'react';
 import { useFormStatus } from 'react-dom';
 import type { Asset } from '@/lib/types';
 import { UserDeposits } from '@/components/wallet/user-deposits';
@@ -25,26 +24,38 @@ function ModerationButtons({ disabled, withdrawalId }: { disabled: boolean, with
   const formStatus = useFormStatus();
   const pending = formStatus.pending || approvePending || rejectPending;
 
+  const handleApprove = (formData: FormData) => {
+    startApproveTransition(async () => {
+      await approveWithdrawal(null, formData);
+    });
+  }
+
+  const handleReject = (formData: FormData) => {
+    startRejectTransition(async () => {
+      await rejectWithdrawal(null, formData);
+    });
+  }
+
   return (
     <div className="flex gap-2 w-full">
-       <form id="approve-form" action={approveWithdrawal} className="w-full">
+       <form action={handleApprove} className="w-full">
          <input type="hidden" name="withdrawalId" value={withdrawalId} />
         <Button 
           className="w-full" 
           disabled={disabled || pending} 
-          onClick={() => startApproveTransition(() => (document.getElementById('approve-form') as HTMLFormElement | null)?.requestSubmit())}
+          type="submit"
         >
           {approvePending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
           Approve
         </Button>
       </form>
-      <form id="reject-form" action={rejectWithdrawal} className="w-full">
+      <form action={handleReject} className="w-full">
         <input type="hidden" name="withdrawalId" value={withdrawalId} />
         <Button 
           variant="destructive" 
           className="w-full" 
           disabled={disabled || pending}
-          onClick={() => startRejectTransition(() => (document.getElementById('reject-form') as HTMLFormElement | null)?.requestSubmit())}
+          type="submit"
         >
           {rejectPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
           Reject
@@ -59,9 +70,6 @@ export default function ReviewWithdrawalPage({ params }: { params: { id: string 
   const { data: userProfile, isLoading: userLoading, error: userError } = useUserById(withdrawal?.userId);
   const { data: assets, isLoading: assetsLoading, error: assetsError } = useAssets();
   
-  const [approveState, approveAction] = useActionState(approveWithdrawal, { status: 'idle', message: '' });
-  const [rejectState, rejectAction] = useActionState(rejectWithdrawal, { status: 'idle', message: '' });
-
   const isLoading = withdrawalLoading || userLoading || assetsLoading;
   const error = withdrawalError || userError || assetsError;
 

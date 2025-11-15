@@ -1,4 +1,3 @@
-
 "use server";
 
 import { moderateWithdrawalRequest, type ModerateWithdrawalRequestInput, type ModerateWithdrawalRequestOutput } from "@/ai/flows/moderate-withdrawal-requests";
@@ -562,4 +561,75 @@ export async function requestWithdrawal(prevState: FormState, formData: FormData
     }
 }
 
+const kycSchema = z.object({
+  userId: z.string(),
+});
+
+async function updateUserKycStatus(formData: FormData, status: 'VERIFIED' | 'REJECTED') {
+    const validatedFields = kycSchema.safeParse(
+        Object.fromEntries(formData.entries())
+    );
+
+    if (!validatedFields.success) {
+        throw new Error('Invalid user ID for KYC action.');
+    }
+
+    const { userId } = validatedFields.data;
+
+    try {
+        const { firestore, FieldValue } = getFirebaseAdmin();
+        const userRef = firestore.collection('users').doc(userId);
+
+        await userRef.update({
+            kycStatus: status,
+            updatedAt: FieldValue.serverTimestamp(),
+        });
+
+    } catch (error) {
+        console.error(`Failed to set KYC status to ${status}:`, error);
+        throw new Error(`Could not ${status.toLowerCase()} KYC.`);
+    }
+}
+
+export async function approveKyc(prevState: any, formData: FormData) {
+    const userId = formData.get('userId') as string;
+    await updateUserKycStatus(formData, 'VERIFIED');
+    revalidatePath(`/admin/users/${userId}`);
+    redirect(`/admin/users/${userId}`);
+}
+
+export async function rejectKyc(prevState: any, formData: FormData) {
+    const userId = formData.get('userId') as string;
+    await updateUserKycStatus(formData, 'REJECTED');
+    revalidatePath(`/admin/users/${userId}`);
+    redirect(`/admin/users/${userId}`);
+}
     
+export async function submitKyc(prevState: any, formData: FormData): Promise<FormState> {
+  const userId = await getUserIdFromSession();
+  if (!userId) {
+     return { status: 'error', message: 'Authentication required.' };
+  }
+
+  try {
+    const { firestore, FieldValue } = getFirebaseAdmin();
+    const userRef = firestore.collection('users').doc(userId);
+    
+    await userRef.update({
+        kycStatus: 'PENDING',
+        updatedAt: FieldValue.serverTimestamp(),
+    });
+
+    revalidatePath('/settings');
+    return {
+      status: 'success',
+      message: 'Your KYC information has been submitted for review.',
+    };
+  } catch (error) {
+    console.error("KYC Submission Error:", error);
+    return {
+      status: 'error',
+      message: 'Failed to submit KYC information.',
+    };
+  }
+}

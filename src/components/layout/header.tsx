@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect } from "react";
@@ -17,7 +16,7 @@ import { User, LogOut, Settings, LogIn, Landmark, Home, CandlestickChart, ArrowR
 import { PlaceHolderImages } from "@/lib/placeholder-images";
 import Link from 'next/link';
 import { useUser, useAuth, useFirestore } from '@/firebase';
-import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { doc, getDoc } from 'firebase/firestore';
 import { signOut } from 'firebase/auth';
 import { useRouter, usePathname } from "next/navigation";
 import { clearSession } from "@/app/actions";

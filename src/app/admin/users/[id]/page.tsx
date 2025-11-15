@@ -1,4 +1,3 @@
-
 'use client';
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
@@ -9,7 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { approveKyc, rejectKyc } from '@/app/actions';
-import { useActionState, useTransition } from 'react';
+import { useTransition } from 'react';
 import { useFormStatus } from 'react-dom';
 import { useUserById } from "@/hooks/use-user-by-id";
 import { UserDeposits } from "@/components/wallet/user-deposits";
@@ -22,26 +21,38 @@ function KycButtons({ disabled, userId }: { disabled: boolean, userId?: string }
   const formStatus = useFormStatus();
   const pending = formStatus.pending || approvePending || rejectPending;
 
+  const handleApprove = (formData: FormData) => {
+    startApproveTransition(async () => {
+      await approveKyc(null, formData);
+    });
+  }
+
+  const handleReject = (formData: FormData) => {
+    startRejectTransition(async () => {
+      await rejectKyc(null, formData);
+    });
+  }
+
   return (
     <div className="flex gap-2 w-full">
-      <form id="approve-kyc-form" action={approveKyc} className="w-full">
+      <form action={handleApprove} className="w-full">
         <input type="hidden" name="userId" value={userId} />
         <Button 
           className="w-full" 
           disabled={disabled || pending}
-          onClick={() => startApproveTransition(() => (document.getElementById('approve-kyc-form') as HTMLFormElement | null)?.requestSubmit())}
+          type="submit"
         >
           {approvePending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
           Approve KYC
         </Button>
       </form>
-      <form id="reject-kyc-form" action={rejectKyc} className="w-full">
+      <form action={handleReject} className="w-full">
         <input type="hidden" name="userId" value={userId} />
         <Button 
           variant="destructive" 
           className="w-full" 
           disabled={disabled || pending}
-          onClick={() => startRejectTransition(() => (document.getElementById('reject-kyc-form') as HTMLFormElement | null)?.requestSubmit())}
+          type="submit"
         >
           {rejectPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
           Reject KYC
@@ -55,9 +66,6 @@ function KycButtons({ disabled, userId }: { disabled: boolean, userId?: string }
 export default function ManageUserPage({ params }: { params: { id: string } }) {
   const { data: user, isLoading, error } = useUserById(params.id);
   
-  const [approveState, approveAction] = useActionState(approveKyc, { status: 'idle', message: '' });
-  const [rejectState, rejectAction] = useActionState(rejectKyc, { status: 'idle', message: '' });
-
   const getKYCBadgeVariant = (status?: string) => {
     switch (status) {
       case 'VERIFIED':

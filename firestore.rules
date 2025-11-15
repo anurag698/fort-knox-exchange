@@ -3,7 +3,7 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Helper functions
+    // HELPER FUNCTIONS
     function isSignedIn() {
       return request.auth != null;
     }
@@ -12,96 +12,89 @@ service cloud.firestore {
       return request.auth.uid == userId;
     }
 
-    // Function to check if the user is an admin by looking at a custom claim
-    // In a real app, this would be set by a backend process. For now, we check a doc field.
     function isAdmin() {
-      return isSignedIn() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true;
+      // In production, this should rely on a custom claim set securely by a backend process.
+      // return request.auth.token.admin == true;
+      // For this project, we check a field in the user's document.
+      return isSignedIn() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'ADMIN';
     }
 
     // USER DATA
-    // Users can only access their own data.
     match /users/{userId} {
-      allow get, update, delete: if isSignedIn() && isOwner(userId);
+      // Users can read their own profile. Admins can read any profile.
+      allow get: if isOwner(userId) || isAdmin();
+      // Users can update their own profile.
+      allow update: if isOwner(userId);
+      // Only authenticated users can create their own user document.
       allow create: if isSignedIn();
-      // Admins can list all users, but individual users cannot.
+      // Admins can list all users.
       allow list: if isAdmin();
-
-      // Balances are read-only for the user. Writes must come from the backend.
-      match /balances/{balanceId} {
-        allow read: if isSignedIn() && isOwner(userId);
-        allow write: if false;
-      }
-
-      // Deposits are read-only for the user. Writes must come from the backend.
-      match /deposits/{depositId} {
-         allow read: if isSignedIn() && isOwner(userId);
-         allow write: if false;
-      }
-
-      // Withdrawals are read-only for the user. Writes must come from the backend.
-       match /withdrawals/{withdrawalId} {
-         allow read: if isSignedIn() && isOwner(userId);
-         allow write: if false;
-      }
       
-      // Ledger entries are read-only for the user. Writes must come from the backend.
-      match /ledgerEntries/{ledgerEntryId} {
-        allow read: if isSignedIn() && isOwner(userId);
-        allow write: if false;
+      // Balances can only be read by the owner. ALL writes must be from the backend.
+      match /balances/{tokenId} {
+          allow get: if isOwner(userId);
+          allow list: if isOwner(userId);
+          allow write: if false;
       }
     }
-    
-    // ADMIN DATA
-    // Only accessible by server-side logic (Admin SDK)
-    match /adminUsers/{adminId} {
+
+    // ORDERS & TRADES
+    match /orders/{orderId} {
+        // Users can create their own orders.
+        allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
+        // Users can read their own orders. Admins can read any.
+        allow get: if (isSignedIn() && resource.data.userId == request.auth.uid) || isAdmin();
+        // Users can list their own orders.
+        allow list: if isSignedIn() && request.query.where.size() > 0 && request.query.where[0][0] == 'userId' && request.query.where[0][2] == request.auth.uid;
+        // Users can cancel their own open orders.
+        allow update: if isSignedIn() 
+                      && resource.data.userId == request.auth.uid
+                      && request.resource.data.status == 'CANCELED';
+        allow delete: if false;
+
+        // Trades are part of an order, readable by the order owner or an admin.
+        match /trades/{tradeId} {
+            allow get: if (isSignedIn() && get(/databases/$(database)/documents/orders/$(orderId)).data.userId == request.auth.uid) || isAdmin();
+            allow list: if (isSignedIn() && get(/databases/$(database)/documents/orders/$(orderId)).data.userId == request.auth.uid) || isAdmin();
+            allow write: if false; // Server-only
+        }
+    }
+
+    // PUBLIC DATA (Tokens, Markets, Market Data)
+    match /tokens/{tokenId} {
+      allow get, list: if true;
+      allow write: if false; // Server-only
+    }
+    match /markets/{marketId} {
+      allow get, list: if true;
+      allow write: if false; // Server-only
+    }
+     match /market_data/{marketId} {
+      allow get, list: if true;
+      allow write: if false; // Server-only
+    }
+
+    // SERVER-ONLY COLLECTIONS
+    // These collections should never be accessed directly by a client.
+    match /ledger_entries/{entryId} {
+      allow read, write: if false;
+    }
+    match /dex_transactions/{dexTxId} {
+      allow read, write: if false;
+    }
+    match /idempotency/{key} {
       allow read, write: if false;
     }
     
-    // Admins can see all withdrawal requests
-    match /{path=**}/withdrawals/{withdrawalId} {
-      allow list: if isAdmin();
-    }
-
-
-    // PUBLIC DATA
-    // Anyone can read markets, assets, and market_data.
-    match /markets/{marketId} {
-      allow get, list: if true;
-      allow write: if false; // Should only be seeded by admin
-    }
-
-    match /assets/{assetId} {
-      allow get, list: if true;
-      allow write: if false; // Should only be seeded by admin
-    }
-
-    match /market_data/{marketDataId} {
-      allow get, list: if true;
-      allow write: if false; // Should only be written by backend function
-    }
-
-    // TRANSACTIONAL DATA
-    // Orders can be created by users, but only read publicly.
-    // Trades are public, but only created by the backend.
-    match /orders/{orderId} {
-        allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
-        allow get, list: if true;
-        allow update: if isSignedIn() 
-                      && request.auth.uid == resource.data.userId
-                      && request.resource.data.status == 'CANCELED';
-        allow delete: if false;
-    }
-
-    match /trades/{tradeId} {
-        allow get, list: if true;
-        allow write: if false;
-    }
-
-    match /publicData/{docId} {
-        allow get, list: if true;
-        allow write: if false;
-    }
+    // LEGACY COLLECTIONS (to be removed or migrated)
+    // Deny access to old data structures to enforce new schema.
+    match /assets/{assetId} { allow read, write: if false; }
+    match /trades/{tradeId} { allow read, write: if false; }
+    match /publicData/{docId} { allow read, write: if false; }
+    match /adminUsers/{adminId} { allow read, write: if false; }
+    match /{path=**}/sessions/{sessionId} { allow read, write: if false; }
+    match /{path=**}/deposits/{depositId} { allow read, write: if false; }
+    match /{path=**}/withdrawals/{withdrawalId} { allow read, write: if false; }
+    match /{path=**}/ledgerEntries/{ledgerEntryId} { allow read, write: if false; }
   }
 }
-
-    

@@ -168,7 +168,7 @@ export function OrderForm({ selectedPrice, marketId }: OrderFormProps) {
     })
     .catch((error: any) => {
         // This is the correct pattern for handling Firestore permission errors on the client.
-        if (error.code === 'permission-denied') {
+        if (error.code === 'permission-denied' || (error.message && error.message.toLowerCase().includes('permission-denied'))) {
             const permissionError = new FirestorePermissionError({
                 path: newOrderRef.path,
                 operation: 'create', // The transaction is creating a new order document
@@ -288,5 +288,3 @@ export function OrderForm({ selectedPrice, marketId }: OrderFormProps) {
     </Card>
   );
 }
-
-    

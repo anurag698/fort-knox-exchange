@@ -54,7 +54,6 @@ export function OrderBook({ onPriceSelect, marketId }: OrderBookProps) {
     };
 
     ws.onerror = (err) => {
-      console.error('OrderBook WebSocket error:', err);
       setError(new Error('Failed to connect to the order book feed.'));
       setIsLoading(false);
     };

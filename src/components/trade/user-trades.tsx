@@ -58,10 +58,11 @@ export function UserTrades({ marketId }: { marketId: string }) {
 
         const fetchInitialData = async () => {
           try {
-            const assetsSnap = await getDoc(doc(firestore, 'assets'));
+            // This is inefficient, should be done at a higher level
+            const assetsSnap = await getDocs(collection(firestore, 'assets'));
+            setAssets(assetsSnap.docs.map(d => ({ ...d.data() as Asset, id: d.id })));
+            
             const marketSnap = await getDoc(doc(firestore, 'markets', marketId));
-
-            setAssets(assetsSnap.exists() ? [assetsSnap.data() as Asset] : []);
             setMarket(marketSnap.exists() ? { ...marketSnap.data() as Market, id: marketSnap.id } : null);
 
           } catch (e) {
@@ -77,18 +78,19 @@ export function UserTrades({ marketId }: { marketId: string }) {
             return;
         }
         
-        const constraints = [
+        // Fetch all open orders for the user
+        const ordersQuery = query(
+            collection(firestore, 'orders'), 
             where('userId', '==', user.uid),
             where('status', 'in', ['OPEN', 'PARTIAL']),
             orderBy('createdAt', 'desc')
-        ];
-        if (marketId) {
-            constraints.splice(1, 0, where('marketId', '==', marketId));
-        }
-        const ordersQuery = query(collection(firestore, 'orders'), ...constraints);
+        );
 
         const unsubscribe = onSnapshot(ordersQuery, (snapshot) => {
-            setOrders(snapshot.docs.map(doc => ({...doc.data() as Order, id: doc.id})));
+            const allUserOrders = snapshot.docs.map(doc => ({...doc.data() as Order, id: doc.id}));
+            // Filter by marketId on the client
+            const marketOrders = allUserOrders.filter(order => order.marketId === marketId);
+            setOrders(marketOrders);
             setIsLoading(false);
         }, (e) => {
             setError(e);

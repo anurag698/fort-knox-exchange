@@ -10,11 +10,13 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { AlertCircle, XCircle } from "lucide-react";
 import { useAssets } from "@/hooks/use-assets";
-import { useMarkets } from "@/hooks/use-markets";
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useActionState } from "react";
 import { cancelOrder } from "@/app/actions";
 import { useToast } from "@/hooks/use-toast";
+import { useFirestore } from "@/firebase";
+import { collection, getDocs, query } from "firebase/firestore";
+import type { Market } from "@/lib/types";
 
 
 function CancelOrderButton({ orderId }: { orderId: string }) {
@@ -42,7 +44,30 @@ function CancelOrderButton({ orderId }: { orderId: string }) {
 export function UserTrades({ marketId }: { marketId: string }) {
     const { data: orders, isLoading, error } = useOrders(marketId);
     const { data: assets, isLoading: assetsLoading } = useAssets();
-    const { data: markets, isLoading: marketsLoading } = useMarkets();
+    const firestore = useFirestore();
+    const [markets, setMarkets] = useState<Market[]>([]);
+    const [marketsLoading, setMarketsLoading] = useState(true);
+
+    useEffect(() => {
+        if (!firestore) return;
+    
+        const fetchMarkets = async () => {
+          setMarketsLoading(true);
+          try {
+            const marketsQuery = query(collection(firestore, 'markets'));
+            const querySnapshot = await getDocs(marketsQuery);
+            const marketsData = querySnapshot.docs.map(doc => ({ ...doc.data() as Omit<Market, 'id'>, id: doc.id }));
+            setMarkets(marketsData);
+          } catch (err) {
+            console.error(err);
+          } finally {
+            setMarketsLoading(false);
+          }
+        };
+    
+        fetchMarkets();
+    }, [firestore]);
+
 
     const assetsMap = useMemo(() => {
         if (!assets) return new Map();
@@ -117,7 +142,7 @@ export function UserTrades({ marketId }: { marketId: string }) {
                                     <Badge variant={order.status === 'OPEN' ? 'secondary' : 'default'}>{order.status}</Badge>
                                 </TableCell>
                                 <TableCell className="text-right">
-                                    <CancelOrderButton orderId={order.id} />
+                                    {order.status === 'OPEN' && <CancelOrderButton orderId={order.id} />}
                                 </TableCell>
                             </TableRow>
                         )

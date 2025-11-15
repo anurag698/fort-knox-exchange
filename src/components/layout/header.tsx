@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect } from "react";
@@ -20,7 +19,6 @@ import { useUser, useAuth, useFirestore, useMemoFirebase } from '@/firebase';
 import { doc, onSnapshot } from 'firebase/firestore';
 import { signOut } from 'firebase/auth';
 import { useRouter, usePathname } from "next/navigation";
-import { clearSession } from "@/app/actions";
 import { cn } from "@/lib/utils";
 import type { UserProfile } from "@/lib/types";
 
@@ -72,7 +70,6 @@ export default function Header() {
   const handleSignOut = async () => {
     if (auth) {
       await signOut(auth);
-      await clearSession();
       router.push('/auth');
     }
   };

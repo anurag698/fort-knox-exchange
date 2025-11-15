@@ -5,8 +5,7 @@ import { moderateWithdrawalRequest, type ModerateWithdrawalRequestInput, type Mo
 import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { redirect } from 'next/navigation';
-import { cookies } from "next/headers";
-import { getFirebaseAdmin, getUserIdFromSession } from "@/lib/firebase-admin";
+import { getFirebaseAdmin } from "@/lib/firebase-admin";
 import { seedInitialData } from "@/lib/seed-data";
 import axios from 'axios';
 import { headers } from 'next/headers';
@@ -18,6 +17,13 @@ import { errorEmitter } from '@/firebase/error-emitter';
 type FormState = {
   status: 'success' | 'error' | 'idle';
   message: string;
+}
+
+// A placeholder function to get the user ID. In a real app, you'd get this from a verified ID token passed from the client.
+async function getUserId(): Promise<string | null> {
+    // For now, this is a limitation as we've removed session cookies.
+    // This will need to be replaced with a proper token verification strategy.
+    return null;
 }
 
 export async function seedDatabase(prevState: any, formData: FormData) {
@@ -96,7 +102,7 @@ export async function updateUserProfile(prevState: any, formData: FormData) {
     username: formData.get('username'),
   });
 
-  const userId = await getUserIdFromSession();
+  const userId = await getUserId();
   if (!userId) {
      return { status: 'error', message: 'Authentication required.' };
   }
@@ -142,7 +148,7 @@ export async function cancelOrder(prevState: FormState, formData: FormData): Pro
     orderId: formData.get('orderId'),
   });
 
-  const userId = await getUserIdFromSession();
+  const userId = await getUserId();
   if (!userId) {
      return { status: 'error', message: 'Authentication required.' };
   }
@@ -207,7 +213,7 @@ const createOrderSchema = z.object({
 
 export async function createOrder(prevState: FormState, formData: FormData): Promise<FormState> {
     const validatedFields = createOrderSchema.safeParse(Object.fromEntries(formData.entries()));
-    const userId = await getUserIdFromSession();
+    const userId = await getUserId();
 
     if (!userId) {
        return { status: 'error', message: 'You must be logged in to place an order.' };
@@ -443,85 +449,13 @@ export async function rejectWithdrawal(prevState: any, formData: FormData) {
   redirect('/admin');
 }
 
-export async function createSession(idToken: string) {
-  if (!idToken) {
-    return { status: 'error', message: 'ID token is required.' };
-  }
-
-  try {
-    const { auth, firestore, FieldValue } = getFirebaseAdmin();
-    const decodedToken = await auth.verifyIdToken(idToken);
-    const { uid, email } = decodedToken;
-
-    // Check if user exists, create if not
-    const userRef = firestore.collection('users').doc(uid);
-    const userDoc = await userRef.get();
-
-    if (!userDoc.exists) {
-      console.log(`User document for ${uid} does not exist. Creating...`);
-      const batch = firestore.batch();
-      const newUser = {
-        id: uid,
-        email: email,
-        username: email?.split('@')[0] ?? `user_${Math.random().toString(36).substring(2, 8)}`,
-        kycStatus: 'NOT_STARTED',
-        role: email === 'admin@fortknox.exchange' ? 'ADMIN' : 'USER',
-        referralCode: Math.random().toString(36).substring(2, 8).toUpperCase(),
-        createdAt: FieldValue.serverTimestamp(),
-        updatedAt: FieldValue.serverTimestamp(),
-      };
-      batch.set(userRef, newUser);
-
-      // Seed initial balances
-      const balancesRef = userRef.collection('balances');
-      batch.set(balancesRef.doc('USDT'), { id: 'USDT', userId: uid, assetId: 'USDT', available: 100000, locked: 0, createdAt: FieldValue.serverTimestamp(), updatedAt: FieldValue.serverTimestamp() });
-      batch.set(balancesRef.doc('BTC'), { id: 'BTC', userId: uid, assetId: 'BTC', available: 1, locked: 0, createdAt: FieldValue.serverTimestamp(), updatedAt: FieldValue.serverTimestamp() });
-      batch.set(balancesRef.doc('ETH'), { id: 'ETH', userId: uid, assetId: 'ETH', available: 10, locked: 0, createdAt: FieldValue.serverTimestamp(), updatedAt: FieldValue.serverTimestamp() });
-      batch.set(balancesRef.doc('DOGE'), { id: 'DOGE', userId: uid, assetId: 'DOGE', available: 50000, locked: 0, createdAt: FieldValue.serverTimestamp(), updatedAt: FieldValue.serverTimestamp() });
-      batch.set(balancesRef.doc('MATIC'), { id: 'MATIC', userId: uid, assetId: 'MATIC', available: 2000, locked: 0, createdAt: FieldValue.serverTimestamp(), updatedAt: FieldValue.serverTimestamp() });
-      
-      await batch.commit();
-      console.log(`Successfully created user document and balances for ${uid}`);
-    }
-
-    // Create session cookie
-    const expiresIn = 60 * 60 * 24 * 5 * 1000; // 5 days
-    const sessionCookie = await auth.createSessionCookie(idToken, { expiresIn });
-
-    cookies().set('__session', sessionCookie, {
-      maxAge: expiresIn,
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      path: '/',
-    });
-    
-    return { status: 'success' };
-
-  } catch (error: any) {
-    console.error('Failed to create session:', error);
-    const errorMessage = error.code ? `${error.code}: ${error.message}` : error.message;
-    return { status: 'error', message: `Failed to create session. Server error: ${errorMessage}` };
-  }
-}
-
-export async function clearSession() {
-  try {
-    cookies().delete('__session');
-    return { status: 'success' };
-  } catch (error) {
-    console.error('Failed to clear session:', error);
-    return { status: 'error', message: 'Failed to clear session.' };
-  }
-}
-
-
 const requestDepositSchema = z.object({
   assetId: z.string(),
 });
 
 export async function requestDeposit(prevState: FormState, formData: FormData): Promise<FormState> {
     const validatedFields = requestDepositSchema.safeParse(Object.fromEntries(formData.entries()));
-    const userId = await getUserIdFromSession();
+    const userId = await getUserId();
 
     if (!userId) {
        return { status: 'error', message: 'You must be logged in to request a deposit.' };
@@ -589,7 +523,7 @@ const requestWithdrawalSchema = z.object({
 
 export async function requestWithdrawal(prevState: FormState, formData: FormData): Promise<FormState> {
     const validatedFields = requestWithdrawalSchema.safeParse(Object.fromEntries(formData.entries()));
-    const userId = await getUserIdFromSession();
+    const userId = await getUserId();
 
     if (!userId) {
        return { status: 'error', message: 'You must be logged in to request a withdrawal.' };
@@ -732,7 +666,7 @@ export async function rejectKyc(prevState: any, formData: FormData) {
 }
     
 export async function submitKyc(prevState: any, formData: FormData): Promise<FormState> {
-  const userId = await getUserIdFromSession();
+  const userId = await getUserId();
   if (!userId) {
      return { status: 'error', message: 'Authentication required.' };
   }

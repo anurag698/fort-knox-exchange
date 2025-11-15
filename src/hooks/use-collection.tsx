@@ -46,20 +46,18 @@ export function useCollection<T = any>(
   type StateDataType = ResultItemType[] | null;
 
   const [data, setData] = useState<StateDataType>(null);
-  // Initialize isLoading based on whether the query is ready
-  const [isLoading, setIsLoading] = useState<boolean>(!memoizedTargetRefOrQuery);
+  const [isLoading, setIsLoading] = useState<boolean>(true); // Start as loading
   const [error, setError] = useState<FirestoreError | Error | null>(null);
 
   useEffect(() => {
-    // If the query is not ready, set loading to true and wait.
     if (!memoizedTargetRefOrQuery) {
-      setIsLoading(true);
+      // If the query is not ready, we are not loading and have no data.
+      setIsLoading(false);
       setData(null);
       setError(null);
       return;
     }
 
-    // When the query is ready, attach the listener.
     setIsLoading(true);
     
     const unsubscribe = onSnapshot(
@@ -87,12 +85,11 @@ export function useCollection<T = any>(
         }
     );
 
-    // Cleanup function
     return () => {
         unsubscribe();
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [memoizedTargetRefOrQuery]); // Re-run effect if the memoized query reference changes
+  }, [memoizedTargetRefOrQuery]);
 
   return { data, isLoading, error };
 }

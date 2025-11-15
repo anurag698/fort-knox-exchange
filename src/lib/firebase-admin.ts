@@ -1,5 +1,5 @@
 
-import { initializeApp, getApps, getApp } from 'firebase-admin/app';
+import { initializeApp, getApps, getApp, applicationDefault } from 'firebase-admin/app';
 import { getAuth } from 'firebase-admin/auth';
 import { getFirestore, FieldValue } from 'firebase-admin/firestore';
 import { cookies } from 'next/headers';
@@ -23,9 +23,10 @@ export function getFirebaseAdmin() {
     }
 
     try {
-        // Initialize the app without any credentials.
-        // The Admin SDK will automatically discover the credentials from the environment.
-        const adminApp = initializeApp({}, appName);
+        // Initialize the app with default credentials from the environment.
+        const adminApp = initializeApp({
+            credential: applicationDefault(),
+        }, appName);
         
         return { 
             firestore: getFirestore(adminApp), 

@@ -39,9 +39,9 @@ service cloud.firestore {
       // A user cannot delete orders.
       allow delete: if false;
 
-      // This is the collection query rule. It allows a user to query the 'orders'
-      // collection only if their query includes a 'where("userId", "==", theirId)' clause.
-      allow list: if request.query.where.userId == request.auth.uid;
+      // This rule allows a user to query the 'orders' collection only if their query
+      // includes a 'where("userId", "==", theirId)' clause.
+      allow list: if request.auth.uid == request.query.get("userId");
     }
 
     // Admins can read/write anything.

@@ -1,11 +1,17 @@
 
-import { config } from 'dotenv';
-config();
-
+import { parse } from 'dotenv';
+import { readFileSync } from 'fs';
 import type {NextConfig} from 'next';
+
+// Read the .env file
+const env = parse(readFileSync('.env'));
 
 const nextConfig: NextConfig = {
   /* config options here */
+  serverRuntimeConfig: {
+    // Expose the .env variables to the server runtime
+    ...env,
+  },
   typescript: {
     ignoreBuildErrors: true,
   },

@@ -1,5 +1,4 @@
 
-
 import type { Firestore, FieldValue } from 'firebase-admin/firestore';
 
 /**
@@ -33,6 +32,16 @@ export async function seedInitialData(firestore: Firestore, FieldValue: any) {
         { id: 'BCH', name: 'Bitcoin Cash', symbol: 'BCH' },
         { id: 'XLM', name: 'Stellar', symbol: 'XLM' },
         { id: 'ATOM', name: 'Cosmos', symbol: 'ATOM' },
+        { id: 'FIL', name: 'Filecoin', symbol: 'FIL' },
+        { id: 'NEAR', name: 'NEAR Protocol', symbol: 'NEAR' },
+        { id: 'APT', name: 'Aptos', symbol: 'APT' },
+        { id: 'IMX', name: 'Immutable', symbol: 'IMX' },
+        { id: 'SUI', name: 'Sui', symbol: 'SUI' },
+        { id: 'SAND', name: 'The Sandbox', symbol: 'SAND' },
+        { id: 'AAVE', name: 'Aave', symbol: 'AAVE' },
+        { id: 'MKR', name: 'Maker', symbol: 'MKR' },
+        { id: 'MANA', name: 'Decentraland', symbol: 'MANA' },
+        { id: 'FTM', name: 'Fantom', symbol: 'FTM' },
     ];
 
     for (const asset of assetsToSeed) {
@@ -66,6 +75,16 @@ export async function seedInitialData(firestore: Firestore, FieldValue: any) {
       { id: 'BCH-USDT', base: 'BCH', quote: 'USDT', pricePrecision: 2, quantityPrecision: 3, minOrder: 0.001 },
       { id: 'XLM-USDT', base: 'XLM', quote: 'USDT', pricePrecision: 5, quantityPrecision: 0, minOrder: 1 },
       { id: 'ATOM-USDT', base: 'ATOM', quote: 'USDT', pricePrecision: 3, quantityPrecision: 2, minOrder: 0.1 },
+      { id: 'FIL-USDT', base: 'FIL', quote: 'USDT', pricePrecision: 3, quantityPrecision: 2, minOrder: 0.1 },
+      { id: 'NEAR-USDT', base: 'NEAR', quote: 'USDT', pricePrecision: 3, quantityPrecision: 2, minOrder: 0.1 },
+      { id: 'APT-USDT', base: 'APT', quote: 'USDT', pricePrecision: 3, quantityPrecision: 2, minOrder: 0.1 },
+      { id: 'IMX-USDT', base: 'IMX', quote: 'USDT', pricePrecision: 4, quantityPrecision: 2, minOrder: 1 },
+      { id: 'SUI-USDT', base: 'SUI', quote: 'USDT', pricePrecision: 4, quantityPrecision: 2, minOrder: 1 },
+      { id: 'SAND-USDT', base: 'SAND', quote: 'USDT', pricePrecision: 4, quantityPrecision: 1, minOrder: 1 },
+      { id: 'AAVE-USDT', base: 'AAVE', quote: 'USDT', pricePrecision: 2, quantityPrecision: 3, minOrder: 0.01 },
+      { id: 'MKR-USDT', base: 'MKR', quote: 'USDT', pricePrecision: 2, quantityPrecision: 4, minOrder: 0.0001 },
+      { id: 'MANA-USDT', base: 'MANA', quote: 'USDT', pricePrecision: 4, quantityPrecision: 1, minOrder: 1 },
+      { id: 'FTM-USDT', base: 'FTM', quote: 'USDT', pricePrecision: 4, quantityPrecision: 1, minOrder: 1 },
 
       // BTC Pairs
       { id: 'ETH-BTC', base: 'ETH', quote: 'BTC', pricePrecision: 6, quantityPrecision: 4, minOrder: 0.001 },
@@ -84,6 +103,16 @@ export async function seedInitialData(firestore: Firestore, FieldValue: any) {
       { id: 'BCH-BTC', base: 'BCH', quote: 'BTC', pricePrecision: 6, quantityPrecision: 3, minOrder: 0.001 },
       { id: 'XLM-BTC', base: 'XLM', quote: 'BTC', pricePrecision: 8, quantityPrecision: 0, minOrder: 10 },
       { id: 'ATOM-BTC', base: 'ATOM', quote: 'BTC', pricePrecision: 8, quantityPrecision: 2, minOrder: 0.1 },
+      { id: 'FIL-BTC', base: 'FIL', quote: 'BTC', pricePrecision: 8, quantityPrecision: 2, minOrder: 0.1 },
+      { id: 'NEAR-BTC', base: 'NEAR', quote: 'BTC', pricePrecision: 8, quantityPrecision: 2, minOrder: 0.1 },
+      { id: 'APT-BTC', base: 'APT', quote: 'BTC', pricePrecision: 8, quantityPrecision: 2, minOrder: 0.1 },
+      { id: 'IMX-BTC', base: 'IMX', quote: 'BTC', pricePrecision: 8, quantityPrecision: 2, minOrder: 1 },
+      { id: 'SUI-BTC', base: 'SUI', quote: 'BTC', pricePrecision: 8, quantityPrecision: 2, minOrder: 1 },
+      { id: 'SAND-BTC', base: 'SAND', quote: 'BTC', pricePrecision: 8, quantityPrecision: 1, minOrder: 10 },
+      { id: 'AAVE-BTC', base: 'AAVE', quote: 'BTC', pricePrecision: 7, quantityPrecision: 3, minOrder: 0.01 },
+      { id: 'MKR-BTC', base: 'MKR', quote: 'BTC', pricePrecision: 6, quantityPrecision: 4, minOrder: 0.001 },
+      { id: 'MANA-BTC', base: 'MANA', quote: 'BTC', pricePrecision: 8, quantityPrecision: 1, minOrder: 10 },
+      { id: 'FTM-BTC', base: 'FTM', quote: 'BTC', pricePrecision: 8, quantityPrecision: 1, minOrder: 10 },
 
       // ETH Pairs
       { id: 'SOL-ETH', base: 'SOL', quote: 'ETH', pricePrecision: 6, quantityPrecision: 2, minOrder: 0.1 },
@@ -101,6 +130,16 @@ export async function seedInitialData(firestore: Firestore, FieldValue: any) {
       { id: 'BCH-ETH', base: 'BCH', quote: 'ETH', pricePrecision: 6, quantityPrecision: 3, minOrder: 0.001 },
       { id: 'XLM-ETH', base: 'XLM', quote: 'ETH', pricePrecision: 8, quantityPrecision: 0, minOrder: 10 },
       { id: 'ATOM-ETH', base: 'ATOM', quote: 'ETH', pricePrecision: 7, quantityPrecision: 2, minOrder: 0.1 },
+      { id: 'FIL-ETH', base: 'FIL', quote: 'ETH', pricePrecision: 7, quantityPrecision: 2, minOrder: 0.1 },
+      { id: 'NEAR-ETH', base: 'NEAR', quote: 'ETH', pricePrecision: 7, quantityPrecision: 2, minOrder: 0.1 },
+      { id: 'APT-ETH', base: 'APT', quote: 'ETH', pricePrecision: 7, quantityPrecision: 2, minOrder: 0.1 },
+      { id: 'IMX-ETH', base: 'IMX', quote: 'ETH', pricePrecision: 7, quantityPrecision: 2, minOrder: 1 },
+      { id: 'SUI-ETH', base: 'SUI', quote: 'ETH', pricePrecision: 7, quantityPrecision: 2, minOrder: 1 },
+      { id: 'SAND-ETH', base: 'SAND', quote: 'ETH', pricePrecision: 7, quantityPrecision: 1, minOrder: 10 },
+      { id: 'AAVE-ETH', base: 'AAVE', quote: 'ETH', pricePrecision: 6, quantityPrecision: 3, minOrder: 0.01 },
+      { id: 'MKR-ETH', base: 'MKR', quote: 'ETH', pricePrecision: 5, quantityPrecision: 4, minOrder: 0.001 },
+      { id: 'MANA-ETH', base: 'MANA', quote: 'ETH', pricePrecision: 7, quantityPrecision: 1, minOrder: 10 },
+      { id: 'FTM-ETH', base: 'FTM', quote: 'ETH', pricePrecision: 7, quantityPrecision: 1, minOrder: 10 },
     ];
 
     for (const market of marketsToSeed) {

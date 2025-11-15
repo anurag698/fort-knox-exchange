@@ -1,15 +1,17 @@
 
 'use client';
 
-import { useMarkets } from '@/hooks/use-markets';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { AlertCircle, ArrowUp, ArrowDown, Bitcoin, Info, Circle, ArrowRight } from "lucide-react";
+import { AlertCircle, Bitcoin, Info, Circle, ArrowRight } from "lucide-react";
 import { cn } from '@/lib/utils';
 import { useMemo, useState, useEffect } from 'react';
 import Link from 'next/link';
 import { Button } from '../ui/button';
+import { useFirestore } from "@/firebase";
+import { collection, getDocs, query } from 'firebase/firestore';
+import type { Market } from "@/lib/types";
 
 // Mock icons for coins
 const coinIcons: { [key: string]: React.ElementType } = {
@@ -23,9 +25,33 @@ const coinIcons: { [key: string]: React.ElementType } = {
 };
 
 export function PopularCoins() {
-  const { data: markets, isLoading: marketsLoading } = useMarkets();
+  const firestore = useFirestore();
+  const [markets, setMarkets] = useState<Market[] | null>(null);
+  const [marketsLoading, setMarketsLoading] = useState(true);
+  
   const [prices, setPrices] = useState<Record<string, number>>({});
   const [pricesLoading, setPricesLoading] = useState(true);
+
+   useEffect(() => {
+    if (!firestore) return;
+
+    const fetchMarkets = async () => {
+        setMarketsLoading(true);
+        try {
+            const marketsQuery = query(collection(firestore, 'markets'));
+            const querySnapshot = await getDocs(marketsQuery);
+            const marketsData = querySnapshot.docs.map(doc => ({ ...doc.data() as Omit<Market, 'id'>, id: doc.id }));
+            setMarkets(marketsData);
+        } catch (err) {
+            console.error(err);
+        } finally {
+            setMarketsLoading(false);
+        }
+    };
+
+    fetchMarkets();
+  }, [firestore]);
+
 
   const marketSymbols = useMemo(() => {
     if (!markets) return [];

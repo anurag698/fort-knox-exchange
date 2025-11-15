@@ -1,11 +1,12 @@
 'use client';
 
-import { useState, use } from "react";
+import { useState } from "react";
 import { Balances } from "@/components/trade/balances";
 import { MemoizedTradingViewChart } from "@/components/trade/trading-view-chart";
 import { OrderBook } from "@/components/trade/order-book";
 import { OrderForm } from "@/components/trade/order-form";
 import { UserTrades } from "@/components/trade/user-trades";
+import { use } from 'react';
 
 // This is a Client Component that receives marketId as a direct prop.
 function TradePageClient({ marketId }: { marketId: string }) {

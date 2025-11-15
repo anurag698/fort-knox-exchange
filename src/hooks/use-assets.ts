@@ -9,7 +9,10 @@ export function useAssets() {
   const firestore = useFirestore();
 
   const assetsCollectionRef = useMemoFirebase(
-    () => (firestore ? collection(firestore, 'assets') : null),
+    () => {
+      console.log('useAssets: Creating collection reference for "assets"');
+      return firestore ? collection(firestore, 'assets') : null;
+    },
     [firestore]
   );
 
@@ -17,6 +20,11 @@ export function useAssets() {
     () => (assetsCollectionRef ? query(assetsCollectionRef, orderBy('name', 'asc')) : null),
     [assetsCollectionRef]
   );
+  
+  const { data, isLoading, error } = useCollection<Asset>(assetsQuery);
+  console.log('useAssets: Data received from useCollection:', data);
+  console.log('useAssets: isLoading:', isLoading);
+  console.log('useAssets: error:', error);
 
-  return useCollection<Asset>(assetsQuery);
+  return { data, isLoading, error };
 }

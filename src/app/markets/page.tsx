@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useAssets } from '@/hooks/use-assets';
@@ -23,21 +24,30 @@ export default function MarketsPage() {
   const isLoading = marketsLoading || assetsLoading;
   const error = marketsError || assetsError;
 
-  const enrichedMarkets = useMemo(() => {
+  const enrichedMarkets: EnrichedMarket[] = useMemo(() => {
     if (!marketsData || !assetsData) {
+      console.log('MarketsPage: No marketsData or assetsData, returning empty array.');
       return [];
     }
 
     const assetsMap = new Map(assetsData.map(asset => [asset.id, asset]));
+    console.log('MarketsPage: Created assetsMap', assetsMap);
 
     return marketsData.map(market => ({
       ...market,
       baseAsset: assetsMap.get(market.baseAssetId),
       quoteAsset: assetsMap.get(market.quoteAssetId),
-    })).filter(m => m.baseAsset && m.quoteAsset) as EnrichedMarket[];
+    }));
 
   }, [marketsData, assetsData]);
     
+  console.log('MarketsPage: Final enrichedMarkets:', enrichedMarkets);
+  console.log('MarketsPage: isLoading:', isLoading);
+  console.log('MarketsPage: error:', error);
+  console.log('MarketsPage: marketsData:', marketsData);
+  console.log('MarketsPage: assetsData:', assetsData);
+
+
   const renderContent = () => {
     if (isLoading) {
       return (

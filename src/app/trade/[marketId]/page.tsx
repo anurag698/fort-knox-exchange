@@ -8,13 +8,13 @@ import { OrderBook } from "@/components/trade/order-book";
 import { OrderForm } from "@/components/trade/order-form";
 import { UserTrades } from "@/components/trade/user-trades";
 
-export default function MarketTradePage({ params }: { params: { marketId: string } }) {
+export default function MarketTradePage({ params: { marketId: routeMarketId } }: { params: { marketId: string } }) {
   const [selectedPrice, setSelectedPrice] = useState<number | undefined>(undefined);
-  const [marketId, setMarketId] = useState<string>(params.marketId || 'BTC-USDT');
+  const [marketId, setMarketId] = useState<string>(routeMarketId || 'BTC-USDT');
 
   useEffect(() => {
-    setMarketId(params.marketId || 'BTC-USDT');
-  }, [params.marketId]);
+    setMarketId(routeMarketId || 'BTC-USDT');
+  }, [routeMarketId]);
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">

@@ -16,9 +16,11 @@ import { UserWithdrawals } from '@/components/wallet/user-withdrawals';
 import type { Asset } from '@/lib/types';
 import { useAssets } from '@/hooks/use-assets';
 import { useBalances } from '@/hooks/use-balances';
+import { useUser } from "@/firebase";
 
 
 export default function WalletPage() {
+  const { user } = useUser();
   const { data: balances, isLoading: balancesLoading, error: balancesError } = useBalances();
   const { data: assets, isLoading: assetsLoading, error: assetsError } = useAssets();
   
@@ -144,7 +146,7 @@ export default function WalletPage() {
   }
 
   return (
-    <div className="flex flex-col gap-8">
+    <div className="flex flex-col gap-8 p-4 md:p-6 lg:p-8">
        <div className="flex flex-col gap-2">
         <h1 className="font-headline text-3xl font-bold tracking-tight">
           My Wallet
@@ -172,15 +174,11 @@ export default function WalletPage() {
         </TabsContent>
         <TabsContent value="history" className="mt-6">
           <div className="grid gap-8">
-            <UserDeposits />
-            <UserWithdrawals />
+            <UserDeposits userId={user?.uid} />
+            <UserWithdrawals userId={user?.uid} />
           </div>
         </TabsContent>
       </Tabs>
     </div>
   );
 }
-
-    
-
-    

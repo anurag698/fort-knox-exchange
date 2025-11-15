@@ -98,6 +98,3 @@ export function UserWithdrawals({ userId }: UserWithdrawalsProps) {
     </Card>
   );
 }
-
-    
-    

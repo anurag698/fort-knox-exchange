@@ -1,3 +1,10 @@
+// This is the Server Component that handles params.
+// It destructures the marketId directly from params.
+export default function TradePage({ params }: { params: { marketId: string } }) {
+  const { marketId } = params;
+  return <TradePageClient marketId={marketId} />;
+}
+
 'use client';
 
 import { useState } from "react";
@@ -24,11 +31,4 @@ function TradePageClient({ marketId }: { marketId: string }) {
       </div>
     </div>
   );
-}
-
-// The default export is a Server Component that handles params.
-// It destructures the marketId directly from params.
-export default function TradePage({ params }: { params: { marketId: string } }) {
-  const { marketId } = params;
-  return <TradePageClient marketId={marketId} />;
 }

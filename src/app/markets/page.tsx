@@ -30,7 +30,10 @@ export default function MarketsPage() {
       setIsLoading(false);
       return;
     }
+    
+    // Set initial loading state
     setIsLoading(true);
+    setError(null);
 
     const marketsQuery = query(collection(firestore, 'markets'), orderBy('id', 'asc'));
     const assetsQuery = query(collection(firestore, 'assets'), orderBy('name', 'asc'));
@@ -41,7 +44,6 @@ export default function MarketsPage() {
     }, (err) => {
       console.error("Markets snapshot error:", err);
       setError(err);
-      setIsLoading(false);
     });
 
     const unsubAssets = onSnapshot(assetsQuery, (snapshot) => {
@@ -50,7 +52,6 @@ export default function MarketsPage() {
     }, (err) => {
       console.error("Assets snapshot error:", err);
       setError(err);
-      setIsLoading(false);
     });
     
     return () => {
@@ -59,6 +60,14 @@ export default function MarketsPage() {
     };
   }, [firestore]);
   
+  // This effect will run whenever the data changes to determine the loading state.
+  useEffect(() => {
+    if (marketsData !== null && assetsData !== null) {
+      setIsLoading(false);
+    }
+  }, [marketsData, assetsData]);
+
+
   const enrichedMarkets: EnrichedMarket[] = useMemo(() => {
     if (!marketsData || !assetsData) {
       return [];
@@ -70,12 +79,6 @@ export default function MarketsPage() {
       quoteAsset: assetsMap.get(market.quoteAssetId),
     }));
   }, [marketsData, assetsData]);
-    
-  useEffect(() => {
-    if (marketsData !== null && assetsData !== null) {
-      setIsLoading(false);
-    }
-  }, [marketsData, assetsData]);
 
 
   const renderContent = () => {
@@ -85,12 +88,11 @@ export default function MarketsPage() {
             <div className="p-4">
               <Skeleton className="h-10 w-full" />
             </div>
-            <div className="p-4">
-              <Skeleton className="h-10 w-full" />
-            </div>
-            <div className="p-4">
-              <Skeleton className="h-10 w-full" />
-            </div>
+            {[...Array(4)].map((_, i) => (
+                <div className="border-t p-4" key={i}>
+                    <Skeleton className="h-8 w-full" />
+                </div>
+            ))}
           </div>
       );
     }

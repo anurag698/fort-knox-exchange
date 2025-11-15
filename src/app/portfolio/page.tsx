@@ -14,7 +14,7 @@ import { WithdrawalForm } from '@/components/wallet/withdrawal-form';
 import { UserDeposits } from '@/components/wallet/user-deposits';
 import { UserWithdrawals } from '@/components/wallet/user-withdrawals';
 import { useFirestore, useUser } from '@/firebase';
-import { collection, onSnapshot, query, orderBy } from 'firebase/firestore';
+import { collection, onSnapshot, query, orderBy, getDocs } from 'firebase/firestore';
 import type { Asset, Balance } from '@/lib/types';
 
 
@@ -32,6 +32,25 @@ export default function WalletPage() {
   const [error, setError] = useState<Error | null>(null);
 
   useEffect(() => {
+    if (!firestore) return;
+    
+    const fetchAssets = async () => {
+      setAssetsLoading(true);
+      try {
+        const assetsQuery = query(collection(firestore, 'assets'), orderBy('name', 'asc'));
+        const snapshot = await getDocs(assetsQuery);
+        setAssets(snapshot.docs.map(doc => ({...doc.data() as Asset, id: doc.id})));
+      } catch (e) {
+        setError(e as Error);
+      } finally {
+        setAssetsLoading(false);
+      }
+    };
+    
+    fetchAssets();
+  }, [firestore]);
+  
+  useEffect(() => {
     if (!firestore || !user?.uid) {
         setBalancesLoading(false);
         return;
@@ -45,21 +64,6 @@ export default function WalletPage() {
     });
     return () => unsubBalances();
   }, [firestore, user?.uid]);
-
-  useEffect(() => {
-      if(!firestore) {
-          setAssetsLoading(false);
-          return;
-      }
-      const unsubAssets = onSnapshot(query(collection(firestore, 'assets'), orderBy('name', 'asc')), (snapshot) => {
-        setAssets(snapshot.docs.map(doc => ({...doc.data() as Asset, id: doc.id})));
-        setAssetsLoading(false);
-      }, (e) => {
-          setError(e);
-          setAssetsLoading(false);
-      });
-      return () => unsubAssets();
-  }, [firestore]);
 
 
   useEffect(() => {

@@ -3,7 +3,7 @@
 
 import { useEffect, useState } from 'react';
 import { useUser, useFirestore, useMemoFirebase } from '@/firebase';
-import { doc, onSnapshot } from 'firebase/firestore';
+import { doc, getDoc } from 'firebase/firestore';
 import { useActionState } from 'react';
 import { useFormStatus } from 'react-dom';
 import { useForm } from 'react-hook-form';
@@ -66,17 +66,27 @@ export default function SettingsPage() {
 
 
   useEffect(() => {
-    if (!firestore || !authUser) {
+    if (!firestore || !authUser?.uid) {
       if(!isAuthLoading) setIsProfileLoading(false);
       return;
     }
-    const unsubscribe = onSnapshot(doc(firestore, 'users', authUser.uid), (doc) => {
-        setUserProfile(doc.exists() ? {...doc.data() as UserProfile, id: doc.id} : null);
+    
+    const fetchProfile = async () => {
+      setIsProfileLoading(true);
+      setError(null);
+      try {
+        const docSnap = await getDoc(doc(firestore, 'users', authUser.uid));
+        setUserProfile(docSnap.exists() ? {...docSnap.data() as UserProfile, id: docSnap.id} : null);
+      } catch (err) {
+        setError(err as Error);
+      } finally {
         setIsProfileLoading(false);
-    }, setError);
+      }
+    };
+    
+    fetchProfile();
 
-    return () => unsubscribe();
-  }, [firestore, authUser, isAuthLoading]);
+  }, [firestore, authUser?.uid, isAuthLoading]);
 
 
   const [profileFormState, profileFormAction] = useActionState(updateUserProfile, { status: "idle", message: "" });

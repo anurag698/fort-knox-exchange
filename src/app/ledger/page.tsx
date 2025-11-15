@@ -8,7 +8,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { AlertCircle, BookOpen } from "lucide-react";
 import { useFirestore, useUser } from "@/firebase";
 import { useState, useEffect } from "react";
-import { collection, query, orderBy, onSnapshot } from "firebase/firestore";
+import { collection, query, orderBy, getDocs } from "firebase/firestore";
 import type { LedgerEntry } from "@/lib/types";
 
 export default function LedgerPage() {
@@ -23,17 +23,22 @@ export default function LedgerPage() {
       setIsLoading(false);
       return;
     }
-    const ledgerQuery = query(collection(firestore, 'users', user.uid, 'ledgerEntries'), orderBy('createdAt', 'desc'));
     
-    const unsubscribe = onSnapshot(ledgerQuery, (snapshot) => {
+    const fetchLedger = async () => {
+      setIsLoading(true);
+      setError(null);
+      try {
+        const ledgerQuery = query(collection(firestore, 'users', user.uid, 'ledgerEntries'), orderBy('createdAt', 'desc'));
+        const snapshot = await getDocs(ledgerQuery);
         setLedgerEntries(snapshot.docs.map(doc => ({...doc.data() as LedgerEntry, id: doc.id})));
+      } catch (e) {
+        setError(e as Error);
+      } finally {
         setIsLoading(false);
-    }, (e) => {
-        setError(e);
-        setIsLoading(false);
-    });
+      }
+    };
 
-    return () => unsubscribe();
+    fetchLedger();
   }, [firestore, user?.uid]);
 
 

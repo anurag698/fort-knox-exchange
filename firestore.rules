@@ -34,12 +34,12 @@ service cloud.firestore {
     // Anyone can read markets and assets. Only authenticated users (admins) can write.
     match /markets/{marketId} {
       allow get, list: if true;
-      allow write: if isSignedIn();
+      allow write: if isSignedIn(); // In a real app, you'd check for an admin role
     }
 
     match /assets/{assetId} {
       allow get, list: if true;
-      allow write: if isSignedIn();
+      allow write: if isSignedIn(); // In a real app, you'd check for an admin role
     }
 
     // TRANSACTIONAL DATA

@@ -12,7 +12,7 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import Link from 'next/link';
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from '@/components/ui/tooltip';
 import { useFirestore, useUser } from "@/firebase";
-import { collection, onSnapshot, query, where, getCountFromServer, doc, getDoc, collectionGroup, orderBy } from "firebase/firestore";
+import { collection, getDocs, query, where, getCountFromServer, doc, getDoc, collectionGroup, orderBy } from "firebase/firestore";
 import type { Withdrawal, Asset } from "@/lib/types";
 
 
@@ -31,92 +31,60 @@ export default function AdminPage() {
   const [isAdmin, setIsAdmin] = useState(false);
   
   useEffect(() => {
-    if (!firestore || !user) {
-      setIsLoading(false);
-      return;
-    };
-    
-    let isMounted = true;
+    if (!firestore) return;
 
-    const checkAdminStatus = async () => {
-      const userDocRef = doc(firestore, 'users', user.uid);
+    const checkAdminAndFetchData = async () => {
+      setIsLoading(true);
+      setError(null);
+
+      if (!user) {
+        setIsAdmin(false);
+        setIsLoading(false);
+        return;
+      }
+      
       try {
+        const userDocRef = doc(firestore, 'users', user.uid);
         const docSnap = await getDoc(userDocRef);
-        if (isMounted) {
-          if (docSnap.exists() && docSnap.data().isAdmin) {
-            setIsAdmin(true);
-          } else {
-            setIsAdmin(false);
-            setIsLoading(false);
-          }
+
+        if (docSnap.exists() && docSnap.data().isAdmin) {
+          setIsAdmin(true);
+
+          // Fetch all data in parallel
+          const [
+            withdrawalsSnap,
+            assetsSnap,
+            usersCountSnap,
+            marketsCountSnap,
+            pendingWithdrawalsCountSnap
+          ] = await Promise.all([
+            getDocs(query(collectionGroup(firestore, 'withdrawals'), where('status', '==', 'PENDING'), orderBy('createdAt', 'desc'))),
+            getDocs(collection(firestore, 'assets')),
+            getCountFromServer(collection(firestore, 'users')),
+            getCountFromServer(collection(firestore, 'markets')),
+            getCountFromServer(query(collectionGroup(firestore, 'withdrawals'), where('status', '==', 'PENDING'))),
+          ]);
+          
+          setWithdrawals(withdrawalsSnap.docs.map(d => ({...d.data() as Withdrawal, id: d.id})));
+          setAssets(assetsSnap.docs.map(d => ({...d.data() as Asset, id: d.id})));
+          setUsersCount(usersCountSnap.data().count);
+          setMarketsCount(marketsCountSnap.data().count);
+          setWithdrawalsCount(pendingWithdrawalsCountSnap.data().count);
+
+        } else {
+          setIsAdmin(false);
         }
       } catch (e) {
-         if (isMounted) {
-            setError(e as Error);
-            setIsLoading(false);
-         }
+        setError(e as Error);
+      } finally {
+        setIsLoading(false);
       }
     };
-
-    checkAdminStatus();
     
-    return () => { isMounted = false; }
+    checkAdminAndFetchData();
+    
   }, [firestore, user]);
 
-  useEffect(() => {
-    if (!firestore || !isAdmin) return;
-
-    let isMounted = true;
-    const initialLoad = [true, true, true, true, true]; // withdrawals, assets, users, markets, withdrawalsCount
-    const doneLoading = () => initialLoad.every(v => !v) && setIsLoading(false);
-
-    const q = query(collectionGroup(firestore, 'withdrawals'), where('status', '==', 'PENDING'), orderBy('createdAt', 'desc'));
-    const unsubWithdrawals = onSnapshot(q, snapshot => {
-        if(isMounted) {
-          setWithdrawals(snapshot.docs.map(doc => ({...doc.data() as Withdrawal, id: doc.id})));
-          initialLoad[0] = false;
-          doneLoading();
-        }
-    }, e => isMounted && setError(e));
-    
-    const unsubAssets = onSnapshot(collection(firestore, 'assets'), snapshot => {
-        if(isMounted) {
-          setAssets(snapshot.docs.map(doc => ({...doc.data() as Asset, id: doc.id})));
-          initialLoad[1] = false;
-          doneLoading();
-        }
-    }, e => isMounted && setError(e));
-
-    getCountFromServer(collection(firestore, 'users')).then(snap => {
-        if(isMounted) {
-            setUsersCount(snap.data().count);
-            initialLoad[2] = false;
-            doneLoading();
-        }
-    }).catch(e => isMounted && setError(e));
-
-    getCountFromServer(collection(firestore, 'markets')).then(snap => {
-        if(isMounted) {
-            setMarketsCount(snap.data().count);
-            initialLoad[3] = false;
-            doneLoading();
-        }
-    }).catch(e => isMounted && setError(e));
-    
-    getCountFromServer(query(collectionGroup(firestore, 'withdrawals'), where('status', '==', 'PENDING'))).then(snap => {
-        if(isMounted) {
-            setWithdrawalsCount(snap.data().count);
-            initialLoad[4] = false;
-            doneLoading();
-        }
-    }).catch(e => isMounted && setError(e));
-
-    return () => {
-        isMounted = false;
-        unsubWithdrawals();
-        unsubAssets();
-    }
-  }, [firestore, isAdmin])
 
   const summaryStats = [
     { title: "Total Users", value: usersCount, isLoading: isLoading, icon: Users, href: "/admin/users" },

@@ -15,7 +15,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import type { Asset, Balance, UserProfile } from "@/lib/types";
-import { doc, onSnapshot } from "firebase/firestore";
+import { doc, getDoc } from "firebase/firestore";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { ShieldAlert } from "lucide-react";
 import Link from "next/link";
@@ -36,13 +36,14 @@ export function WithdrawalForm({ assets, balances }: { assets: Asset[], balances
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   
   useEffect(() => {
-    if (user && firestore) {
-        const unsub = onSnapshot(doc(firestore, 'users', user.uid), (doc) => {
-            setUserProfile(doc.exists() ? doc.data() as UserProfile : null);
-        });
-        return () => unsub();
+    if (user?.uid && firestore) {
+        const fetchProfile = async () => {
+          const userDoc = await getDoc(doc(firestore, 'users', user.uid));
+          setUserProfile(userDoc.exists() ? doc.data() as UserProfile : null);
+        }
+        fetchProfile();
     }
-  }, [user, firestore]);
+  }, [user?.uid, firestore]);
 
   const balancesMap = new Map(balances.map(b => [b.assetId, b]));
 

@@ -9,7 +9,7 @@ import { AlertCircle, History } from "lucide-react";
 import { useMemo, useState, useEffect } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { useFirestore, useUser } from "@/firebase";
-import { collection, query, orderBy, onSnapshot } from "firebase/firestore";
+import { collection, query, orderBy, getDocs } from "firebase/firestore";
 import type { Withdrawal, Asset } from "@/lib/types";
 
 interface UserWithdrawalsProps {
@@ -33,26 +33,28 @@ export function UserWithdrawals({ userId }: UserWithdrawalsProps) {
             return;
         }
 
-        const withdrawalsQuery = query(
-            collection(firestore, 'users', targetUserId, 'withdrawals'),
-            orderBy('createdAt', 'desc')
-        );
-        const unsubWithdrawals = onSnapshot(withdrawalsQuery, snapshot => {
-            setWithdrawals(snapshot.docs.map(doc => ({ ...doc.data() as Withdrawal, id: doc.id })));
-            if (assets) setIsLoading(false);
-        }, setError);
+        const fetchData = async () => {
+          setIsLoading(true);
+          setError(null);
+          try {
+            const [withdrawalsSnap, assetsSnap] = await Promise.all([
+              getDocs(query(collection(firestore, 'users', targetUserId, 'withdrawals'), orderBy('createdAt', 'desc'))),
+              getDocs(query(collection(firestore, 'assets')))
+            ]);
 
-        const assetsQuery = query(collection(firestore, 'assets'));
-        const unsubAssets = onSnapshot(assetsQuery, snapshot => {
-            setAssets(snapshot.docs.map(doc => ({...doc.data() as Asset, id: doc.id})));
-            if (withdrawals) setIsLoading(false);
-        }, setError);
+            setWithdrawals(withdrawalsSnap.docs.map(doc => ({ ...doc.data() as Withdrawal, id: doc.id })));
+            setAssets(assetsSnap.docs.map(doc => ({...doc.data() as Asset, id: doc.id})));
 
-        return () => {
-            unsubWithdrawals();
-            unsubAssets();
-        }
-    }, [firestore, targetUserId, assets, withdrawals]);
+          } catch(err) {
+            setError(err as Error);
+          } finally {
+            setIsLoading(false);
+          }
+        };
+
+        fetchData();
+
+    }, [firestore, targetUserId]);
 
     const assetsMap = useMemo(() => new Map(assets?.map(a => [a.id, a])), [assets]);
 

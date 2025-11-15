@@ -16,7 +16,7 @@ import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { ArrowUpRight, ArrowDownLeft, ReceiptText } from 'lucide-react';
 import { useFirestore } from '@/firebase';
-import { collection, onSnapshot, query, orderBy } from 'firebase/firestore';
+import { collection, getDocs, query } from 'firebase/firestore';
 
 type LedgerTableProps = {
   entries: LedgerEntry[];
@@ -44,11 +44,18 @@ export function LedgerTable({ entries }: LedgerTableProps) {
 
     useEffect(() => {
         if (!firestore) return;
-        const unsub = onSnapshot(query(collection(firestore, 'assets')), snapshot => {
+        const fetchAssets = async () => {
+          setIsLoading(true);
+          try {
+            const snapshot = await getDocs(query(collection(firestore, 'assets')));
             setAssets(snapshot.docs.map(doc => ({ ...doc.data() as Asset, id: doc.id })));
+          } catch(e) {
+            console.error("Failed to fetch assets for ledger table", e);
+          } finally {
             setIsLoading(false);
-        });
-        return () => unsub();
+          }
+        };
+        fetchAssets();
     }, [firestore]);
 
 

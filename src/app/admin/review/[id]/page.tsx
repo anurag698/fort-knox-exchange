@@ -15,7 +15,7 @@ import type { Withdrawal, Asset, UserProfile } from '@/lib/types';
 import { UserDeposits } from '@/components/wallet/user-deposits';
 import { UserWithdrawals } from '@/components/wallet/user-withdrawals';
 import { useFirestore } from "@/firebase";
-import { doc, onSnapshot, query, collectionGroup, where, collection } from "firebase/firestore";
+import { doc, getDoc, getDocs, query, collectionGroup, where, collection } from "firebase/firestore";
 
 
 function ModerationButtons({ disabled }: { disabled: boolean }) {
@@ -63,39 +63,45 @@ export default function ReviewWithdrawalPage({ params }: { params: { id: string 
   const asset = assets?.find(a => a.id === withdrawal?.assetId);
 
   useEffect(() => {
-    if (!firestore) return;
-
-    const q = query(collectionGroup(firestore, 'withdrawals'), where('id', '==', params.id));
-    const unsubWithdrawal = onSnapshot(q, (snapshot) => {
-        if (!snapshot.empty) {
-            const doc = snapshot.docs[0];
-            const withdrawalData = { ...doc.data() as Withdrawal, id: doc.id };
-            setWithdrawal(withdrawalData);
-
-            // Fetch user profile after getting withdrawal
-            if(withdrawalData.userId) {
-                const unsubUser = onSnapshot(doc(firestore, 'users', withdrawalData.userId), (userDoc) => {
-                    setUserProfile(userDoc.exists() ? {...userDoc.data() as UserProfile, id: userDoc.id} : null);
-                    if(assets) setIsLoading(false);
-                }, setError);
-                return () => unsubUser();
-            }
-        } else {
-            setWithdrawal(null);
-            setIsLoading(false);
-        }
-    }, setError);
-
-    const unsubAssets = onSnapshot(collection(firestore, 'assets'), (snapshot) => {
-        setAssets(snapshot.docs.map(doc => ({...doc.data() as Asset, id: doc.id})));
-        if (userProfile) setIsLoading(false);
-    }, setError);
-
-    return () => {
-        unsubWithdrawal();
-        unsubAssets();
+    if (!firestore) {
+      setIsLoading(false);
+      return;
     }
-  }, [firestore, params.id, assets, userProfile]);
+
+    const fetchData = async () => {
+      setIsLoading(true);
+      setError(null);
+      try {
+        const q = query(collectionGroup(firestore, 'withdrawals'), where('id', '==', params.id));
+        const withdrawalSnapshot = await getDocs(q);
+
+        if (withdrawalSnapshot.empty) {
+          setWithdrawal(null);
+          setIsLoading(false);
+          return;
+        }
+
+        const withdrawalData = { ...withdrawalSnapshot.docs[0].data() as Withdrawal, id: withdrawalSnapshot.docs[0].id };
+        setWithdrawal(withdrawalData);
+        
+        const [assetsSnapshot, userSnapshot] = await Promise.all([
+          getDocs(collection(firestore, 'assets')),
+          getDoc(doc(firestore, 'users', withdrawalData.userId))
+        ]);
+
+        setAssets(assetsSnapshot.docs.map(d => ({...d.data() as Asset, id: d.id})));
+        setUserProfile(userSnapshot.exists() ? {...userSnapshot.data() as UserProfile, id: userSnapshot.id} : null);
+
+      } catch (err) {
+        setError(err as Error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    
+    fetchData();
+
+  }, [firestore, params.id]);
 
 
   const renderContent = () => {

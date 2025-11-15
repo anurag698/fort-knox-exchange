@@ -9,7 +9,7 @@ import { AlertCircle, History } from "lucide-react";
 import { useMemo, useState, useEffect } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { useFirestore, useUser } from "@/firebase";
-import { collection, query, orderBy, onSnapshot } from "firebase/firestore";
+import { collection, query, orderBy, getDocs } from "firebase/firestore";
 import type { Deposit, Asset } from "@/lib/types";
 
 interface UserDepositsProps {
@@ -33,26 +33,28 @@ export function UserDeposits({ userId }: UserDepositsProps) {
             return;
         }
 
-        const depositsQuery = query(
-            collection(firestore, 'users', targetUserId, 'deposits'),
-            orderBy('createdAt', 'desc')
-        );
-        const unsubDeposits = onSnapshot(depositsQuery, snapshot => {
-            setDeposits(snapshot.docs.map(doc => ({ ...doc.data() as Deposit, id: doc.id })));
-            if (assets) setIsLoading(false);
-        }, setError);
+        const fetchData = async () => {
+          setIsLoading(true);
+          setError(null);
+          try {
+            const [depositsSnap, assetsSnap] = await Promise.all([
+              getDocs(query(collection(firestore, 'users', targetUserId, 'deposits'), orderBy('createdAt', 'desc'))),
+              getDocs(query(collection(firestore, 'assets')))
+            ]);
 
-        const assetsQuery = query(collection(firestore, 'assets'));
-        const unsubAssets = onSnapshot(assetsQuery, snapshot => {
-            setAssets(snapshot.docs.map(doc => ({...doc.data() as Asset, id: doc.id})));
-            if (deposits) setIsLoading(false);
-        }, setError);
+            setDeposits(depositsSnap.docs.map(doc => ({ ...doc.data() as Deposit, id: doc.id })));
+            setAssets(assetsSnap.docs.map(doc => ({...doc.data() as Asset, id: doc.id})));
+            
+          } catch (err) {
+            setError(err as Error);
+          } finally {
+            setIsLoading(false);
+          }
+        };
 
-        return () => {
-            unsubDeposits();
-            unsubAssets();
-        }
-    }, [firestore, targetUserId, assets, deposits]);
+        fetchData();
+        
+    }, [firestore, targetUserId]);
 
 
     const assetsMap = useMemo(() => new Map(assets?.map(a => [a.id, a])), [assets]);

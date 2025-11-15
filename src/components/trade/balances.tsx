@@ -7,7 +7,7 @@ import { useMemo, useState, useEffect } from 'react';
 import { Wallet, AlertCircle } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useFirestore, useUser } from '@/firebase';
-import { doc, onSnapshot, collection } from 'firebase/firestore';
+import { doc, getDoc, collection, getDocs } from 'firebase/firestore';
 import type { Market, Asset, Balance } from '@/lib/types';
 
 export function Balances({ marketId }: { marketId: string }) {
@@ -23,38 +23,40 @@ export function Balances({ marketId }: { marketId: string }) {
 
 
   useEffect(() => {
-    if (!firestore || !user) {
+    if (!firestore) {
       setIsLoading(false);
       return;
     }
     
-    const unsubBalances = onSnapshot(collection(firestore, 'users', user.uid, 'balances'), (snapshot) => {
-        setBalances(snapshot.docs.map(doc => ({...doc.data() as Balance, id: doc.id})));
-    }, setError);
+    const fetchData = async () => {
+      setIsLoading(true);
+      setError(null);
+      try {
+        const [assetsSnap, marketSnap] = await Promise.all([
+          getDocs(collection(firestore, 'assets')),
+          getDoc(doc(firestore, 'markets', marketId)),
+        ]);
+        
+        setAssets(assetsSnap.docs.map(d => ({ ...d.data() as Asset, id: d.id })));
+        setMarket(marketSnap.exists() ? { ...marketSnap.data() as Market, id: marketSnap.id } : null);
 
-    const unsubAssets = onSnapshot(collection(firestore, 'assets'), (snapshot) => {
-        setAssets(snapshot.docs.map(doc => ({...doc.data() as Asset, id: doc.id})));
-    }, setError);
-
-    const unsubMarket = onSnapshot(doc(firestore, 'markets', marketId), (doc) => {
-        if (doc.exists()) {
-            setMarket({ ...doc.data() as Market, id: doc.id });
+        if (user?.uid) {
+          const balancesSnap = await getDocs(collection(firestore, 'users', user.uid, 'balances'));
+          setBalances(balancesSnap.docs.map(d => ({ ...d.data() as Balance, id: d.id })));
         } else {
-            setMarket(null);
+          setBalances([]);
         }
-    }, setError);
 
-    if(balances && assets && market) {
+      } catch (err) {
+        setError(err as Error);
+      } finally {
         setIsLoading(false);
-    }
-
-    return () => {
-        unsubBalances();
-        unsubAssets();
-        unsubMarket();
+      }
     };
 
-  }, [firestore, user, marketId, balances, assets, market]);
+    fetchData();
+
+  }, [firestore, user?.uid, marketId]);
 
 
   const { baseAsset, quoteAsset, baseBalance, quoteBalance } = useMemo(() => {

@@ -56,50 +56,46 @@ export function UserTrades({ marketId }: { marketId: string }) {
             return;
         }
 
-        let isMounted = true;
+        const fetchInitialData = async () => {
+          try {
+            const assetsSnap = await getDoc(doc(firestore, 'assets'));
+            const marketSnap = await getDoc(doc(firestore, 'markets', marketId));
 
-        const unsubAssets = onSnapshot(collection(firestore, 'assets'), (snapshot) => {
-            if (isMounted) setAssets(snapshot.docs.map(doc => ({...doc.data() as Asset, id: doc.id})));
-        }, setError);
+            setAssets(assetsSnap.exists() ? [assetsSnap.data() as Asset] : []);
+            setMarket(marketSnap.exists() ? { ...marketSnap.data() as Market, id: marketSnap.id } : null);
 
-        const unsubMarket = onSnapshot(doc(firestore, 'markets', marketId), (doc) => {
-            if (isMounted) setMarket(doc.exists() ? {...doc.data() as Market, id: doc.id} : null);
-        }, setError);
+          } catch (e) {
+            setError(e as Error);
+          }
+        };
 
-        let unsubOrders = () => {};
-        if (user?.uid) {
-            const constraints = [
-                where('userId', '==', user.uid),
-                where('status', 'in', ['OPEN', 'PARTIAL']),
-                orderBy('createdAt', 'desc')
-            ];
-            if (marketId) {
-                constraints.splice(1, 0, where('marketId', '==', marketId));
-            }
-            const ordersQuery = query(collection(firestore, 'orders'), ...constraints);
+        fetchInitialData();
 
-            unsubOrders = onSnapshot(ordersQuery, (snapshot) => {
-                if (isMounted) {
-                    setOrders(snapshot.docs.map(doc => ({...doc.data() as Order, id: doc.id})));
-                    setIsLoading(false);
-                }
-            }, (e) => {
-                if(isMounted) {
-                    setError(e);
-                    setIsLoading(false);
-                }
-            });
-        } else {
+        if (!user?.uid) {
             setOrders([]);
             setIsLoading(false);
+            return;
         }
+        
+        const constraints = [
+            where('userId', '==', user.uid),
+            where('status', 'in', ['OPEN', 'PARTIAL']),
+            orderBy('createdAt', 'desc')
+        ];
+        if (marketId) {
+            constraints.splice(1, 0, where('marketId', '==', marketId));
+        }
+        const ordersQuery = query(collection(firestore, 'orders'), ...constraints);
 
-        return () => {
-            isMounted = false;
-            unsubOrders();
-            unsubAssets();
-            unsubMarket();
-        }
+        const unsubscribe = onSnapshot(ordersQuery, (snapshot) => {
+            setOrders(snapshot.docs.map(doc => ({...doc.data() as Order, id: doc.id})));
+            setIsLoading(false);
+        }, (e) => {
+            setError(e);
+            setIsLoading(false);
+        });
+
+        return () => unsubscribe();
 
     }, [firestore, user?.uid, marketId]);
 

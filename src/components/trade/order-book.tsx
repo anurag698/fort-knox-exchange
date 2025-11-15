@@ -30,7 +30,10 @@ export function OrderBook({ onPriceSelect, marketId }: OrderBookProps) {
   const [baseAsset, quoteAsset] = marketId.split('-');
   
   useEffect(() => {
-    if (!firestore) return;
+    if (!firestore) {
+      setIsLoading(false);
+      return;
+    };
     setIsLoading(true);
 
     const q = query(

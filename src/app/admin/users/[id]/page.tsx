@@ -12,7 +12,7 @@ import { approveKyc, rejectKyc } from '@/app/actions';
 import { useActionState, useTransition, useState, useEffect } from 'react';
 import { useFormStatus } from 'react-dom';
 import { useFirestore } from "@/firebase";
-import { doc, onSnapshot } from "firebase/firestore";
+import { doc, getDoc } from "firebase/firestore";
 import type { UserProfile } from "@/lib/types";
 
 function KycButtons({ disabled }: { disabled: boolean }) {
@@ -60,12 +60,22 @@ export default function ManageUserPage({ params }: { params: { id: string } }) {
         setIsLoading(false);
         return;
     }
-    const unsubscribe = onSnapshot(doc(firestore, 'users', params.id), (doc) => {
-        setUser(doc.exists() ? {...doc.data() as UserProfile, id: doc.id} : null);
+    
+    const fetchUser = async () => {
+      setIsLoading(true);
+      setError(null);
+      try {
+        const userDoc = await getDoc(doc(firestore, 'users', params.id));
+        setUser(userDoc.exists() ? {...userDoc.data() as UserProfile, id: userDoc.id} : null);
+      } catch (err) {
+        setError(err as Error);
+      } finally {
         setIsLoading(false);
-    }, setError);
+      }
+    };
+    
+    fetchUser();
 
-    return () => unsubscribe();
   }, [firestore, params.id]);
 
 

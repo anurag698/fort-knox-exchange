@@ -11,7 +11,7 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import Link from 'next/link';
 import { useFirestore, useUser } from "@/firebase";
 import { useState, useEffect } from "react";
-import { collection, query, orderBy, onSnapshot, getDoc, doc } from "firebase/firestore";
+import { collection, query, orderBy, onSnapshot, getDoc, doc, getDocs } from "firebase/firestore";
 import type { UserProfile } from "@/lib/types";
 
 export default function AdminUsersPage() {
@@ -23,51 +23,41 @@ export default function AdminUsersPage() {
   const [isAdmin, setIsAdmin] = useState(false);
 
   useEffect(() => {
-    if (!firestore || !user) {
+    if (!firestore) {
         setIsLoading(false);
         return;
     }
 
-    let isMounted = true;
-
     const checkAdminAndFetchUsers = async () => {
+        setIsLoading(true);
+        setError(null);
+
+        if (!user) {
+          setIsAdmin(false);
+          setIsLoading(false);
+          return;
+        }
+        
         try {
             const userDoc = await getDoc(doc(firestore, 'users', user.uid));
-            if (!isMounted) return;
-
+            
             if (userDoc.exists() && userDoc.data().isAdmin) {
                 setIsAdmin(true);
                 const q = query(collection(firestore, 'users'), orderBy('createdAt', 'desc'));
-                const unsubscribe = onSnapshot(q, snapshot => {
-                    if (isMounted) {
-                        setUsers(snapshot.docs.map(doc => ({...doc.data() as UserProfile, id: doc.id})));
-                        setIsLoading(false);
-                    }
-                }, e => {
-                    if (isMounted) setError(e);
-                });
-                return unsubscribe;
+                const usersSnapshot = await getDocs(q);
+                setUsers(usersSnapshot.docs.map(doc => ({...doc.data() as UserProfile, id: doc.id})));
             } else {
                 setIsAdmin(false);
-                setIsLoading(false);
             }
         } catch (e) {
-            if (isMounted) {
-                setError(e as Error);
-                setIsLoading(false);
-            }
+            setError(e as Error);
+        } finally {
+            setIsLoading(false);
         }
     };
     
-    let unsubscribe: (() => void) | undefined;
-    checkAdminAndFetchUsers().then(unsub => {
-        if(unsub) unsubscribe = unsub;
-    });
+    checkAdminAndFetchUsers();
 
-    return () => {
-        isMounted = false;
-        if(unsubscribe) unsubscribe();
-    };
 }, [firestore, user]);
 
 

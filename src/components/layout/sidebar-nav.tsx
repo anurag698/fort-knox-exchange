@@ -11,7 +11,7 @@ import { CandlestickChart, ArrowRightLeft, Repeat, Wallet, BookText, UserCog } f
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useUser, useFirestore } from '@/firebase';
-import { doc, onSnapshot } from 'firebase/firestore';
+import { doc, getDoc } from 'firebase/firestore';
 import type { UserProfile } from '@/lib/types';
 
 const mainLinks = [
@@ -31,14 +31,15 @@ export default function SidebarNav() {
     const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
 
     useEffect(() => {
-        if (user && firestore) {
+        if (user?.uid && firestore) {
+          const fetchProfile = async () => {
             const userDocRef = doc(firestore, 'users', user.uid);
-            const unsubscribe = onSnapshot(userDocRef, (doc) => {
-                setUserProfile(doc.exists() ? { ...doc.data() as UserProfile, id: doc.id } : null);
-            });
-            return () => unsubscribe();
+            const docSnap = await getDoc(userDocRef);
+            setUserProfile(docSnap.exists() ? { ...docSnap.data() as UserProfile, id: docSnap.id } : null);
+          };
+          fetchProfile();
         }
-    }, [user, firestore]);
+    }, [user?.uid, firestore]);
 
     return (
         <div className="flex flex-col h-full">

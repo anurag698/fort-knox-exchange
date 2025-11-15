@@ -17,8 +17,8 @@ import { User, LogOut, Settings, LogIn, Landmark, Home, CandlestickChart, ArrowR
 import { useIsMobile } from "@/hooks/use-mobile";
 import { PlaceHolderImages } from "@/lib/placeholder-images";
 import Link from 'next/link';
-import { useUser, useAuth, useFirestore, useMemoFirebase } from '@/firebase';
-import { doc, onSnapshot } from 'firebase/firestore';
+import { useUser, useAuth, useFirestore } from '@/firebase';
+import { doc, getDoc } from 'firebase/firestore';
 import { signOut } from 'firebase/auth';
 import { useRouter, usePathname } from "next/navigation";
 import { clearSession } from "@/app/actions";
@@ -49,18 +49,19 @@ export default function Header() {
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
 
   useEffect(() => {
-    if (firestore && user) {
-        const userDocRef = doc(firestore, 'users', user.uid);
-        const unsubscribe = onSnapshot(userDocRef, (doc) => {
-            if (doc.exists()) {
-                setUserProfile({ ...doc.data() as UserProfile, id: doc.id });
-            } else {
-                setUserProfile(null);
-            }
-        });
-        return () => unsubscribe();
+    if (firestore && user?.uid) {
+        const fetchProfile = async () => {
+          const userDocRef = doc(firestore, 'users', user.uid);
+          const docSnap = await getDoc(userDocRef);
+          if (docSnap.exists()) {
+              setUserProfile({ ...docSnap.data() as UserProfile, id: docSnap.id });
+          } else {
+              setUserProfile(null);
+          }
+        };
+        fetchProfile();
     }
-  }, [firestore, user]);
+  }, [firestore, user?.uid]);
 
 
   const handleSignOut = async () => {

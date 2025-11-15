@@ -1,8 +1,7 @@
-
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useForm } from 'react-hook-form';
+import { useForm, useFormState } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useUser, useFirestore, errorEmitter, FirestorePermissionError } from '@/firebase';
@@ -122,8 +121,7 @@ export function OrderForm({ selectedPrice, marketId }: OrderFormProps) {
     }
 
     const newOrderRef = doc(collection(firestore, 'orders'));
-    const newOrder: Omit<Order, 'createdAt' | 'updatedAt'> = {
-      id: newOrderRef.id,
+    const newOrderData: Omit<Order, 'createdAt' | 'updatedAt' | 'id'> & { id?: string } = {
       userId: user.uid,
       marketId,
       side,
@@ -154,7 +152,8 @@ export function OrderForm({ selectedPrice, marketId }: OrderFormProps) {
       transaction.update(balanceRef, { available: newAvailable, locked: newLocked, updatedAt: serverTimestamp() });
 
       transaction.set(newOrderRef, {
-        ...newOrder,
+        ...newOrderData,
+        id: newOrderRef.id,
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
       });
@@ -172,7 +171,12 @@ export function OrderForm({ selectedPrice, marketId }: OrderFormProps) {
         const permissionError = new FirestorePermissionError({
           path: newOrderRef.path,
           operation: 'create',
-          requestResourceData: { ...newOrder, createdAt: {".sv": "timestamp"}, updatedAt: {".sv": "timestamp"} },
+          requestResourceData: { 
+            ...newOrderData, 
+            id: newOrderRef.id, 
+            createdAt: {".sv": "timestamp"}, 
+            updatedAt: {".sv": "timestamp"} 
+          },
         } satisfies SecurityRuleContext);
         errorEmitter.emit('permission-error', permissionError);
       } else {
@@ -285,5 +289,3 @@ export function OrderForm({ selectedPrice, marketId }: OrderFormProps) {
     </Card>
   );
 }
-
-    

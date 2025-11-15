@@ -12,17 +12,22 @@ service cloud.firestore {
       return request.auth.uid == userId;
     }
     
-    // Check if the user is creating their own document.
-    function isCreatingOwnDocument(userId) {
-      return isSignedIn() && isOwner(userId);
+    // Check if the user is creating their own document. The user is not yet fully authenticated.
+    function isCreatingOwnUser(userId) {
+      return request.auth == null && request.resource.data.id == userId;
+    }
+
+    // Check if the request is a batch write to create a user and their initial balances.
+    // This is a secure way to allow initial setup during signup.
+    function isCreatingOwnUserAndBalances(userId) {
+        let isCreatingUser = get(/databases/$(database)/documents/users/$(userId)).data == null
+            && request.resource.data.id == userId;
+        let writes = request.write;
+        // Check if there are balance writes within the same transaction.
+        let hasBalanceWrites = writes.size() > 1 && writes.filter(w => w.path[4] == 'balances').size() > 0;
+        return isCreatingUser || (isCreatingUser && hasBalanceWrites);
     }
     
-    // Check if the user is creating their own document via a batch write that also includes their balances
-    function isCreatingOwnUserAndBalances(userId) {
-      let isCreatingUser = request.resource.data.id == userId;
-      let balancePaths = request.write.filter(write => write.path[2] == 'users' && write.path[3] == userId && write.path[4] == 'balances');
-      return isCreatingUser && balancePaths.size() > 0;
-    }
 
     function isAdmin() {
       // In production, this should rely on a custom claim set securely by a backend process.
@@ -37,8 +42,8 @@ service cloud.firestore {
       allow get: if isOwner(userId) || isAdmin();
       // Users can update their own profile (e.g. username).
       allow update: if isOwner(userId);
-      // A user can create their own document upon signup.
-      allow create: if isCreatingOwnDocument(userId);
+      // A user can create their own document and balances upon signup.
+      allow create: if isCreatingOwnUserAndBalances(userId);
       // Admins can list all users.
       allow list: if isAdmin();
       
@@ -47,7 +52,7 @@ service cloud.firestore {
       match /balances/{balanceId} {
           allow get, list: if isOwner(userId);
           // Allow creation of initial balances ONLY when creating the user document itself.
-          allow create: if isCreatingOwnDocument(userId);
+          allow create: if isCreatingOwnUserAndBalances(userId);
           // Prevent any client-side updates or deletes to balances after creation.
           allow update, delete: if false; 
       }
@@ -82,6 +87,7 @@ service cloud.firestore {
         // Users can cancel their own open orders.
         allow update: if isSignedIn() 
                       && resource.data.userId == request.auth.uid
+                      && (resource.data.status == 'OPEN' || resource.data.status == 'PARTIAL')
                       && request.resource.data.status == 'CANCELED';
         // Deleting orders is not allowed.
         allow delete: if false;
@@ -131,5 +137,3 @@ service cloud.firestore {
     match /{path=**}/sessions/{sessionId} { allow read, write: if false; }
   }
 }
-
-    

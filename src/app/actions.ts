@@ -362,7 +362,6 @@ export async function createOrder(prevState: FormState, formData: FormData): Pro
         }
 
     } catch (serverError: any) {
-        // This is the new, targeted error handling block.
         if (serverError.message.includes('permission-denied') || serverError.message.includes('insufficient permissions')) {
              const permissionError = new FirestorePermissionError({
                 path: orderRef.path,
@@ -370,11 +369,8 @@ export async function createOrder(prevState: FormState, formData: FormData): Pro
                 requestResourceData: newOrder
             });
             errorEmitter.emit('permission-error', permissionError);
-             return {
-                status: 'error',
-                message: 'Permission denied. You might not have the rights to perform this action.',
-            };
         }
+        
         console.error("Create Order Error:", serverError);
         return {
             status: 'error',

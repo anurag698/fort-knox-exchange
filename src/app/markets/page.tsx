@@ -1,7 +1,8 @@
-
 'use client';
 
-import { useMarkets } from '@/hooks/use-markets';
+import { useState, useEffect } from 'react';
+import { useFirestore } from '@/firebase';
+import { collection, getDocs, query } from 'firebase/firestore';
 import type { Market } from '@/lib/types';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { MarketsTable } from '@/components/markets/markets-table';
@@ -10,7 +11,32 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { AlertCircle, CandlestickChart } from 'lucide-react';
 
 export default function MarketsPage() {
-  const { data: markets, isLoading, error } = useMarkets();
+  const firestore = useFirestore();
+  const [markets, setMarkets] = useState<Market[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<Error | null>(null);
+
+  useEffect(() => {
+    if (!firestore) return;
+
+    const fetchMarkets = async () => {
+      setIsLoading(true);
+      try {
+        const marketsQuery = query(collection(firestore, 'markets'));
+        const querySnapshot = await getDocs(marketsQuery);
+        const marketsData = querySnapshot.docs.map(doc => ({ ...doc.data() as Omit<Market, 'id'>, id: doc.id }));
+        setMarkets(marketsData);
+        setError(null);
+      } catch (err) {
+        console.error("Error fetching markets:", err);
+        setError(err instanceof Error ? err : new Error('An unknown error occurred'));
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchMarkets();
+  }, [firestore]);
 
   const renderContent = () => {
     if (isLoading) {
@@ -44,7 +70,7 @@ export default function MarketsPage() {
           </div>
           <h3 className="mt-4 text-lg font-semibold">No Markets Found</h3>
           <p className="mb-4 mt-2 text-sm text-muted-foreground">
-            There are currently no markets available to trade. New markets will appear here once added by an administrator.
+            There are currently no markets available to trade. Have you seeded the database?
           </p>
         </div>
       );

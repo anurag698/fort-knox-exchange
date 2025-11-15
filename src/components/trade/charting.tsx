@@ -19,7 +19,9 @@ import { Label } from "@/components/ui/label";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { useMarkets } from "@/hooks/use-markets";
+import { useFirestore } from "@/firebase";
+import { collection, getDocs, query } from 'firebase/firestore';
+import type { Market } from "@/lib/types";
 
 
 type Candle = CandlestickData<Time> & { volume: number };
@@ -65,7 +67,10 @@ const useLivePrice = (symbol: string) => {
 export function Charting({ marketId, setMarketId }: { marketId: string, setMarketId: (id: string) => void }) {
   const binanceSymbol = marketId.replace('-', '');
   const { price: livePrice, error: pricesError } = useLivePrice(binanceSymbol);
-  const { data: markets, isLoading: marketsLoading } = useMarkets();
+  
+  const firestore = useFirestore();
+  const [markets, setMarkets] = useState<Market[]>([]);
+  const [marketsLoading, setMarketsLoading] = useState(true);
   
   const [candles, setCandles] = useState<Candle[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -103,6 +108,26 @@ export function Charting({ marketId, setMarketId }: { marketId: string, setMarke
     "1d": 86400,
   };
   const intervalSeconds = intervalMapping[interval] || 900; // Default to 15m
+
+  useEffect(() => {
+    if (!firestore) return;
+
+    const fetchMarkets = async () => {
+        setMarketsLoading(true);
+        try {
+            const marketsQuery = query(collection(firestore, 'markets'));
+            const querySnapshot = await getDocs(marketsQuery);
+            const marketsData = querySnapshot.docs.map(doc => ({ ...doc.data() as Omit<Market, 'id'>, id: doc.id }));
+            setMarkets(marketsData);
+        } catch (err) {
+            console.error("Error fetching markets for charting:", err);
+        } finally {
+            setMarketsLoading(false);
+        }
+    };
+
+    fetchMarkets();
+  }, [firestore]);
 
   const calculateSMA = (data: Candle[], period: number): LineData[] => {
     const sma: LineData[] = [];
@@ -472,5 +497,3 @@ export function Charting({ marketId, setMarketId }: { marketId: string, setMarke
     </Card>
   )
 }
-
-    

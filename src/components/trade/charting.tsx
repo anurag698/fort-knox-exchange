@@ -498,3 +498,5 @@ export function Charting({ marketId, setMarketId }: { marketId: string, setMarke
     </Card>
   )
 }
+
+    

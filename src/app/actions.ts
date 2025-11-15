@@ -361,24 +361,24 @@ export async function createOrder(prevState: FormState, formData: FormData): Pro
              return { status: 'error', message: 'Invalid order type or missing price for limit order.' };
         }
 
-    } catch (e: any) {
+    } catch (serverError: any) {
         // This is the new, targeted error handling block.
-        if (e.message.includes('permission-denied') || e.message.includes('insufficient permissions')) {
+        if (serverError.message.includes('permission-denied') || serverError.message.includes('insufficient permissions')) {
              const permissionError = new FirestorePermissionError({
                 path: orderRef.path,
                 operation: 'create',
                 requestResourceData: newOrder
             });
-            // This error will now be caught by the FirebaseErrorListener
-            // and displayed in the Next.js error overlay.
-            throw permissionError;
+            errorEmitter.emit('permission-error', permissionError);
+             return {
+                status: 'error',
+                message: 'Permission denied. You might not have the rights to perform this action.',
+            };
         }
-
-        const error = e as Error;
-        console.error("Create Order Error:", error);
+        console.error("Create Order Error:", serverError);
         return {
             status: 'error',
-            message: error.message || 'Failed to place order.',
+            message: serverError.message || 'Failed to place order.',
         };
     }
 }
@@ -684,5 +684,6 @@ export async function submitKyc(prevState: any, formData: FormData): Promise<For
     };
   }
 }
+    
 
     

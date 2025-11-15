@@ -35,6 +35,7 @@ const mainLinks = [
 ];
 
 const adminLink = { href: "/admin", label: "Admin", icon: UserCog };
+const seedDataLink = { href: "/seed-data", label: "Update Data", icon: Database };
 
 
 export default function Header() {
@@ -139,12 +140,20 @@ export default function Header() {
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
              {userProfile?.isAdmin && (
+                <>
                 <DropdownMenuItem asChild>
                     <Link href={adminLink.href}>
                         <adminLink.icon className="mr-2 h-4 w-4" />
                         <span>{adminLink.label}</span>
                     </Link>
                 </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                    <Link href={seedDataLink.href}>
+                        <seedDataLink.icon className="mr-2 h-4 w-4" />
+                        <span>{seedDataLink.label}</span>
+                    </Link>
+                </DropdownMenuItem>
+                </>
              )}
             <DropdownMenuItem asChild>
               <Link href="/settings">

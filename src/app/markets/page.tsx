@@ -13,7 +13,6 @@ import { useFirestore } from '@/firebase';
 import { collection, onSnapshot, query, getDocs, doc, getDoc } from 'firebase/firestore';
 import { MarketStatCard } from '@/components/markets/market-stat-card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { updateMarketData } from '@/app/actions';
 import Link from 'next/link';
 
 export type EnrichedMarket = Market & {
@@ -21,8 +20,6 @@ export type EnrichedMarket = Market & {
   quoteAsset?: Asset;
   marketData?: MarketData;
 };
-
-const DATA_REFRESH_COOLDOWN = 5 * 60 * 1000; // 5 minutes
 
 export default function MarketsPage() {
   const firestore = useFirestore();
@@ -32,80 +29,51 @@ export default function MarketsPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
 
-  const triggerMarketDataUpdate = useCallback(async () => {
-    console.log("Triggering market data update...");
-    // We pass null values because the action doesn't use them
-    await updateMarketData(null, new FormData());
-  }, []);
-
   useEffect(() => {
     if (!firestore) return;
 
-    const fetchData = async () => {
-      setIsLoading(true);
-      setError(null);
-      try {
-        const marketsQuery = query(collection(firestore, 'markets'));
-        const assetsQuery = query(collection(firestore, 'assets'));
-        
-        const [marketsSnapshot, assetsSnapshot] = await Promise.all([
-            getDocs(marketsQuery),
-            getDocs(assetsQuery)
-        ]);
+    setIsLoading(true);
+    setError(null);
+    
+    const marketsQuery = query(collection(firestore, 'markets'));
+    const assetsQuery = query(collection(firestore, 'assets'));
+    const marketDataQuery = query(collection(firestore, 'market_data'));
 
-        const marketsData = marketsSnapshot.docs.map(doc => ({ ...doc.data() as Market, id: doc.id }));
-        const assetsData = assetsSnapshot.docs.map(doc => ({ ...doc.data() as Asset, id: doc.id }));
-
+    const unsubMarkets = onSnapshot(marketsQuery, (snapshot) => {
+        const marketsData = snapshot.docs.map(doc => ({ ...doc.data() as Market, id: doc.id }));
         setMarkets(marketsData);
+    }, (err) => {
+        console.error("Markets subscription error:", err);
+        setError(new Error("Failed to subscribe to markets."));
+    });
+    
+    const unsubAssets = onSnapshot(assetsQuery, (snapshot) => {
+        const assetsData = snapshot.docs.map(doc => ({ ...doc.data() as Asset, id: doc.id }));
         setAssets(assetsData);
-        
-        // Subscribe to live market data
-        const marketDataQuery = query(collection(firestore, 'market_data'));
-        const unsubscribe = onSnapshot(marketDataQuery, (snapshot) => {
-            const liveData: Record<string, MarketData> = {};
-            snapshot.forEach(doc => {
-                liveData[doc.id] = { ...doc.data() as MarketData, id: doc.id };
-            });
-            setMarketData(liveData);
-            setIsLoading(false);
-        }, (err) => {
-            console.error("Market live data subscription error:", err);
-            setError(new Error("Failed to subscribe to live market data."));
-            setIsLoading(false);
+    }, (err) => {
+        console.error("Assets subscription error:", err);
+        setError(new Error("Failed to subscribe to assets."));
+    });
+
+    const unsubMarketData = onSnapshot(marketDataQuery, (snapshot) => {
+        const liveData: Record<string, MarketData> = {};
+        snapshot.forEach(doc => {
+            liveData[doc.id] = { ...doc.data() as MarketData, id: doc.id };
         });
-
-        // Check if market data needs a refresh
-        if (marketsData.length > 0) {
-            const firstMarketDataRef = doc(firestore, 'market_data', marketsData[0].id);
-            const firstMarketDataSnap = await getDoc(firstMarketDataRef);
-            if (firstMarketDataSnap.exists()) {
-                const data = firstMarketDataSnap.data();
-                const lastUpdated = data.lastUpdated?.toDate();
-                if (!lastUpdated || (new Date().getTime() - lastUpdated.getTime() > DATA_REFRESH_COOLDOWN)) {
-                   triggerMarketDataUpdate();
-                }
-            } else {
-                // If no market data exists at all, trigger an update.
-                triggerMarketDataUpdate();
-            }
-        }
-
-
-        return unsubscribe;
-
-      } catch (err: any) {
-        console.error("Error fetching initial market data:", err);
-        setError(err);
+        setMarketData(liveData);
         setIsLoading(false);
-      }
-    };
-
-    const unsubscribePromise = fetchData();
+    }, (err) => {
+        console.error("Market live data subscription error:", err);
+        setError(new Error("Failed to subscribe to live market data."));
+        setIsLoading(false);
+    });
 
     return () => {
-      unsubscribePromise.then(unsubscribe => unsubscribe && unsubscribe());
+      unsubMarkets();
+      unsubAssets();
+      unsubMarketData();
     };
-  }, [firestore, triggerMarketDataUpdate]);
+  }, [firestore]);
 
   const enrichedMarkets: EnrichedMarket[] = useMemo(() => {
     if (!markets.length || !assets.length) {
@@ -188,8 +156,11 @@ export default function MarketsPage() {
             </div>
             <h3 className="mt-4 text-lg font-semibold">Database Not Initialized</h3>
             <p className="mb-4 mt-2 text-sm text-muted-foreground">
-                The exchange requires initial data for assets and markets. Please sign up your first user to initialize the database automatically.
+                The exchange requires initial data for assets and markets. Please use the "Update Data" page to seed the database.
             </p>
+            <Button asChild>
+                <Link href="/seed-data">Go to Update Data Page</Link>
+            </Button>
         </div>
       );
     }

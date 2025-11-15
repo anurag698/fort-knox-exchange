@@ -29,17 +29,13 @@ export async function seedDatabase(prevState: any, formData: FormData) {
 export async function updateMarketData(prevState: any, formData: FormData) {
   try {
     const { firestore, FieldValue } = getFirebaseAdmin();
-    const marketsSnapshot = await firestore.collection('markets').get();
+    const marketsSnapshot = await firestore.collection('markets').limit(1).get();
+    
+    // If markets are empty, seed the database first. This makes the action idempotent.
     if (marketsSnapshot.empty) {
-      // If markets are empty, try seeding first.
       console.log('No markets found. Seeding initial database data...');
       await seedInitialData(firestore, FieldValue);
-      console.log('Database seeded successfully. Re-fetching markets...');
-      // Re-fetch markets after seeding
-      const updatedMarketsSnapshot = await firestore.collection('markets').get();
-      if (updatedMarketsSnapshot.empty) {
-        return { status: 'error', message: 'Seeding failed. No markets found.' };
-      }
+      console.log('Database seeded successfully. Proceeding to update market data...');
     }
 
     const batch = firestore.batch();
@@ -62,7 +58,7 @@ export async function updateMarketData(prevState: any, formData: FormData) {
     const tickers: any[] = response.data;
     const tickerMap = new Map(tickers.map(t => [t.symbol, t]));
 
-    // Use the potentially updated markets snapshot
+    // Re-fetch all markets after potential seeding
     const allMarketsSnapshot = await firestore.collection('markets').get();
 
     for (const doc of allMarketsSnapshot.docs) {
@@ -369,14 +365,6 @@ export async function createSession(token: string) {
     const userDoc = await userRef.get();
 
     if (!userDoc.exists) {
-      // Check if markets exist. If not, this is likely the first user. Seed data.
-      const marketsSnapshot = await firestore.collection('markets').limit(1).get();
-      if (marketsSnapshot.empty) {
-        console.log('No markets found. Seeding initial database data...');
-        await seedInitialData(firestore, FieldValue);
-        console.log('Database seeded successfully.');
-      }
-      
       // Create user document and seed balances.
       const batch = firestore.batch();
       const newUser = {

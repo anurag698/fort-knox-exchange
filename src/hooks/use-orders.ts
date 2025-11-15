@@ -22,12 +22,11 @@ export function useOrders(marketId?: string) {
     ];
 
     if (marketId) {
-      // Using unshift to make sure the marketId filter is applied first, which can be better for indexing.
       constraints.unshift(where('marketId', '==', marketId));
     }
 
     return query(collection(firestore, 'orders'), ...constraints);
-  }, [firestore, user?.uid, marketId, isUserLoading]); // isUserLoading and user.uid are the key dependencies
+  }, [firestore, user, marketId, isUserLoading]);
 
   const { data, isLoading, error } = useCollection<Order>(ordersQuery);
 

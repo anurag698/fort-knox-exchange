@@ -443,15 +443,15 @@ export async function rejectWithdrawal(prevState: any, formData: FormData) {
   redirect('/admin');
 }
 
-export async function createSession(token: string) {
-  if (!token) {
-    return { status: 'error', message: 'Token is required for session creation.' };
+export async function createSession(idToken: string) {
+  if (!idToken) {
+    return { status: 'error', message: 'ID token is required for session creation.' };
   }
 
   try {
     const { auth } = getFirebaseAdmin();
     const expiresIn = 60 * 60 * 24 * 5 * 1000; // 5 days
-    const sessionCookie = await auth.createSessionCookie(token, { expiresIn });
+    const sessionCookie = await auth.createSessionCookie(idToken, { expiresIn });
 
     cookies().set('__session', sessionCookie, {
       maxAge: expiresIn,
@@ -463,7 +463,9 @@ export async function createSession(token: string) {
     return { status: 'success' };
   } catch (error: any) {
     console.error('Failed to create session:', error);
-    return { status: 'error', message: `Failed to create session. Server error: ${error.message}` };
+    // Provide a more detailed error message for debugging
+    const errorMessage = error.code ? `${error.code}: ${error.message}` : error.message;
+    return { status: 'error', message: `Failed to create session. Server error: ${errorMessage}` };
   }
 }
 

@@ -11,17 +11,17 @@ service cloud.firestore {
     function isOwner(userId) {
       return request.auth.uid == userId;
     }
+    
+    function isCreatingOwnDocument(userId) {
+      // Allow creation if the new document's ID matches the user's UID.
+      return isSignedIn() && request.auth.uid == userId;
+    }
 
     function isAdmin() {
       // In production, this should rely on a custom claim set securely by a backend process.
       // return request.auth.token.admin == true;
       // For this prototype, we check a field in the user's document.
       return isSignedIn() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'ADMIN';
-    }
-    
-    function isCreatingOwnDocument(userId) {
-      // Allow creation if the new document's ID matches the user's UID.
-      return isSignedIn() && request.auth.uid == userId;
     }
 
     // USER DATA

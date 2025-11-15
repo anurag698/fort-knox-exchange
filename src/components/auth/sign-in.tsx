@@ -20,6 +20,7 @@ import { useAuth } from '@/firebase';
 import {
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
+  type User
 } from 'firebase/auth';
 import { Loader2 } from 'lucide-react';
 import { createSession } from '@/app/actions';
@@ -56,11 +57,11 @@ export function SignIn() {
     defaultValues: { email: '', password: '', confirmPassword: '' },
   });
 
-  const handleAuthSuccess = async (user: any) => {
-    const token = await user.getIdToken();
-    const result = await createSession(token);
+  const handleAuthSuccess = async (user: User) => {
+    const idToken = await user.getIdToken();
+    const result = await createSession(idToken);
     if (result.status === 'success') {
-      router.push('/trade');
+      router.push('/trade/BTC-USDT');
     } else {
       toast({
         variant: 'destructive',

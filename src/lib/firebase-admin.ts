@@ -5,6 +5,9 @@ import { getFirestore, FieldValue } from 'firebase-admin/firestore';
 import { cookies } from 'next/headers';
 import { firebaseConfig } from '@/firebase/config';
 
+// Ensure this file is treated as a server-only module
+import 'server-only';
+
 const appName = 'firebase-admin-app-singleton';
 
 /**
@@ -28,6 +31,7 @@ export function getFirebaseAdmin() {
         // Explicitly setting the projectId is crucial in some environments where
         // default discovery can fail. This is the key fix for the session error.
         const adminApp = initializeApp({
+            // Using applicationDefault() is the standard way to initialize in a Google Cloud environment.
             credential: applicationDefault(),
             projectId: firebaseConfig.projectId,
         }, appName);
@@ -41,7 +45,8 @@ export function getFirebaseAdmin() {
 
     } catch (error: any) {
         console.error("Firebase Admin Initialization Error:", error);
-        throw new Error(`Failed to initialize Firebase Admin SDK. Original error: ${error.message}`);
+        // Throw a more descriptive error to help with debugging.
+        throw new Error(`Failed to initialize Firebase Admin SDK. Please ensure your server environment has the necessary Google Cloud credentials. Original error: ${error.message}`);
     }
 }
 
@@ -56,7 +61,8 @@ export async function getUserIdFromSession() {
     const decodedToken = await auth.verifySessionCookie(sessionCookie, true);
     return decodedToken.uid;
   } catch (error) {
-    console.error("Session verification failed:", error);
+    // This is often a 'session expired' error, which is normal.
+    // console.error("Session verification failed:", error);
     return null;
   }
 }

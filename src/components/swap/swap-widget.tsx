@@ -28,6 +28,7 @@ export function SwapWidget() {
   const [fromToken, setFromToken] = useState<TokenInfo | null>(null);
   const [toToken, setToToken] = useState<TokenInfo | null>(null);
   const [fromAmount, setFromAmount] = useState<string>('');
+  const [toAmount, setToAmount] = useState('');
   const [quote, setQuote] = useState<DexQuoteResponse | null>(null);
 
   // UI State
@@ -38,6 +39,7 @@ export function SwapWidget() {
    const getQuote = useCallback(async () => {
     if (!fromToken || !toToken || !fromAmount || parseFloat(fromAmount) <= 0) {
         setQuote(null);
+        setToAmount('');
         return;
     }
     setIsFetchingQuote(true);
@@ -58,6 +60,7 @@ export function SwapWidget() {
         }
         const data: DexQuoteResponse = await response.json();
         setQuote(data);
+        setToAmount(formatUnits(data.toAmount, data.toToken.decimals));
 
     } catch (error) {
         toast({ variant: 'destructive', title: 'Could not get quote', description: (error as Error).message });
@@ -147,6 +150,9 @@ export function SwapWidget() {
         return;
     }
     setIsSwapping(true);
+
+    const fromAmountInWei = parseUnits(fromAmount, fromToken.decimals).toString();
+
     try {
         // Step 1: Build the transaction via our backend
         const buildTxResponse = await fetch('/api/dex/build-tx', {
@@ -156,7 +162,7 @@ export function SwapWidget() {
                 chainId,
                 fromTokenAddress: fromToken.address,
                 toTokenAddress: toToken.address,
-                amount: quote.fromTokenAmount,
+                amount: fromAmountInWei,
                 userAddress: userAddress,
                 slippage: 1, // default 1%
             }),
@@ -180,7 +186,7 @@ export function SwapWidget() {
         
         toast({ title: "Transaction Sent", description: "Waiting for confirmation..." });
 
-        const receipt = await txResponse.wait();
+        await txResponse.wait();
 
         toast({ title: "Swap Successful!", description: `Transaction confirmed successfully.` });
 
@@ -226,16 +232,16 @@ export function SwapWidget() {
                     placeholder="0.0" 
                     className="text-right bg-muted" 
                     readOnly
-                    value={quote ? formatUnits(quote.toTokenAmount, quote.toToken.decimals) : ''}
+                    value={toAmount}
                 />
             </div>
         </div>
 
         {isFetchingQuote && <div className="text-sm text-center text-muted-foreground animate-pulse">Fetching best rate...</div>}
         
-        {quote && fromToken && toToken && (
+        {quote && fromToken && toToken && fromAmount && (
             <div className="text-sm text-muted-foreground p-3 bg-muted rounded-md">
-                1 {fromToken?.symbol} ≈ {formatUnits(BigInt(quote.toTokenAmount) * BigInt(10)**BigInt(fromToken?.decimals || 18) / BigInt(quote.fromTokenAmount), toToken?.decimals || 18)} {toToken?.symbol}
+                1 {fromToken.symbol} ≈ {(parseFloat(toAmount) / parseFloat(fromAmount)).toFixed(6)} {toToken.symbol}
             </div>
         )}
 

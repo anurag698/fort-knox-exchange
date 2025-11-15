@@ -36,9 +36,9 @@ export type Order = {
   marketId: string;
   side: 'BUY' | 'SELL';
   type: 'LIMIT' | 'MARKET';
-  price: number;
+  price: number; // For LIMIT orders
   quantity: number;
-  status: 'OPEN' | 'PARTIAL' | 'FILLED' | 'CANCELED';
+  status: 'OPEN' | 'PARTIAL' | 'FILLED' | 'CANCELED' | 'EXECUTING';
   filledAmount: number;
   createdAt: any;
   updatedAt: any;
@@ -78,6 +78,7 @@ export type UserProfile = {
     updatedAt: any;
     referralCode?: string;
     isAdmin?: boolean;
+    role?: 'USER' | 'ADMIN';
 };
 
 export type LedgerEntry = {

@@ -21,9 +21,9 @@ function CancelOrderButton({ orderId }: { orderId: string }) {
     const [state, formAction] = useActionState(cancelOrder, { status: "idle", message: "" });
 
     useEffect(() => {
-        if (state.status === 'success') {
+        if (state.status === 'success' && state.message) {
             toast({ title: "Success", description: state.message });
-        } else if (state.status === 'error') {
+        } else if (state.status === 'error' && state.message) {
             toast({ variant: "destructive", title: "Error", description: state.message });
         }
     }, [state, toast]);
@@ -47,6 +47,23 @@ export function UserTrades({ marketId }: { marketId: string }) {
     }, [allOrders, marketId]);
 
 
+    const getStatusBadgeVariant = (status: Order['status']) => {
+        switch (status) {
+            case 'OPEN':
+            case 'PARTIAL':
+                return 'secondary';
+            case 'EXECUTING':
+                return 'default';
+            case 'CANCELED':
+                return 'destructive';
+            case 'FILLED':
+                return 'default'; // Success state, could be green
+            default:
+                return 'outline';
+        }
+    }
+
+
     const renderContent = () => {
         if (isLoading) {
             return (
@@ -64,7 +81,7 @@ export function UserTrades({ marketId }: { marketId: string }) {
                     <AlertCircle className="h-4 w-4" />
                     <AlertTitle>Error Loading Orders</AlertTitle>
                     <AlertDescription>
-                        There was a problem fetching your open orders. Please try again later.
+                        {error.message || "There was a problem fetching your open orders. Please try again later."}
                     </AlertDescription>
                 </Alert>
             );
@@ -93,6 +110,7 @@ export function UserTrades({ marketId }: { marketId: string }) {
                 </TableHeader>
                 <TableBody>
                     {orders.map(order => {
+                        const canCancel = order.status === 'OPEN' || order.status === 'PARTIAL';
                         return (
                             <TableRow key={order.id}>
                                 <TableCell>{order.marketId}</TableCell>
@@ -103,10 +121,10 @@ export function UserTrades({ marketId }: { marketId: string }) {
                                 <TableCell>{order.quantity}</TableCell>
                                 <TableCell>{order.filledAmount}</TableCell>
                                 <TableCell>
-                                    <Badge variant={order.status === 'OPEN' ? 'secondary' : 'default'}>{order.status}</Badge>
+                                    <Badge variant={getStatusBadgeVariant(order.status)}>{order.status}</Badge>
                                 </TableCell>
                                 <TableCell className="text-right">
-                                    {order.status === 'OPEN' && <CancelOrderButton orderId={order.id} />}
+                                    {canCancel && <CancelOrderButton orderId={order.id} />}
                                 </TableCell>
                             </TableRow>
                         )

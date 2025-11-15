@@ -1,4 +1,5 @@
 
+
 // API Request and Response types
 
 export interface DexQuoteRequest {
@@ -12,10 +13,8 @@ export interface DexQuoteRequest {
 export interface DexQuoteResponse {
   fromToken: TokenInfo;
   toToken: TokenInfo;
-  fromTokenAmount: string;
-  toTokenAmount: string;
-  estimatedGas: string;
-  route?: any; // You can type this further based on 1inch response
+  toAmount: string;
+  gas: number;
 }
 
 export interface DexBuildTxRequest {
@@ -36,7 +35,7 @@ export interface DexBuildTxResponse {
   chainId: number;
 }
 
-// 1inch Specific API response types (simplified for v6)
+// 1inch Specific API response types (simplified for v5.2)
 
 export interface TokenInfo {
   address: string;
@@ -54,10 +53,8 @@ export interface TokenInfo {
 export interface OneInchQuoteResponse {
   fromToken: TokenInfo;
   toToken: TokenInfo;
-  fromTokenAmount: string;
-  toTokenAmount: string;
-  route: any[]; // contains the route parts
-  estimatedGas: string;
+  toAmount: string;
+  gas: number;
 }
 
 
@@ -73,7 +70,6 @@ export interface OneInchSwapTransaction {
 export interface OneInchSwapResponse {
   fromToken: TokenInfo;
   toToken: TokenInfo;
-  fromTokenAmount: string;
-  toTokenAmount: string;
+  toAmount: string;
   tx: OneInchSwapTransaction;
 }

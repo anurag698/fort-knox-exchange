@@ -26,10 +26,8 @@ class DexService {
       return {
         fromToken: data.fromToken,
         toToken: data.toToken,
-        fromTokenAmount: data.fromTokenAmount,
-        toTokenAmount: data.toTokenAmount,
-        estimatedGas: data.estimatedGas,
-        route: data.route,
+        toAmount: data.toAmount,
+        gas: data.gas,
       };
     } catch (error) {
       console.error('Error fetching quote from 1inch:', error);
@@ -71,7 +69,6 @@ class DexService {
   async getTokens(chainId: number) {
     const client = oneInchConfig.getHttpClient(chainId);
     try {
-      // The tokens endpoint is structured differently in the 1inch API
       const { data } = await client.get(`/tokens`);
       return data.tokens;
     } catch (error) {

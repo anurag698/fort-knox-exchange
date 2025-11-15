@@ -2,9 +2,9 @@
 'use client';
 
 import { collectionGroup, query, where, getDocs } from 'firebase/firestore';
-import { useFirestore, useMemoFirebase } from '@/firebase';
+import { useFirestore } from '@/firebase';
 import type { Withdrawal } from '@/lib/types';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 
 /**
  * Fetches a single withdrawal document by its ID from the 'withdrawals' collection group.
@@ -16,11 +16,9 @@ export function useWithdrawal(withdrawalId: string) {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
 
-  const withdrawalQuery = useMemoFirebase(
+  const withdrawalQuery = useMemo(
     () => {
       if (!firestore || !withdrawalId) return null;
-      // Because collection group queries require an index for `where` clauses on fields other than the document ID,
-      // and we don't know the full path, we query by the 'id' field within the document.
       return query(
         collectionGroup(firestore, 'withdrawals'),
         where('id', '==', withdrawalId)

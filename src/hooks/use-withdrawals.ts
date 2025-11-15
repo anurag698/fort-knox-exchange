@@ -2,9 +2,9 @@
 'use client';
 
 import { collectionGroup, query, where, orderBy, doc, getDoc } from 'firebase/firestore';
-import { useCollection, useFirestore, useUser, useMemoFirebase } from '@/firebase';
+import { useCollection, useFirestore, useUser } from '@/firebase';
 import type { Withdrawal } from '@/lib/types';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 
 export function useWithdrawals(status: Withdrawal['status'] = 'PENDING') {
   const firestore = useFirestore();
@@ -35,21 +35,17 @@ export function useWithdrawals(status: Withdrawal['status'] = 'PENDING') {
     checkAdmin();
   }, [user, firestore]);
   
-  const withdrawalsCollectionGroup = useMemoFirebase(
-    () => (firestore && isAdmin ? collectionGroup(firestore, 'withdrawals') : null),
-    [firestore, isAdmin]
-  );
-
-  const withdrawalsQuery = useMemoFirebase(
+  const withdrawalsQuery = useMemo(
     () => {
-      if (!withdrawalsCollectionGroup) return null;
+      if (!firestore || !isAdmin) return null;
+      const withdrawalsCollectionGroup = collectionGroup(firestore, 'withdrawals');
       return query(
         withdrawalsCollectionGroup,
         where('status', '==', status),
         orderBy('createdAt', 'desc')
       );
     },
-    [withdrawalsCollectionGroup, status]
+    [firestore, isAdmin, status]
   );
 
   const { data, isLoading: isLoadingCollection, error: collectionError } = useCollection<Withdrawal>(withdrawalsQuery);

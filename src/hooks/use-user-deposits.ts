@@ -2,22 +2,22 @@
 'use client';
 
 import { collection, query, orderBy } from 'firebase/firestore';
-import { useCollection, useFirestore, useUser, useMemoFirebase } from '@/firebase';
+import { useCollection, useFirestore, useUser } from '@/firebase';
 import type { Deposit } from '@/lib/types';
+import { useMemo } from 'react';
 
 export function useUserDeposits(userId?: string) {
   const firestore = useFirestore();
   const { user: authUser } = useUser();
   const targetUserId = userId || authUser?.uid;
 
-  const depositsCollectionRef = useMemoFirebase(
-    () => (firestore && targetUserId ? collection(firestore, 'users', targetUserId, 'deposits') : null),
+  const depositsQuery = useMemo(
+    () => {
+      if (!firestore || !targetUserId) return null;
+      const depositsCollectionRef = collection(firestore, 'users', targetUserId, 'deposits');
+      return query(depositsCollectionRef, orderBy('createdAt', 'desc'));
+    },
     [firestore, targetUserId]
-  );
-
-  const depositsQuery = useMemoFirebase(
-    () => (depositsCollectionRef ? query(depositsCollectionRef, orderBy('createdAt', 'desc')) : null),
-    [depositsCollectionRef]
   );
 
   return useCollection<Deposit>(depositsQuery);

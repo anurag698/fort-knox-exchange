@@ -2,20 +2,19 @@
 'use client';
 
 import { collection, query, orderBy } from 'firebase/firestore';
-import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
+import { useCollection, useFirestore } from '@/firebase';
 import type { Market } from '@/lib/types';
+import { useMemo } from 'react';
 
 export function useMarkets() {
   const firestore = useFirestore();
 
-  const marketsCollectionRef = useMemoFirebase(
-    () => (firestore ? collection(firestore, 'markets') : null),
+  const marketsQuery = useMemo(
+    () => {
+      if (!firestore) return null;
+      return query(collection(firestore, 'markets'), orderBy('id', 'asc'));
+    },
     [firestore]
-  );
-
-  const marketsQuery = useMemoFirebase(
-    () => (marketsCollectionRef ? query(marketsCollectionRef, orderBy('id', 'asc')) : null),
-    [marketsCollectionRef]
   );
 
   return useCollection<Market>(marketsQuery);

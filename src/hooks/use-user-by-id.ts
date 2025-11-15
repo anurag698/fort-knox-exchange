@@ -2,8 +2,9 @@
 'use client';
 
 import { doc } from 'firebase/firestore';
-import { useDoc, useFirestore, useMemoFirebase } from '@/firebase';
+import { useDoc, useFirestore } from '@/firebase';
 import type { UserProfile } from '@/lib/types';
+import { useMemo } from 'react';
 
 /**
  * Fetches a single user profile document by its ID in real-time.
@@ -12,7 +13,7 @@ import type { UserProfile } from '@/lib/types';
 export function useUserById(userId?: string) {
   const firestore = useFirestore();
 
-  const userDocRef = useMemoFirebase(
+  const userDocRef = useMemo(
     () => (firestore && userId ? doc(firestore, 'users', userId) : null),
     [firestore, userId]
   );

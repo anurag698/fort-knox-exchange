@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { onSnapshot, type DocumentReference, type DocumentData } from 'firebase/firestore';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
+import { useMemoOne } from 'use-memo-one';
 
 export interface UseDocResult<T> {
   data: T | null;
@@ -24,7 +25,7 @@ export function useDoc<T extends DocumentData>(
   const [error, setError] = useState<Error | null>(null);
 
   // The document path is a stable dependency for useEffect.
-  const docPath = docRef ? docRef.path : 'null';
+  const docPath = useMemoOne(() => docRef ? docRef.path : 'null', [docRef]);
 
   useEffect(() => {
     if (!docRef) {

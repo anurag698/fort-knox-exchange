@@ -4,12 +4,26 @@ import { useState, useEffect } from 'react';
 import { onSnapshot, type Query, type DocumentData } from 'firebase/firestore';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
+import { useMemoOne } from 'use-memo-one';
 
 export interface UseCollectionResult<T> {
   data: T[] | null;
   isLoading: boolean;
   error: Error | null;
 }
+
+// Helper to create a stable key from a query object
+const getQueryKey = (q: Query | null): string => {
+  if (!q) return 'null';
+  // @ts-ignore The _query property is not part of the public API, but it's the most reliable way to get a stable key
+  const { path, an, cn } = q._query;
+  return JSON.stringify({
+    path: path.segments.join('/'),
+    an, // where clauses
+    cn, // orderBy clauses
+  });
+};
+
 
 /**
  * A hook to fetch and listen to a Firestore collection in real-time.
@@ -23,8 +37,8 @@ export function useCollection<T extends DocumentData>(
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
 
-  // The stringified query is a stable dependency for useEffect.
-  const queryKey = query ? JSON.stringify(query) : 'null';
+  // The query key is a stable dependency for useEffect.
+  const queryKey = useMemoOne(() => getQueryKey(query), [query]);
 
   useEffect(() => {
     if (!query) {
@@ -50,6 +64,7 @@ export function useCollection<T extends DocumentData>(
         console.error("useCollection error:", err);
         setError(err);
         const permissionError = new FirestorePermissionError({
+          // @ts-ignore
           path: (query as any)._query.path.segments.join('/'),
           operation: 'list',
         });

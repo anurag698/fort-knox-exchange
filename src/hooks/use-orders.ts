@@ -2,21 +2,18 @@
 'use client';
 
 import { collection, query, where, orderBy } from 'firebase/firestore';
-import { useCollection, useFirestore, useUser, useMemoFirebase } from '@/firebase';
+import { useCollection, useFirestore, useUser } from '@/firebase';
 import type { Order } from '@/lib/types';
+import { useMemo } from 'react';
 
 export function useOrders(marketId?: string) {
   const firestore = useFirestore();
   const { user } = useUser();
 
-  const ordersCollectionRef = useMemoFirebase(
-    () => (firestore ? collection(firestore, 'orders') : null),
-    [firestore]
-  );
-
-  const ordersQuery = useMemoFirebase(() => {
-    if (!ordersCollectionRef || !user) return null;
+  const ordersQuery = useMemo(() => {
+    if (!firestore || !user) return null;
     
+    const ordersCollectionRef = collection(firestore, 'orders');
     const queryConstraints = [where('userId', '==', user.uid)];
 
     if (marketId) {
@@ -26,7 +23,7 @@ export function useOrders(marketId?: string) {
     queryConstraints.push(orderBy('createdAt', 'desc'));
 
     return query(ordersCollectionRef, ...queryConstraints);
-  }, [ordersCollectionRef, marketId, user]);
+  }, [firestore, marketId, user]);
 
   return useCollection<Order>(ordersQuery);
 }

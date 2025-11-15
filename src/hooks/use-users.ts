@@ -2,9 +2,9 @@
 'use client';
 
 import { collection, query, orderBy, getDoc, doc } from 'firebase/firestore';
-import { useCollection, useFirestore, useMemoFirebase, useUser } from '@/firebase';
+import { useCollection, useFirestore, useUser } from '@/firebase';
 import type { UserProfile } from '@/lib/types';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 
 export function useUsers() {
   const firestore = useFirestore();
@@ -35,14 +35,12 @@ export function useUsers() {
     checkAdmin();
   }, [user, firestore]);
 
-  const usersCollectionRef = useMemoFirebase(
-    () => (firestore && isAdmin ? collection(firestore, 'users') : null),
+  const usersQuery = useMemo(
+    () => {
+      if (!firestore || !isAdmin) return null;
+      return query(collection(firestore, 'users'), orderBy('createdAt', 'desc'));
+    },
     [firestore, isAdmin]
-  );
-
-  const usersQuery = useMemoFirebase(
-    () => (usersCollectionRef ? query(usersCollectionRef, orderBy('createdAt', 'desc')) : null),
-    [usersCollectionRef]
   );
 
   const { data, isLoading: isLoadingCollection, error: collectionError } = useCollection<UserProfile>(usersQuery);

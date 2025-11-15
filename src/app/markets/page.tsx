@@ -82,7 +82,7 @@ export default function MarketsPage() {
       );
     }
 
-    return <MarketsTable initialMarkets={enrichedMarkets} />;
+    return <MarketsTable markets={enrichedMarkets} />;
   }
 
 

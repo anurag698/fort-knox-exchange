@@ -1,8 +1,7 @@
+
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useFirestore } from '@/firebase';
-import { collection, onSnapshot, query, Unsubscribe } from 'firebase/firestore';
 import type { Market } from '@/lib/types';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { MarketsTable } from '@/components/markets/markets-table';
@@ -10,39 +9,28 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { AlertCircle, CandlestickChart } from 'lucide-react';
 
+const MOCK_MARKETS: Market[] = [
+    { id: 'BTC-USDT', baseAssetId: 'BTC', quoteAssetId: 'USDT', minOrderSize: 0.00001, pricePrecision: 2, quantityPrecision: 6, makerFee: 0.001, takerFee: 0.001, createdAt: '2024-01-01T00:00:00Z', change: 1.2, volume: 50000000 },
+    { id: 'ETH-USDT', baseAssetId: 'ETH', quoteAssetId: 'USDT', minOrderSize: 0.0001, pricePrecision: 2, quantityPrecision: 4, makerFee: 0.001, takerFee: 0.001, createdAt: '2024-01-01T00:00:00Z', change: -2.5, volume: 30000000 },
+    { id: 'SOL-USDT', baseAssetId: 'SOL', quoteAssetId: 'USDT', minOrderSize: 0.01, pricePrecision: 2, quantityPrecision: 2, makerFee: 0.001, takerFee: 0.001, createdAt: '2024-01-01T00:00:00Z', change: 5.8, volume: 25000000 },
+    { id: 'DOGE-USDT', baseAssetId: 'DOGE', quoteAssetId: 'USDT', minOrderSize: 10, pricePrecision: 6, quantityPrecision: 0, makerFee: 0.001, takerFee: 0.001, createdAt: '2024-01-01T00:00:00Z', change: -0.5, volume: 15000000 }
+];
+
 export default function MarketsPage() {
-  const firestore = useFirestore();
   const [markets, setMarkets] = useState<Market[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
 
   useEffect(() => {
-    if (!firestore) {
-      // Firestore might not be available on initial render, wait for it.
-      return;
-    }
-
+    // Simulate fetching data
     setIsLoading(true);
-    const marketsQuery = query(collection(firestore, 'markets'));
+    const timer = setTimeout(() => {
+      setMarkets(MOCK_MARKETS);
+      setIsLoading(false);
+    }, 1000); // Simulate network delay
 
-    const unsubscribe: Unsubscribe = onSnapshot(
-      marketsQuery,
-      (querySnapshot) => {
-        const marketsData = querySnapshot.docs.map(doc => ({ ...doc.data() as Omit<Market, 'id'>, id: doc.id }));
-        setMarkets(marketsData);
-        setError(null);
-        setIsLoading(false);
-      },
-      (err) => {
-        console.error("Error fetching markets:", err);
-        setError(err instanceof Error ? err : new Error('An unknown error occurred while fetching markets.'));
-        setIsLoading(false);
-      }
-    );
-
-    // Cleanup subscription on component unmount
-    return () => unsubscribe();
-  }, [firestore]);
+    return () => clearTimeout(timer);
+  }, []);
 
   const renderContent = () => {
     if (isLoading) {

@@ -105,7 +105,7 @@ export function OrderForm({ selectedPrice, marketId }: OrderFormProps) {
     }
   }, [marketOrderState, toast, buyForm, sellForm, defaultValues]);
   
-  const handleLimitOrderSubmit = (values: OrderFormValues) => {
+  const handleLimitOrderSubmit = async (values: OrderFormValues) => {
     if (!firestore || !user) {
       toast({ variant: 'destructive', title: 'Error', description: 'User or database not available.' });
       return;
@@ -132,41 +132,42 @@ export function OrderForm({ selectedPrice, marketId }: OrderFormProps) {
       filledAmount: 0,
     };
 
-    runTransaction(firestore, async (transaction) => {
-      const assetToLock = side === 'BUY' ? quoteAsset : baseAsset;
-      const amountToLock = side === 'BUY' ? (price || 0) * quantity : quantity;
+    try {
+      await runTransaction(firestore, async (transaction) => {
+        const assetToLock = side === 'BUY' ? quoteAsset : baseAsset;
+        const amountToLock = side === 'BUY' ? (price || 0) * quantity : quantity;
 
-      const balanceRef = doc(firestore, 'users', user.uid, 'balances', assetToLock);
-      const balanceSnap = await transaction.get(balanceRef);
+        const balanceRef = doc(firestore, 'users', user.uid, 'balances', assetToLock);
+        const balanceSnap = await transaction.get(balanceRef);
 
-      if (!balanceSnap.exists()) {
-        throw new Error(`You have no balance for ${assetToLock}.`);
-      }
-      const balanceData = balanceSnap.data()!;
-      if (balanceData.available < amountToLock) {
-        throw new Error(`Insufficient funds. You need ${amountToLock} ${assetToLock}, but only have ${balanceData.available}.`);
-      }
+        if (!balanceSnap.exists()) {
+          throw new Error(`You have no balance for ${assetToLock}.`);
+        }
+        const balanceData = balanceSnap.data()!;
+        if (balanceData.available < amountToLock) {
+          throw new Error(`Insufficient funds. You need ${amountToLock} ${assetToLock}, but only have ${balanceData.available}.`);
+        }
 
-      const newAvailable = balanceData.available - amountToLock;
-      const newLocked = (balanceData.locked || 0) + amountToLock;
-      transaction.update(balanceRef, { available: newAvailable, locked: newLocked, updatedAt: serverTimestamp() });
+        const newAvailable = balanceData.available - amountToLock;
+        const newLocked = (balanceData.locked || 0) + amountToLock;
+        transaction.update(balanceRef, { available: newAvailable, locked: newLocked, updatedAt: serverTimestamp() });
 
-      transaction.set(newOrderRef, {
-        ...newOrderData,
-        id: newOrderRef.id,
-        createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp(),
+        transaction.set(newOrderRef, {
+          ...newOrderData,
+          id: newOrderRef.id,
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp(),
+        });
       });
-    })
-    .then(() => {
+
       toast({
         title: 'Success',
         description: `Limit ${side} order placed successfully.`,
       });
       buyForm.reset(defaultValues);
       sellForm.reset(defaultValues);
-    })
-    .catch((error: any) => {
+
+    } catch (error: any) {
       if (error?.code === 'permission-denied') {
         const permissionError = new FirestorePermissionError({
           path: newOrderRef.path,
@@ -186,10 +187,9 @@ export function OrderForm({ selectedPrice, marketId }: OrderFormProps) {
           description: error.message || 'An unknown error occurred during the transaction.',
         });
       }
-    })
-    .finally(() => {
+    } finally {
       setIsSubmitting(false);
-    });
+    }
   };
 
   const OrderTabContent = ({ side }: { side: 'BUY' | 'SELL' }) => {

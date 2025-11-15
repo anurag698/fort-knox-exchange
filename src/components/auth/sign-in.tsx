@@ -16,7 +16,7 @@ import {
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { useAuth, useFirestore } from '@/firebase';
+import { useAuth, useFirestore, errorEmitter, FirestorePermissionError } from '@/firebase';
 import {
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
@@ -26,6 +26,7 @@ import { Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
 import { writeBatch, doc, serverTimestamp } from 'firebase/firestore';
+import type { SecurityRuleContext } from '@/firebase/errors';
 
 const signInSchema = z.object({
   email: z.string().email({ message: 'Invalid email address.' }),
@@ -60,50 +61,54 @@ export function SignIn() {
 
   const handleSignUpSuccess = async (user: User) => {
     if (!firestore) return;
-    try {
-        // This is a new user, create their profile and initial balances
-        const batch = writeBatch(firestore);
-        const userRef = doc(firestore, 'users', user.uid);
-        const newUser = {
-            id: user.uid,
-            email: user.email,
-            username: user.email?.split('@')[0] ?? `user_${Math.random().toString(36).substring(2, 8)}`,
-            kycStatus: 'NOT_STARTED',
-            role: user.email === 'admin@fortknox.exchange' ? 'ADMIN' : 'USER',
-            referralCode: Math.random().toString(36).substring(2, 8).toUpperCase(),
-            createdAt: serverTimestamp(),
-            updatedAt: serverTimestamp(),
-        };
-        batch.set(userRef, newUser);
 
-        const balancesRef = doc(firestore, 'users', user.uid, 'balances', 'USDT');
-        batch.set(balancesRef, { id: 'USDT', userId: user.uid, assetId: 'USDT', available: 100000, locked: 0, createdAt: serverTimestamp(), updatedAt: serverTimestamp() });
-        const btcBalRef = doc(firestore, 'users', user.uid, 'balances', 'BTC');
-        batch.set(btcBalRef, { id: 'BTC', userId: user.uid, assetId: 'BTC', available: 1, locked: 0, createdAt: serverTimestamp(), updatedAt: serverTimestamp() });
-        const ethBalRef = doc(firestore, 'users', user.uid, 'balances', 'ETH');
-        batch.set(ethBalRef, { id: 'ETH', userId: user.uid, assetId: 'ETH', available: 10, locked: 0, createdAt: serverTimestamp(), updatedAt: serverTimestamp() });
-        const dogeBalRef = doc(firestore, 'users', user.uid, 'balances', 'DOGE');
-        batch.set(dogeBalRef, { id: 'DOGE', userId: user.uid, assetId: 'DOGE', available: 50000, locked: 0, createdAt: serverTimestamp(), updatedAt: serverTimestamp() });
-        const maticBalRef = doc(firestore, 'users', user.uid, 'balances', 'MATIC');
-        batch.set(maticBalRef, { id: 'MATIC', userId: user.uid, assetId: 'MATIC', available: 2000, locked: 0, createdAt: serverTimestamp(), updatedAt: serverTimestamp() });
+    const batch = writeBatch(firestore);
+    const userRef = doc(firestore, 'users', user.uid);
+    const newUser = {
+        id: user.uid,
+        email: user.email,
+        username: user.email?.split('@')[0] ?? `user_${Math.random().toString(36).substring(2, 8)}`,
+        kycStatus: 'NOT_STARTED',
+        role: user.email === 'admin@fortknox.exchange' ? 'ADMIN' : 'USER',
+        referralCode: Math.random().toString(36).substring(2, 8).toUpperCase(),
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+    };
+    batch.set(userRef, newUser);
 
-        await batch.commit();
+    const balancesRef = doc(firestore, 'users', user.uid, 'balances', 'USDT');
+    batch.set(balancesRef, { id: 'USDT', userId: user.uid, assetId: 'USDT', available: 100000, locked: 0, createdAt: serverTimestamp(), updatedAt: serverTimestamp() });
+    const btcBalRef = doc(firestore, 'users', user.uid, 'balances', 'BTC');
+    batch.set(btcBalRef, { id: 'BTC', userId: user.uid, assetId: 'BTC', available: 1, locked: 0, createdAt: serverTimestamp(), updatedAt: serverTimestamp() });
+    const ethBalRef = doc(firestore, 'users', user.uid, 'balances', 'ETH');
+    batch.set(ethBalRef, { id: 'ETH', userId: user.uid, assetId: 'ETH', available: 10, locked: 0, createdAt: serverTimestamp(), updatedAt: serverTimestamp() });
+    const dogeBalRef = doc(firestore, 'users', user.uid, 'balances', 'DOGE');
+    batch.set(dogeBalRef, { id: 'DOGE', userId: user.uid, assetId: 'DOGE', available: 50000, locked: 0, createdAt: serverTimestamp(), updatedAt: serverTimestamp() });
+    const maticBalRef = doc(firestore, 'users', user.uid, 'balances', 'MATIC');
+    batch.set(maticBalRef, { id: 'MATIC', userId: user.uid, assetId: 'MATIC', available: 2000, locked: 0, createdAt: serverTimestamp(), updatedAt: serverTimestamp() });
+    
+    batch.commit()
+      .then(() => {
+        router.push('/trade/BTC-USDT');
+      })
+      .catch((serverError) => {
+        // Emit a detailed, contextual error for the FirebaseErrorListener to catch.
+        const permissionError = new FirestorePermissionError({
+            path: userRef.path,
+            operation: 'create',
+            requestResourceData: newUser,
+        } satisfies SecurityRuleContext);
+        
+        errorEmitter.emit('permission-error', permissionError);
 
-    } catch (error: any) {
-        console.error("Error creating user profile:", error);
+        // Also provide feedback to the user.
         toast({
             variant: 'destructive',
             title: 'Setup Failed',
-            description: 'Could not create your user profile. Please try again.',
+            description: 'Could not create your user profile due to a permissions issue.',
         });
-        // Optionally sign the user out again if profile creation is critical
-        auth?.signOut();
         setLoading(false);
-        return; // Stop execution
-    }
-    
-    // If we get here, everything was successful
-    router.push('/trade/BTC-USDT');
+      });
   }
 
   const handleAuthError = (error: any) => {
@@ -260,3 +265,5 @@ export function SignIn() {
     </Tabs>
   );
 }
+
+    

@@ -1,7 +1,7 @@
 
 'use client';
 
-import { collection, query, orderBy } from 'firebase/firestore';
+import { collection, query, orderBy, getDoc, doc } from 'firebase/firestore';
 import { useCollection, useFirestore, useMemoFirebase, useUser } from '@/firebase';
 import type { UserProfile } from '@/lib/types';
 import { useState, useEffect } from 'react';
@@ -10,24 +10,34 @@ export function useUsers() {
   const firestore = useFirestore();
   const { user } = useUser();
   const [isAdmin, setIsAdmin] = useState(false);
-  const [isLoadingAdmin, setIsLoadingAdmin] = useState(true);
+  const [isCheckingAdmin, setIsCheckingAdmin] = useState(true);
+  const [adminCheckError, setAdminCheckError] = useState<Error | null>(null);
 
   useEffect(() => {
     const checkAdmin = async () => {
-      if (user) {
-        // Here you would have your logic to check if user is admin.
-        // For now, let's assume we check a custom claim or a field in the user's profile.
-        // This is a simplified example.
-        setIsAdmin((user as any).isAdmin === true);
+      if (!user || !firestore) {
+        setIsCheckingAdmin(false);
+        return;
       }
-      setIsLoadingAdmin(false);
+      setIsCheckingAdmin(true);
+      try {
+        const userDoc = await getDoc(doc(firestore, 'users', user.uid));
+        setIsAdmin(userDoc.exists() && userDoc.data().isAdmin === true);
+        setAdminCheckError(null);
+      } catch (error) {
+        console.error("Admin check failed:", error);
+        setAdminCheckError(error instanceof Error ? error : new Error("Failed to verify user permissions."));
+        setIsAdmin(false);
+      } finally {
+        setIsCheckingAdmin(false);
+      }
     };
     checkAdmin();
-  }, [user]);
+  }, [user, firestore]);
 
   const usersCollectionRef = useMemoFirebase(
-    () => (firestore ? collection(firestore, 'users') : null),
-    [firestore]
+    () => (firestore && isAdmin ? collection(firestore, 'users') : null),
+    [firestore, isAdmin]
   );
 
   const usersQuery = useMemoFirebase(
@@ -35,13 +45,15 @@ export function useUsers() {
     [usersCollectionRef]
   );
 
-  const { data, isLoading, error } = useCollection<UserProfile>(usersQuery);
+  const { data, isLoading: isLoadingCollection, error: collectionError } = useCollection<UserProfile>(usersQuery);
   
-  const finalIsLoading = isLoading || isLoadingAdmin;
+  const finalIsLoading = isCheckingAdmin || (isAdmin && isLoadingCollection);
+  
+  const finalError = adminCheckError || collectionError || (!isCheckingAdmin && !isAdmin ? new Error("You do not have permission to view this page.") : null);
 
   return { 
-      data: !finalIsLoading ? data : [], 
+      data: finalIsLoading || finalError ? null : data, 
       isLoading: finalIsLoading, 
-      error: error
+      error: finalError
   };
 }

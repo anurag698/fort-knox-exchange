@@ -12,11 +12,19 @@ service cloud.firestore {
       return request.auth.uid == userId;
     }
 
+    // Function to check if the user is an admin by looking at a custom claim
+    // In a real app, this would be set by a backend process. For now, we check a doc field.
+    function isAdmin() {
+      return isSignedIn() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true;
+    }
+
     // USER DATA
     // Users can only access their own data.
     match /users/{userId} {
-      allow read, update, delete: if isSignedIn() && isOwner(userId);
+      allow get, update, delete: if isSignedIn() && isOwner(userId);
       allow create: if isSignedIn();
+      // Admins can list all users, but individual users cannot.
+      allow list: if isAdmin();
 
       // Balances are read-only for the user. Writes must come from the backend.
       match /balances/{balanceId} {
@@ -48,6 +56,12 @@ service cloud.firestore {
     match /adminUsers/{adminId} {
       allow read, write: if false;
     }
+    
+    // Admins can see all withdrawal requests
+    match /{path=**}/withdrawals/{withdrawalId} {
+      allow list: if isAdmin();
+    }
+
 
     // PUBLIC DATA
     // Anyone can read markets, assets, and market_data.

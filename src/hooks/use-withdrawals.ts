@@ -10,27 +10,27 @@ export function useWithdrawals(status: Withdrawal['status'] = 'PENDING') {
   const firestore = useFirestore();
   const { user } = useUser();
   const [isAdmin, setIsAdmin] = useState(false);
-  const [isLoadingAdmin, setIsLoadingAdmin] = useState(true);
+  const [isCheckingAdmin, setIsCheckingAdmin] = useState(true);
+  const [adminCheckError, setAdminCheckError] = useState<Error | null>(null);
 
   useEffect(() => {
     const checkAdmin = async () => {
-      setIsLoadingAdmin(true);
-      if (user && firestore) {
-        try {
-          const userDoc = await getDoc(doc(firestore, 'users', user.uid));
-          if (userDoc.exists() && userDoc.data().isAdmin) {
-            setIsAdmin(true);
-          } else {
-            setIsAdmin(false);
-          }
-        } catch (error) {
-          console.error("Failed to check admin status", error);
-          setIsAdmin(false);
-        }
-      } else {
-        setIsAdmin(false);
+      if (!user || !firestore) {
+        setIsCheckingAdmin(false);
+        return;
       }
-      setIsLoadingAdmin(false);
+       setIsCheckingAdmin(true);
+      try {
+        const userDoc = await getDoc(doc(firestore, 'users', user.uid));
+         setIsAdmin(userDoc.exists() && userDoc.data().isAdmin === true);
+         setAdminCheckError(null);
+      } catch (error) {
+        console.error("Admin check failed:", error);
+        setAdminCheckError(error instanceof Error ? error : new Error("Failed to verify user permissions."));
+        setIsAdmin(false);
+      } finally {
+        setIsCheckingAdmin(false);
+      }
     };
     checkAdmin();
   }, [user, firestore]);
@@ -52,13 +52,14 @@ export function useWithdrawals(status: Withdrawal['status'] = 'PENDING') {
     [withdrawalsCollectionGroup, status]
   );
 
-  const { data, isLoading, error } = useCollection<Withdrawal>(withdrawalsQuery);
+  const { data, isLoading: isLoadingCollection, error: collectionError } = useCollection<Withdrawal>(withdrawalsQuery);
   
-  const finalIsLoading = isLoading || isLoadingAdmin;
+  const finalIsLoading = isCheckingAdmin || (isAdmin && isLoadingCollection);
+  const finalError = adminCheckError || collectionError || (!isCheckingAdmin && !isAdmin ? new Error("You do not have permission to view withdrawals.") : null);
 
   return { 
-      data: !finalIsLoading && isAdmin ? data : [], 
+      data: finalIsLoading || finalError ? null : data, 
       isLoading: finalIsLoading, 
-      error: !finalIsLoading && !isAdmin ? new Error("You do not have permission to view withdrawals.") : error
+      error: finalError
   };
 }

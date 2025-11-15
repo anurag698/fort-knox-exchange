@@ -16,6 +16,7 @@ const appName = 'firebase-admin-app-singleton';
  * @returns An object containing the Firestore, Auth, and App instances.
  */
 export function getFirebaseAdmin() {
+    // Check if the app is already initialized
     if (getApps().some(app => app.name === appName)) {
         const adminApp = getApp(appName);
         return { 
@@ -66,3 +67,4 @@ export async function getUserIdFromSession() {
     return null;
   }
 }
+

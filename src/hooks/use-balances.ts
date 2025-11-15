@@ -21,3 +21,5 @@ export function useBalances() {
 
   return useCollection<Balance>(balancesQuery);
 }
+
+    

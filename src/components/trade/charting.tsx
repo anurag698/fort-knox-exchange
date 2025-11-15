@@ -1,3 +1,4 @@
+
 "use client"
 
 import { useMemo, useState, useEffect, useRef } from "react";
@@ -46,7 +47,8 @@ const useLivePrice = (symbol: string) => {
         };
 
         ws.onerror = (err) => {
-            console.error("WebSocket error:", err);
+            // Don't log the raw event, which is an empty object on connection close.
+            console.error(`WebSocket error for symbol: ${symbol}`);
             setError(new Error("WebSocket connection failed."));
         };
 
@@ -496,3 +498,5 @@ export function Charting({ marketId, setMarketId }: { marketId: string, setMarke
     </Card>
   )
 }
+
+    

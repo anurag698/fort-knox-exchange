@@ -719,5 +719,3 @@ export async function submitKyc(prevState: any, formData: FormData): Promise<For
     };
   }
 }
-
-    

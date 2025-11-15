@@ -37,16 +37,20 @@ export async function updateMarketData(prevState: any, formData: FormData) {
     const batch = firestore.batch();
     const marketDataCol = firestore.collection('market_data');
 
-    const symbols = marketsSnapshot.docs.map(doc => `${doc.data().baseAssetId}${doc.data().quoteAssetId}`);
+    // The API key is now available through process.env
+    const apiKey = process.env.BINANCE_API_KEY;
+    if (!apiKey) {
+      return { status: 'error', message: 'Binance API key is not configured.' };
+    }
 
     // Binance API allows fetching all tickers at once
     const response = await axios.get(`https://api.binance.com/api/v3/ticker/24hr`, {
       headers: {
-        'X-MBX-APIKEY': process.env.BINANCE_API_KEY,
+        'X-MBX-APIKEY': apiKey,
       },
     });
+
     const tickers: any[] = response.data;
-    
     const tickerMap = new Map(tickers.map(t => [t.symbol, t]));
 
     for (const doc of marketsSnapshot.docs) {
@@ -75,11 +79,13 @@ export async function updateMarketData(prevState: any, formData: FormData) {
     revalidatePath('/markets');
     return { status: 'success', message: 'Market data updated successfully!' };
 
-  } catch (error) {
+  } catch (error: any) {
     console.error("Market Data Update Error:", error);
-    return { status: 'error', message: 'Failed to update market data.' };
+    const errorMessage = error.response?.data?.msg || error.message || 'Failed to update market data.';
+    return { status: 'error', message: errorMessage };
   }
 }
+
 
 const updateUserProfileSchema = z.object({
   username: z.string().min(3, "Username must be at least 3 characters long."),
@@ -703,9 +709,5 @@ export async function submitKyc(prevState: any, formData: FormData): Promise<For
     };
   }
 }
-
-    
-
-    
 
     

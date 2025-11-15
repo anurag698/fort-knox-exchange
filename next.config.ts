@@ -1,3 +1,4 @@
+
 import type {NextConfig} from 'next';
 
 const nextConfig: NextConfig = {
@@ -32,7 +33,25 @@ const nextConfig: NextConfig = {
   },
   env: {
     BINANCE_API_KEY: process.env.BINANCE_API_KEY,
+  },
+  webpack: (config, { isServer }) => {
+    // This is to make sure the API key is available in server components/actions
+    if (!isServer) {
+        config.resolve.fallback = {
+            ...config.resolve.fallback,
+            // This is required to make ethers work on the client side
+            "crypto": require.resolve("crypto-browserify"),
+            "stream": require.resolve("stream-browserify"),
+            "http": require.resolve("stream-http"),
+            "https: require.resolve("https-browserify"),
+            "os": require.resolve("os-browserify/browser"),
+        };
+    }
+
+    return config;
   }
 };
 
 export default nextConfig;
+
+    

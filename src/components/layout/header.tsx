@@ -2,7 +2,6 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { SidebarTrigger, useSidebar } from "@/components/ui/sidebar";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -12,9 +11,9 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { User, LogOut, Settings, LogIn, Landmark, Home, CandlestickChart, ArrowRightLeft, Wallet, BookText, Repeat, UserCog, Database } from "lucide-react";
-import { useIsMobile } from "@/hooks/use-mobile";
+import { User, LogOut, Settings, LogIn, Landmark, Home, CandlestickChart, ArrowRightLeft, Wallet, BookText, Repeat, UserCog, Database, Menu } from "lucide-react";
 import { PlaceHolderImages } from "@/lib/placeholder-images";
 import Link from 'next/link';
 import { useUser, useAuth, useFirestore } from '@/firebase';
@@ -39,12 +38,12 @@ const seedDataLink = { href: "/seed-data", label: "Update Data", icon: Database 
 
 
 export default function Header() {
-  const isMobile = useIsMobile();
   const { user, isUserLoading } = useUser();
   const auth = useAuth();
   const router = useRouter();
   const pathname = usePathname();
   const userAvatar = PlaceHolderImages.find(img => img.id === 'user-avatar');
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   const firestore = useFirestore();
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
@@ -86,7 +85,6 @@ export default function Header() {
   return (
     <header className="sticky top-0 z-20 flex h-16 shrink-0 items-center justify-between border-b bg-background/80 px-4 backdrop-blur-sm sm:px-6">
       <div className="flex items-center gap-4">
-        {isMobile && <SidebarTrigger />}
         <Link href="/" className="flex items-center gap-2.5">
           <Landmark className="h-7 w-7 text-primary" />
           <div className="hidden flex-col md:flex">
@@ -176,6 +174,39 @@ export default function Header() {
             </Link>
           </Button>
         )}
+         <Sheet open={isMobileMenuOpen} onOpenChange={setIsMobileMenuOpen}>
+          <SheetTrigger asChild>
+            <Button variant="outline" size="icon" className="md:hidden">
+              <Menu className="h-5 w-5" />
+              <span className="sr-only">Open main menu</span>
+            </Button>
+          </SheetTrigger>
+          <SheetContent side="left">
+            <nav className="grid gap-6 text-lg font-medium mt-8">
+              {mainLinks.map((link) => (
+                <Link
+                  key={link.label}
+                  href={link.href}
+                  onClick={() => setIsMobileMenuOpen(false)}
+                  className={cn("flex items-center gap-4 text-muted-foreground hover:text-foreground", pathname.startsWith(link.href) && "text-foreground")}
+                >
+                  <link.icon className="h-5 w-5" />
+                  {link.label}
+                </Link>
+              ))}
+               {userProfile?.isAdmin && (
+                 <Link
+                    href={adminLink.href}
+                    onClick={() => setIsMobileMenuOpen(false)}
+                    className={cn("flex items-center gap-4 text-muted-foreground hover:text-foreground", pathname.startsWith(adminLink.href) && "text-foreground")}
+                  >
+                    <adminLink.icon className="h-5 w-5" />
+                    {adminLink.label}
+                  </Link>
+               )}
+            </nav>
+          </SheetContent>
+        </Sheet>
       </div>
     </header>
   );

@@ -2,15 +2,14 @@
 'use client';
 
 import { collection, query, where, orderBy } from 'firebase/firestore';
-import { useCollection, useFirestore, useUser } from '@/firebase';
+import { useCollection, useFirestore, useUser, useMemoFirebase } from '@/firebase';
 import type { Order } from '@/lib/types';
-import { useMemo } from 'react';
 
 export function useOrders(marketId?: string) {
   const firestore = useFirestore();
   const { user } = useUser();
 
-  const ordersQuery = useMemo(() => {
+  const ordersQuery = useMemoFirebase(() => {
     if (!firestore || !user) return null;
     
     const ordersCollectionRef = collection(firestore, 'orders');

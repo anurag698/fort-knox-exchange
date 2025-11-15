@@ -1,8 +1,8 @@
 
 'use client';
 import { useFirebase, type UserHookResult } from '@/firebase/provider';
-import { useEffect } from 'react';
-import { doc, getDoc, setDoc, serverTimestamp, writeBatch } from 'firebase/firestore';
+import { useEffect }from 'react';
+import { doc, getDoc, writeBatch, serverTimestamp, collection } from 'firebase/firestore';
 
 
 /**

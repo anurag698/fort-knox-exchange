@@ -1,5 +1,4 @@
-
-"use client";
+'use client';
 
 import { useOrders } from "@/hooks/use-orders";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -14,8 +13,8 @@ import { useEffect, useMemo, useState } from "react";
 import { useActionState } from "react";
 import { cancelOrder } from "@/app/actions";
 import { useToast } from "@/hooks/use-toast";
-import { useFirestore } from "@/firebase";
-import { collection, getDocs, query } from "firebase/firestore";
+import { useFirestore, useMemoFirebase } from "@/firebase";
+import { doc, getDoc } from 'firebase/firestore';
 import type { Market } from "@/lib/types";
 
 
@@ -45,28 +44,36 @@ export function UserTrades({ marketId }: { marketId: string }) {
     const { data: orders, isLoading, error } = useOrders(marketId);
     const { data: assets, isLoading: assetsLoading } = useAssets();
     const firestore = useFirestore();
-    const [markets, setMarkets] = useState<Market[]>([]);
-    const [marketsLoading, setMarketsLoading] = useState(true);
+    const [market, setMarket] = useState<Market | null>(null);
+    const [marketLoading, setMarketLoading] = useState(true);
+
+    const marketDocRef = useMemoFirebase(
+      () => (firestore && marketId ? doc(firestore, 'markets', marketId) : null),
+      [firestore, marketId]
+    );
 
     useEffect(() => {
-        if (!firestore) return;
-    
-        const fetchMarkets = async () => {
-          setMarketsLoading(true);
-          try {
-            const marketsQuery = query(collection(firestore, 'markets'));
-            const querySnapshot = await getDocs(marketsQuery);
-            const marketsData = querySnapshot.docs.map(doc => ({ ...doc.data() as Omit<Market, 'id'>, id: doc.id }));
-            setMarkets(marketsData);
-          } catch (err) {
-            console.error(err);
-          } finally {
-            setMarketsLoading(false);
-          }
+        if (!marketDocRef) {
+            setMarketLoading(false);
+            return;
         };
-    
-        fetchMarkets();
-    }, [firestore]);
+
+        setMarketLoading(true);
+        getDoc(marketDocRef)
+          .then(docSnap => {
+            if (docSnap.exists()) {
+              setMarket({ ...docSnap.data() as Omit<Market, 'id'>, id: docSnap.id });
+            } else {
+              setMarket(null);
+            }
+          })
+          .catch(err => {
+            console.error(err);
+          })
+          .finally(() => {
+            setMarketLoading(false);
+          });
+    }, [marketDocRef]);
 
 
     const assetsMap = useMemo(() => {
@@ -74,13 +81,9 @@ export function UserTrades({ marketId }: { marketId: string }) {
         return new Map(assets.map(asset => [asset.id, asset]));
     }, [assets]);
 
-    const marketsMap = useMemo(() => {
-        if (!markets) return new Map();
-        return new Map(markets.map(market => [market.id, market]));
-    }, [markets]);
 
     const renderContent = () => {
-        if (isLoading || assetsLoading || marketsLoading) {
+        if (isLoading || assetsLoading || marketLoading) {
             return (
                 <div className="space-y-2">
                     <Skeleton className="h-10 w-full" />
@@ -110,6 +113,9 @@ export function UserTrades({ marketId }: { marketId: string }) {
             );
         }
 
+        const baseAsset = market ? assetsMap.get(market.baseAssetId) : null;
+        const quoteAsset = market ? assetsMap.get(market.quoteAssetId) : null;
+
         return (
              <Table>
                 <TableHeader>
@@ -125,10 +131,6 @@ export function UserTrades({ marketId }: { marketId: string }) {
                 </TableHeader>
                 <TableBody>
                     {orders.map(order => {
-                        const market = marketsMap.get(order.marketId);
-                        const baseAsset = market ? assetsMap.get(market.baseAssetId) : null;
-                        const quoteAsset = market ? assetsMap.get(market.quoteAssetId) : null;
-
                         return (
                             <TableRow key={order.id}>
                                 <TableCell>{baseAsset?.symbol}/{quoteAsset?.symbol}</TableCell>
@@ -156,7 +158,7 @@ export function UserTrades({ marketId }: { marketId: string }) {
     <Card>
       <CardHeader>
         <CardTitle>My Open Orders</CardTitle>
-        <CardDescription>Your active and partially filled orders.</CardDescription>
+        <CardDescription>Your active and partially filled orders for this market.</CardDescription>
       </CardHeader>
       <CardContent>
          {renderContent()}

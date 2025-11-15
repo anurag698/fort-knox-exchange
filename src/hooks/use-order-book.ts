@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useMemo } from 'react';
@@ -12,7 +11,7 @@ export type ProcessedOrder = {
   total: number;
 };
 
-export function useOrderBook(marketId: string = 'BTC-USDT') {
+export function useOrderBook(marketId: string) {
   const firestore = useFirestore();
 
   const ordersCollection = useMemoFirebase(

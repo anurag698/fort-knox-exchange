@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useBalances } from '@/hooks/use-balances';
@@ -8,53 +7,55 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { useMemo, useState, useEffect } from 'react';
 import { Wallet, AlertCircle } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { useFirestore } from '@/firebase';
-import { collection, getDocs, query } from 'firebase/firestore';
+import { useFirestore, useMemoFirebase } from '@/firebase';
+import { doc, getDoc } from 'firebase/firestore';
 import type { Market } from '@/lib/types';
 
-
-export function Balances({ marketId = 'BTC-USDT' }: { marketId?: string }) {
+export function Balances({ marketId }: { marketId: string }) {
   const { data: balances, isLoading: balancesLoading, error: balancesError } = useBalances();
   const { data: assets, isLoading: assetsLoading, error: assetsError } = useAssets();
   
   const firestore = useFirestore();
-  const [markets, setMarkets] = useState<Market[]>([]);
-  const [marketsLoading, setMarketsLoading] = useState(true);
-  const [marketsError, setMarketsError] = useState<Error | null>(null);
+  const [market, setMarket] = useState<Market | null>(null);
+  const [marketLoading, setMarketLoading] = useState(true);
+  const [marketError, setMarketError] = useState<Error | null>(null);
+
+  const marketDocRef = useMemoFirebase(
+    () => (firestore && marketId ? doc(firestore, 'markets', marketId) : null),
+    [firestore, marketId]
+  );
 
   useEffect(() => {
-    if (!firestore) return;
-
-    const fetchMarkets = async () => {
-      setMarketsLoading(true);
-      try {
-        const marketsQuery = query(collection(firestore, 'markets'));
-        const querySnapshot = await getDocs(marketsQuery);
-        const marketsData = querySnapshot.docs.map(doc => ({ ...doc.data() as Omit<Market, 'id'>, id: doc.id }));
-        setMarkets(marketsData);
-        setMarketsError(null);
-      } catch (err) {
-        console.error("Error fetching markets:", err);
-        setMarketsError(err instanceof Error ? err : new Error('An unknown error occurred'));
-      } finally {
-        setMarketsLoading(false);
-      }
+    if (!marketDocRef) {
+        setMarketLoading(false);
+        return;
     };
 
-    fetchMarkets();
-  }, [firestore]);
+    setMarketLoading(true);
+    getDoc(marketDocRef)
+      .then(docSnap => {
+        if (docSnap.exists()) {
+          setMarket({ ...docSnap.data() as Omit<Market, 'id'>, id: docSnap.id });
+        } else {
+          setMarket(null);
+        }
+        setMarketError(null);
+      })
+      .catch(err => {
+        console.error("Error fetching market:", err);
+        setMarketError(err);
+      })
+      .finally(() => {
+        setMarketLoading(false);
+      });
+  }, [marketDocRef]);
 
 
-  const isLoading = balancesLoading || assetsLoading || marketsLoading;
-  const error = balancesError || assetsError || marketsError;
+  const isLoading = balancesLoading || assetsLoading || marketLoading;
+  const error = balancesError || assetsError || marketError;
 
   const { baseAsset, quoteAsset, baseBalance, quoteBalance } = useMemo(() => {
-    if (isLoading || !markets || !assets || !balances) {
-      return { baseAsset: null, quoteAsset: null, baseBalance: null, quoteBalance: null };
-    }
-
-    const market = markets.find(m => m.id === marketId);
-    if (!market) {
+    if (isLoading || !market || !assets || !balances) {
       return { baseAsset: null, quoteAsset: null, baseBalance: null, quoteBalance: null };
     }
 
@@ -65,7 +66,7 @@ export function Balances({ marketId = 'BTC-USDT' }: { marketId?: string }) {
     const quoteBalance = balances.find(b => b.assetId === market.quoteAssetId);
 
     return { baseAsset, quoteAsset, baseBalance, quoteBalance };
-  }, [isLoading, markets, assets, balances, marketId]);
+  }, [isLoading, market, assets, balances]);
 
 
   const renderContent = () => {

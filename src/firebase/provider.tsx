@@ -3,9 +3,12 @@
 
 import React, { createContext, useContext, ReactNode, useMemo, useState, useEffect } from 'react';
 import { FirebaseApp } from 'firebase/app';
-import { Firestore } from 'firebase/firestore';
-import { Auth, User, onAuthStateChanged } from 'firebase/auth';
-import { FirebaseErrorListener } from '@/components/FirebaseErrorListener'
+import { Firestore, setDoc, addDoc, updateDoc, deleteDoc, type CollectionReference, type DocumentReference, type SetOptions } from 'firebase/firestore';
+import { Auth, User, onAuthStateChanged, signInAnonymously } from 'firebase/auth';
+import { FirebaseErrorListener } from '@/components/FirebaseErrorListener';
+import { errorEmitter } from '@/firebase/error-emitter';
+import { FirestorePermissionError } from '@/firebase/errors';
+
 
 interface FirebaseProviderProps {
   children: ReactNode;
@@ -154,3 +157,87 @@ export const useFirebaseApp = (): FirebaseApp => {
   const { firebaseApp } = useFirebase();
   return firebaseApp;
 };
+
+/** Initiate anonymous sign-in (non-blocking). */
+export function initiateAnonymousSignIn(authInstance: Auth): void {
+  // CRITICAL: Call signInAnonymously directly. Do NOT use 'await signInAnonymously(...)'.
+  signInAnonymously(authInstance);
+  // Code continues immediately. Auth state change is handled by onAuthStateChanged listener.
+}
+
+
+/**
+ * Initiates a setDoc operation for a document reference.
+ * Does NOT await the write operation internally.
+ */
+export function setDocumentNonBlocking(docRef: DocumentReference, data: any, options: SetOptions) {
+  setDoc(docRef, data, options).catch(error => {
+    errorEmitter.emit(
+      'permission-error',
+      new FirestorePermissionError({
+        path: docRef.path,
+        operation: 'write', // or 'create'/'update' based on options
+        requestResourceData: data,
+      })
+    )
+  })
+  // Execution continues immediately
+}
+
+
+/**
+ * Initiates an addDoc operation for a collection reference.
+ * Does NOT await the write operation internally.
+ * Returns the Promise for the new doc ref, but typically not awaited by caller.
+ */
+export function addDocumentNonBlocking(colRef: CollectionReference, data: any) {
+  const promise = addDoc(colRef, data)
+    .catch(error => {
+      errorEmitter.emit(
+        'permission-error',
+        new FirestorePermissionError({
+          path: colRef.path,
+          operation: 'create',
+          requestResourceData: data,
+        })
+      )
+    });
+  return promise;
+}
+
+
+/**
+ * Initiates an updateDoc operation for a document reference.
+ * Does NOT await the write operation internally.
+ */
+export function updateDocumentNonBlocking(docRef: DocumentReference, data: any) {
+  updateDoc(docRef, data)
+    .catch(error => {
+      errorEmitter.emit(
+        'permission-error',
+        new FirestorePermissionError({
+          path: docRef.path,
+          operation: 'update',
+          requestResourceData: data,
+        })
+      )
+    });
+}
+
+
+/**
+ * Initiates a deleteDoc operation for a document reference.
+ * Does NOT await the write operation internally.
+ */
+export function deleteDocumentNonBlocking(docRef: DocumentReference) {
+  deleteDoc(docRef)
+    .catch(error => {
+      errorEmitter.emit(
+        'permission-error',
+        new FirestorePermissionError({
+          path: docRef.path,
+          operation: 'delete',
+        })
+      )
+    });
+}

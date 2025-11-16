@@ -415,6 +415,58 @@
       "required": [
         "id"
       ]
+    },
+    "AddressIndex": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "AddressIndex",
+      "type": "object",
+      "description": "Tracks the last used derivation index for a specific coin.",
+      "properties": {
+        "lastIndex": {
+          "type": "number",
+          "description": "The last successfully allocated derivation index for this coin."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "lastIndex"
+      ]
+    },
+    "DepositAddress": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "DepositAddress",
+      "type": "object",
+      "description": "Maps a generated deposit address to a user and its derivation details.",
+      "properties": {
+        "coin": {
+          "type": "string",
+          "description": "The symbol of the coin (e.g., BTC, ETH)."
+        },
+        "userId": {
+          "type": "string",
+          "description": "The ID of the user this address is assigned to."
+        },
+        "index": {
+          "type": "number",
+          "description": "The derivation index used to generate this address."
+        },
+        "used": {
+          "type": "boolean",
+          "description": "Flag indicating if the address has received a transaction."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "coin",
+        "userId",
+        "index"
+      ]
     }
   },
   "auth": {
@@ -483,6 +535,18 @@
         "$ref": "#/entities/IdempotencyKey"
       },
       "description": "Collection to ensure idempotent writes for critical operations."
+    },
+    "addressIndexes/{coinId}": {
+      "schema": {
+        "$ref": "#/entities/AddressIndex"
+      },
+      "description": "Stores the last used derivation index for each coin to ensure unique address generation."
+    },
+    "addresses/{address}": {
+      "schema": {
+        "$ref": "#/entities/DepositAddress"
+      },
+      "description": "Maps a generated deposit address to a specific user and derivation index."
     }
   }
 }

@@ -15,6 +15,7 @@ import { broadcastAndReconcileTransaction } from "@/lib/wallet-service";
 type FormState = {
   status: 'success' | 'error' | 'idle';
   message: string;
+  data?: any;
 }
 
 export async function seedDatabase(prevState: any, formData: FormData) {
@@ -407,39 +408,25 @@ export async function requestDeposit(prevState: FormState, formData: FormData): 
 
     try {
         const { firestore, FieldValue } = getFirebaseAdmin();
-        const batch = firestore.batch();
         const newDepositRef = firestore.collection('users').doc(userId).collection('deposits').doc();
 
         const newDeposit = {
             id: newDepositRef.id,
             userId,
             assetId,
-            amount: 0, // Amount will be updated by a backend process upon actual crypto receipt
+            amount: 0,
             status: 'PENDING',
             createdAt: FieldValue.serverTimestamp(),
             updatedAt: FieldValue.serverTimestamp(),
         };
-        batch.set(newDepositRef, newDeposit);
-
-        const ledgerEntryRef = firestore.collection('users').doc(userId).collection('ledgerEntries').doc();
-        batch.set(ledgerEntryRef, {
-            id: ledgerEntryRef.id,
-            userId,
-            assetId,
-            type: 'DEPOSIT',
-            amount: 0,
-            depositId: newDepositRef.id,
-            description: `Deposit request for ${assetId}`,
-            createdAt: FieldValue.serverTimestamp(),
-        });
-        
-        await batch.commit();
+        await newDepositRef.set(newDeposit);
 
         revalidatePath('/portfolio');
-        revalidatePath('/ledger');
+        
         return {
             status: 'success',
-            message: `Deposit address generated for asset.`,
+            message: `Deposit request created. Generating address...`,
+            data: { assetId, userId },
         };
 
     } catch (e) {

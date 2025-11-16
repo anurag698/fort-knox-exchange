@@ -1,73 +1,74 @@
 
 rules_version = '2';
+
 service cloud.firestore {
   match /databases/{database}/documents {
     
-    // Default-deny all access. Rules below will grant specific permissions.
+    // By default, deny all reads and writes.
     match /{document=**} {
       allow read, write: if false;
     }
 
     // --- PUBLIC COLLECTIONS ---
-    // These collections are readable by anyone, authenticated or not.
+    // Anyone can read the list of assets, markets, and live market data.
     match /assets/{assetId} {
-      allow read;
+      allow read: if true;
     }
     match /markets/{marketId} {
-      allow read;
+      allow read: if true;
     }
-     match /market_data/{marketId} {
-      allow read;
-    }
-
-    // --- USER-SPECIFIC DATA ---
-    // A user can read and write to documents within their own user directory.
-    match /users/{userId}/{document=**} {
-      allow read, write: if request.auth.uid == userId;
+    match /market_data/{marketId} {
+      allow read: if true;
     }
 
-    // Specific rules for the main user document.
+    // --- USER DATA ---
+    // A user can only access documents within their own user folder.
     match /users/{userId} {
-      // Allow a user to read their own profile.
-      allow get: if request.auth.uid == userId;
-      // Allow a user to create their own user document, e.g., on sign-up.
+      // Allow a user to read their own profile. Admins can read any profile.
+      allow get: if request.auth.uid == userId || isAdmin();
+      // Allow a user to create their own profile upon signup.
       allow create: if request.auth.uid == userId;
-      // Allow a user to update their profile, but not change their role.
-      allow update: if request.auth.uid == userId && !('role' in request.resource.data);
+      // Allow a user to update their own profile, but NOT change their role.
+      // Admins can update any profile, including the role.
+      allow update: if (request.auth.uid == userId && !('role' in request.resource.data)) || isAdmin();
     }
     
-    // --- ORDERS COLLECTION RULES (THE FIX) ---
-    // This is the critical fix. It secures the 'orders' collection correctly.
-    match /orders/{orderId} {
-      // A user can GET a specific order document if they are the owner.
-      allow get: if request.auth.uid == resource.data.userId;
-
-      // A user can LIST (query) the orders collection ONLY IF they filter by their own userId.
-      // This rule prevents the "Missing or insufficient permissions" error for collection queries.
-      allow list: if request.auth.uid == request.query.filters.userId;
-      
-      // A user can create an order if the order's userId matches their own.
-      allow create: if request.auth.uid == request.resource.data.userId;
-      
-      // A user can update their own order only to cancel it.
-      allow update: if request.auth.uid == resource.data.userId && request.resource.data.status == 'CANCELED';
+    // This rule applies to all subcollections under a user (balances, deposits, etc.)
+    match /users/{userId}/{allDocuments=**} {
+      allow read, write: if request.auth.uid == userId || isAdmin();
     }
 
-    // --- ADMIN-ONLY RULES ---
-    // Admins have read and write access to specific collections for management.
+    // --- ORDERS COLLECTION ---
+    // This is the critical rule that fixes the permission error.
+    match /orders/{orderId} {
+      // A user can read (get) a specific order if they are the owner.
+      allow get: if request.auth.uid == resource.data.userId;
+      
+      // A user can list (query) orders ONLY if the query filters by their own userId.
+      // This rule is what allows the "My Open Orders" component to work without error.
+      allow list: if request.auth.uid != null && request.query.filters[0][2] == request.auth.uid;
+
+      // A user can create an order if they are the owner specified in the order data.
+      allow create: if request.auth.uid == request.resource.data.userId;
+
+      // A user can only update their own order, and only to cancel it.
+      allow update: if request.auth.uid == resource.data.userId 
+                      && request.resource.data.status == 'CANCELED';
+    }
+
+    // --- DEX TRANSACTIONS ---
+    // These are created by server-side actions, so we don't need client-write rules here.
+    // If client needed to read them, a rule like the one for orders would be required.
+    match /dex_transactions/{txId} {
+      allow read: if isAdmin();
+    }
+
+
+    // --- ADMIN HELPER FUNCTION ---
+    // Reusable function to check if the authenticated user is an admin.
     function isAdmin() {
       return exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
              get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'ADMIN';
-    }
-    
-    // Admins can read/write all user profiles for management.
-    match /users/{userId} {
-      allow read, write: if isAdmin();
-    }
-
-    // Admins can read/write any user's subcollections.
-    match /users/{userId}/{allDocuments=**} {
-      allow read, write: if isAdmin();
     }
   }
 }

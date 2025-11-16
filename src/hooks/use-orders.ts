@@ -13,16 +13,19 @@ import type { Order } from '@/lib/types';
  */
 export function useOrders(userId?: string, marketId?: string) {
   const firestore = useFirestore();
-  const { isUserLoading } = useUser();
+  const { user, isUserLoading } = useUser();
+
+  // Use the passed userId or fallback to the authenticated user's ID
+  const targetUserId = userId || user?.uid;
 
   const ordersQuery = useMemoFirebase(() => {
     // Guard: Do not build the query if the userId isn't available.
-    if (!firestore || !userId) {
+    if (!firestore || !targetUserId) {
       return null;
     }
 
     // Query the subcollection path: `users/{userId}/orders`
-    const ordersCollectionRef = collection(firestore, 'users', userId, 'orders');
+    const ordersCollectionRef = collection(firestore, 'users', targetUserId, 'orders');
 
     const constraints: QueryConstraint[] = [
       orderBy('createdAt', 'desc'),
@@ -34,7 +37,7 @@ export function useOrders(userId?: string, marketId?: string) {
 
     return query(ordersCollectionRef, ...constraints);
     
-  }, [firestore, userId, marketId]); 
+  }, [firestore, targetUserId, marketId]); 
 
   // The useCollection hook is now passed an `enabled` flag.
   // It will only run the query if auth is finished and we have a valid query object.

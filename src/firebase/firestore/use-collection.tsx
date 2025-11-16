@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
@@ -57,25 +56,18 @@ export function useCollection<T extends DocumentData>(
           setIsLoading(false);
         },
         (err) => {
-          // Do not access query internals here; keep error handling simple and safe.
+           // Do not access query internals here; keep error handling simple and safe.
           setError(err);
           setIsLoading(false);
 
-          if (err?.code === 'permission-denied') {
-             try {
-                const path = (query && (query as any)._query?.path?.segments)
-                ? (query as any)._query.path.segments.join('/')
-                : 'unknown-path';
-
-                const permissionError = new FirestorePermissionError({
-                    path: path,
-                    operation: 'list',
-                });
-                errorEmitter.emit('permission-error', permissionError);
-
-            } catch (e) {
-                console.warn('Could not construct FirestorePermissionError:', e);
-            }
+          // optional: log a safe path string if available
+          try {
+            const path = (query && (query as any)._query?.path?.segments)
+              ? (query as any)._query.path.segments.join('/')
+              : 'unknown-path';
+            console.warn('Firestore snapshot error', { code: err?.code, path, err });
+          } catch (e) {
+            console.warn('Firestore snapshot error (could not read query path)', err);
           }
         }
       );

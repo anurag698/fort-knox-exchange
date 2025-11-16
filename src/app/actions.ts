@@ -421,13 +421,18 @@ export async function requestDeposit(prevState: FormState, formData: FormData): 
             body: JSON.stringify({ userId, assetId }),
         });
 
+        // Defensive parsing: Check if response is ok and is JSON
+        let data;
+        try {
+            data = await response.json();
+        } catch (e) {
+            throw new Error(`Unexpected server response (status: ${response.status}). Not valid JSON.`);
+        }
+        
         if (!response.ok) {
-            const errorData = await response.json();
-            throw new Error(errorData.error || 'Failed to generate address.');
+            throw new Error(data.error || `Failed to generate address (status: ${response.status})`);
         }
 
-        const data = await response.json();
-        
         revalidatePath('/portfolio');
         
         return {
@@ -631,3 +636,4 @@ export async function submitKyc(prevState: any, formData: FormData): Promise<For
     
 
     
+

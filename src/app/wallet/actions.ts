@@ -12,66 +12,6 @@ type FormState = {
   data?: any;
 }
 
-
-const requestDepositSchema = z.object({
-  assetId: z.string(),
-  userId: z.string(),
-});
-
-export async function requestDeposit(prevState: FormState, formData: FormData): Promise<FormState> {
-    const validatedFields = requestDepositSchema.safeParse(Object.fromEntries(formData.entries()));
-
-    if (!validatedFields.success) {
-        return { status: 'error', message: "Invalid asset selected." };
-    }
-    
-    const { assetId, userId } = validatedFields.data;
-
-    if (!userId) {
-       return { status: 'error', message: 'You must be logged in to request a deposit.' };
-    }
-
-    try {
-        const apiBase = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:9002';
-        const apiUrl = `${apiBase.replace(/\/$/, '')}/api/deposit-address`;
-
-        const response = await fetch(apiUrl, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ userId, assetId }),
-        });
-
-        // Defensive parsing: Check if response is ok and is JSON
-        let data;
-        try {
-            data = await response.json();
-        } catch (e) {
-            throw new Error(`Unexpected server response (status: ${response.status}). Not valid JSON.`);
-        }
-        
-        if (!response.ok) {
-            throw new Error(data.error || data.detail || `Failed to generate address (status: ${response.status})`);
-        }
-
-        revalidatePath('/portfolio');
-        
-        return {
-            status: 'success',
-            message: `Address generated successfully.`,
-            data: { address: data.address },
-        };
-
-    } catch (e) {
-        const error = e as Error;
-        console.error("Request Deposit Error:", error);
-        return {
-            status: 'error',
-            message: error.message || 'Failed to request deposit.',
-        };
-    }
-}
-
-
 const requestWithdrawalSchema = z.object({
     assetId: z.string(),
     amount: z.coerce.number().positive("Amount must be positive."),

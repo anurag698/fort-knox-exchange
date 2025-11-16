@@ -1,12 +1,11 @@
 
 "use client";
 
-import { useEffect, useState, useActionState } from "react";
+import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useUser } from "@/firebase";
-import { requestDeposit } from "@/app/wallet/actions";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -17,9 +16,19 @@ import type { Asset } from "@/lib/types";
 import { Copy, Check, Loader2 } from "lucide-react";
 import { Tooltip, TooltipProvider, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
+async function requestDepositAddress(userId: string, assetId: string) {
+    const res = await fetch('/api/deposit-address', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId, assetId })
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || data.detail || 'Failed to get address');
+    return data;
+}
+
 const depositSchema = z.object({
   assetId: z.string().min(1, "Please select an asset."),
-  userId: z.string(),
 });
 
 type DepositFormValues = z.infer<typeof depositSchema>;
@@ -27,31 +36,33 @@ type DepositFormValues = z.infer<typeof depositSchema>;
 export function DepositForm({ assets }: { assets: Asset[] }) {
   const { user } = useUser();
   const { toast } = useToast();
-  const [state, formAction, isActionPending] = useActionState(requestDeposit, { status: "idle", message: "" });
   
   const [depositAddress, setDepositAddress] = useState("");
   const [hasCopied, setHasCopied] = useState(false);
+  const [isActionPending, setIsActionPending] = useState(false);
 
   const form = useForm<DepositFormValues>({
     resolver: zodResolver(depositSchema),
-    defaultValues: { assetId: "", userId: user?.uid || "" },
+    defaultValues: { assetId: "" },
   });
 
-  useEffect(() => {
-    if(user){
-      form.setValue('userId', user.uid);
+  const onSubmit = async (values: DepositFormValues) => {
+    if (!user) {
+        toast({ variant: "destructive", title: "Error", description: "You must be logged in." });
+        return;
     }
-  }, [user, form]);
-
-  useEffect(() => {
-    if (state.status === 'success' && state.data?.address) {
-        toast({ title: "Address Generated", description: state.message });
-        setDepositAddress(state.data.address);
-    } else if (state.status === 'error') {
-        toast({ variant: "destructive", title: "Error", description: state.message });
-        setDepositAddress("");
+    setIsActionPending(true);
+    setDepositAddress("");
+    try {
+        const data = await requestDepositAddress(user.uid, values.assetId);
+        setDepositAddress(data.address);
+        toast({ title: "Address Generated", description: "Your deposit address has been generated." });
+    } catch(e: any) {
+        toast({ variant: "destructive", title: "Error", description: e.message || "Failed to generate address." });
+    } finally {
+        setIsActionPending(false);
     }
-  }, [state, toast]);
+  }
 
   const onCopy = async () => {
     if (!depositAddress) return;
@@ -92,8 +103,7 @@ export function DepositForm({ assets }: { assets: Asset[] }) {
       </CardHeader>
       <CardContent>
         <Form {...form}>
-          <form action={formAction} className="space-y-6">
-            <input type="hidden" name="userId" value={user?.uid || ''} />
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
             <FormField
               control={form.control}
               name="assetId"

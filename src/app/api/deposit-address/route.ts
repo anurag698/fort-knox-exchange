@@ -1,16 +1,6 @@
 
-// diagnostic block — paste at top of src/app/api/deposit-address/route.ts
-import { NextResponse } from "next/server";
-
-if (process.env.NODE_ENV === 'development' && !process.env.ETH_XPUB) {
-  return NextResponse.json({
-    address: '0x0000000000000000000000000000000000DEAD',
-    chain: 'ETH',
-    note: 'dev-mock'
-  }, { status: 200 });
-}
-
-// server-side: src/app/api/deposit-address/route.ts
+// src/app/api/deposit-address/route.ts
+import { NextResponse } from 'next/server';
 import { getFirebaseAdmin } from '@/lib/firebase-admin';
 import { deriveEthAddressFromXpub } from '@/lib/eth-address';
 import { deriveBtcAddressFromXpub } from '@/lib/btc-address';

@@ -109,7 +109,7 @@ export function DepositForm({ assets }: { assets: Asset[] }) {
                     </FormControl>
                     <SelectContent>
                       {assets.map(asset => (
-                        <SelectItem key={asset.id} value={asset.id}>
+                        <SelectItem key={asset.id} value={asset.symbol}>
                           {asset.name} ({asset.symbol})
                         </SelectItem>
                       ))}

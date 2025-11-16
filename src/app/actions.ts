@@ -411,20 +411,6 @@ export async function requestDeposit(prevState: FormState, formData: FormData): 
     }
 
     try {
-        const { firestore, FieldValue } = getFirebaseAdmin();
-        const newDepositRef = firestore.collection('users').doc(userId).collection('deposits').doc();
-
-        await newDepositRef.set({
-            id: newDepositRef.id,
-            userId,
-            assetId,
-            amount: 0,
-            status: 'PENDING',
-            createdAt: FieldValue.serverTimestamp(),
-            updatedAt: FieldValue.serverTimestamp(),
-        });
-        
-        // This is a server action, so we can get the full URL from headers
         const host = headers().get('host');
         const protocol = process.env.NODE_ENV === 'development' ? 'http' : 'https';
         const apiUrl = `${protocol}://${host}/api/deposit-address`;
@@ -432,7 +418,7 @@ export async function requestDeposit(prevState: FormState, formData: FormData): 
         const response = await fetch(apiUrl, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ userId, coin: assetId }),
+            body: JSON.stringify({ userId, assetId }),
         });
 
         if (!response.ok) {

@@ -13,10 +13,11 @@ const requestSchema = z.object({
 const deriveMockAddress = (coin: string, index: number): string => {
   const coinPrefix = coin.toLowerCase();
   const indexHex = index.toString(16).padStart(6, '0');
-  // Add a pseudo-random element to ensure mock addresses are unique on retry
-  // In a real app, the address derivation is deterministic, so this is not needed.
+  // NOTE: This mock includes a random element to ensure uniqueness during testing,
+  // as the index alone might reset in some dev environments.
+  // A real HD wallet derivation is deterministic and does not need this.
   const randomPart = Math.random().toString(36).substring(2, 8);
-  return `${coinPrefix}-addr-${indexHex}-${randomPart}`;
+  return `${coinPrefix}-addr-mock-${indexHex}-${randomPart}`;
 };
 
 export async function POST(request: Request) {
@@ -29,48 +30,56 @@ export async function POST(request: Request) {
 
   const { userId, coin } = validation.data;
   const { firestore, FieldValue } = getFirebaseAdmin();
-  const indexRef = firestore.collection('addressIndexes').doc(coin);
+  
 
   try {
     const derivedAddress = await firestore.runTransaction(async (tx) => {
+      const indexRef = firestore.collection('addressIndexes').doc(coin);
+
+      // --- 1. READS FIRST ---
+      // Atomically read the current index for the specified coin.
       const idxSnap = await tx.get(indexRef);
+
+      // --- 2. COMPUTE NEW STATE (In-Memory) ---
+      // Determine the next available index. If the document doesn't exist, start from 0.
       let newIndex = 0;
-      
       if (idxSnap.exists) {
-        // If the index document exists, the next index is the current one + 1.
+        // Increment the last known index by 1.
         newIndex = (idxSnap.data()?.lastIndex ?? -1) + 1;
       }
       
+      // Derive the new address using the computed index. This is a pure function.
+      const address = deriveMockAddress(coin, newIndex);
+      const addrRef = firestore.collection('addresses').doc(address);
+      
+      // Safeguard against extremely rare hash collisions or logic errors.
+      // This read is for validation and must also happen before writes.
+      const addrSnap = await tx.get(addrRef);
+      if (addrSnap.exists) {
+          // If for some reason this address is already in the DB, abort the transaction.
+          throw new Error(`Address collision detected for index ${newIndex}. Please retry.`);
+      }
+
+      // --- 3. WRITES LAST ---
+      // All reads are complete. Now, perform all write operations.
+      
       // Update the index document with the new `lastIndex`.
       // If the doc doesn't exist, this will create it with `lastIndex: 0`.
-      // This is now an atomic "increment and get" operation.
       tx.set(indexRef, { 
           lastIndex: newIndex, 
           updatedAt: FieldValue.serverTimestamp() 
       }, { merge: true });
 
-
-      // In a real implementation, you would use a proper derivation library.
-      // For example: const address = deriveBtcAddressFromXpub(process.env.XPUB_BTC, newIndex);
-      const address = deriveMockAddress(coin, newIndex);
-      
-      const addrRef = firestore.collection('addresses').doc(address);
-      const addrSnap = await tx.get(addrRef);
-
-      // This check is a safeguard against hash collisions or logic errors.
-      if (addrSnap.exists) {
-          throw new Error(`Address collision detected for index ${newIndex}. Please retry.`);
-      }
-
       // Create the mapping from the derived address to the user and the correct index.
       tx.set(addrRef, {
         coin,
         userId,
-        index: newIndex, // Store the new index
+        index: newIndex,
         createdAt: FieldValue.serverTimestamp(),
         used: false,
       });
 
+      // The return value of the transaction function is the result of the entire operation.
       return address;
     });
 

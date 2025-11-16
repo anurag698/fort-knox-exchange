@@ -25,11 +25,11 @@ export default function Home() {
   const firestore = useFirestore();
   const { data: userProfile, isLoading: isProfileLoading } = useUserById(user?.uid);
   const { data: balances, isLoading: areBalancesLoading } = useBalances();
-  const { data: markets, isLoading: areMarketsLoading } = useMarkets();
+  const { data: markets, isLoading: marketsLoading } = useMarkets();
   const [marketData, setMarketData] = useState<Record<string, MarketData>>({});
   const [marketDataLoading, setMarketDataLoading] = useState(true);
 
-  const isLoading = isProfileLoading || areBalancesLoading || areMarketsLoading || marketDataLoading;
+  const isLoading = isProfileLoading || areBalancesLoading || marketsLoading || marketDataLoading;
 
    useEffect(() => {
     if (!firestore) {

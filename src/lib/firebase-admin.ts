@@ -16,31 +16,11 @@ type FirebaseAdminServices = {
 // This variable will hold the singleton instance of the initialized services
 let adminServices: FirebaseAdminServices | null = null;
 
-
-/**
- * Defensive server/client guard.
- * If this file is accidentally executed in client bundle, it will throw a clear error.
- */
-function isClientSide(): boolean {
-  try {
-    if (typeof window !== 'undefined') return true;
-    if (typeof document !== 'undefined') return true;
-  } catch {}
-  return false;
-}
-
 /**
  * Lazy init: only initialize admin when this function is called from server code.
  * This avoids running admin initialization during bundling or in client bundles.
  */
 function initAdminIfNeeded(): FirebaseAdminServices {
-  if (isClientSide()) {
-    // Fail fast with a clear message if someone accidentally calls server SDK from client.
-    throw new Error(
-      '[firebase-admin] attempted to initialize on the client. Move any imports of server-only modules into server-side code (API routes, server components, or server utilities).'
-    );
-  }
-
   // If already initialized, return the existing instance
   if (adminServices) {
     return adminServices;
@@ -58,40 +38,32 @@ function initAdminIfNeeded(): FirebaseAdminServices {
       };
       return adminServices;
   }
-  
 
   const svcJsonEnv = process.env.FIREBASE_SERVICE_ACCOUNT_JSON;
   const googleCredsPath = process.env.GOOGLE_APPLICATION_CREDENTIALS;
-
-  // Minimal debug log (server only)
-  console.log('[firebase-admin] init attempt. hasSAJson:', !!svcJsonEnv, 'hasGOOGLE_CREDS_PATH:', !!googleCredsPath);
   
   let newApp: App;
   
   try {
     if (svcJsonEnv) {
-      let parsed: any;
       try {
-        parsed = JSON.parse(svcJsonEnv);
-      } catch (err) {
-        try {
-          const cleaned = svcJsonEnv.replace(/\\n/g, '\n');
-          parsed = JSON.parse(cleaned);
-        } catch (e) {
-          console.error('[firebase-admin] Failed to parse FIREBASE_SERVICE_ACCOUNT_JSON', e);
-          throw e;
-        }
+        const creds = JSON.parse(svcJsonEnv);
+        newApp = initializeApp({
+          credential: cert(creds),
+        }, appName);
+        initialized = true;
+      } catch (e) {
+        console.error('Failed to parse FIREBASE_SERVICE_ACCOUNT_JSON', e);
+        throw e;
       }
+    } else if (googleCredsPath) {
       newApp = initializeApp({
-        credential: cert(parsed as ServiceAccount),
-        projectId: parsed.project_id,
+        credential: cert(googleCredsPath),
       }, appName);
-      console.log('[firebase-admin] initialized using FIREBASE_SERVICE_ACCOUNT_JSON project:', parsed.project_id);
     } else {
-        // Fallback to Application Default Credentials (ADC).
-        // This works automatically in Google Cloud environments or when gcloud CLI is configured.
+        console.warn('No Firebase admin credentials provided. Attempting to initialize with Application Default Credentials.');
+        // This will work in Google Cloud environments automatically.
         newApp = initializeApp({}, appName);
-        console.log('[firebase-admin] initialized using Application Default Credentials (ADC)');
     }
     
     adminServices = {
@@ -103,9 +75,9 @@ function initAdminIfNeeded(): FirebaseAdminServices {
 
     return adminServices;
 
-  } catch (err) {
-    console.error('[firebase-admin] initialization failed:', err && (err as Error).message);
-    throw err;
+  } catch (err: any) {
+    console.error('[firebase-admin] initialization failed:', err?.stack || err?.message || err);
+    throw new Error(`Firebase Admin SDK initialization failed: ${err.message}`);
   }
 }
 

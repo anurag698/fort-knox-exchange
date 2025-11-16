@@ -228,7 +228,8 @@ export async function createMarketOrder(prevState: FormState, formData: FormData
     const orderRef = firestore.collection('users').doc(userId).collection('orders').doc();
 
     try {
-        const host = headers().get('host');
+        const headersObj = await headers();
+        const host = headersObj.get('host') || 'localhost:9002';
         const protocol = process.env.NODE_ENV === 'development' ? 'http' : 'https';
         const apiUrlBase = `${protocol}://${host}`;
 
@@ -411,9 +412,8 @@ export async function requestDeposit(prevState: FormState, formData: FormData): 
     }
 
     try {
-        const host = headers().get('host');
-        const protocol = process.env.NODE_ENV === 'development' ? 'http' : 'https';
-        const apiUrl = `${protocol}://${host}/api/deposit-address`;
+        const apiBase = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:9002';
+        const apiUrl = `${apiBase.replace(/\/$/, '')}/api/deposit-address`;
 
         const response = await fetch(apiUrl, {
             method: 'POST',
@@ -430,7 +430,7 @@ export async function requestDeposit(prevState: FormState, formData: FormData): 
         }
         
         if (!response.ok) {
-            throw new Error(data.error || `Failed to generate address (status: ${response.status})`);
+            throw new Error(data.error || data.detail || `Failed to generate address (status: ${response.status})`);
         }
 
         revalidatePath('/portfolio');
@@ -636,4 +636,3 @@ export async function submitKyc(prevState: any, formData: FormData): Promise<For
     
 
     
-

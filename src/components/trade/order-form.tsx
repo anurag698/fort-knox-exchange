@@ -17,10 +17,10 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { cn } from '@/lib/utils';
 import { doc, runTransaction, serverTimestamp, type Timestamp, collection } from 'firebase/firestore';
-import type { Order } from '@/lib/types';
+import type { Order, Balance } from '@/lib/types';
 import { useActionState } from 'react';
 import type { SecurityRuleContext } from '@/firebase/errors';
-
+import { useBalances } from '@/hooks/use-balances';
 
 const orderSchema = z.object({
   price: z.coerce.number().optional(),
@@ -45,8 +45,13 @@ export function OrderForm({ selectedPrice, marketId }: OrderFormProps) {
   const [baseAsset, quoteAsset] = marketId ? marketId.split('-') : ['', ''];
   const [orderType, setOrderType] = useState<'LIMIT' | 'MARKET'>('LIMIT');
   const [isSubmitting, setIsSubmitting] = useState(false);
-  
+  const { data: balances } = useBalances();
+
   const [marketOrderState, marketOrderAction, isMarketOrderPending] = useActionState(createMarketOrder, { status: "idle", message: "" });
+  
+  const baseBalance = balances?.find(b => b.assetId === baseAsset)?.available ?? 0;
+  const quoteBalance = balances?.find(b => b.assetId === quoteAsset)?.available ?? 0;
+
 
   const defaultValues: Partial<OrderFormValues> = {
       price: undefined,
@@ -196,11 +201,27 @@ export function OrderForm({ selectedPrice, marketId }: OrderFormProps) {
 
   const OrderTabContent = ({ side }: { side: 'BUY' | 'SELL' }) => {
     const form = side === 'BUY' ? buyForm : sellForm;
-    const { watch, control, handleSubmit } = form;
+    const { watch, control, handleSubmit, setValue } = form;
     const price = watch("price");
     const quantity = watch("quantity");
     const total = price && quantity ? price * quantity : 0;
-    
+    const balance = side === 'BUY' ? quoteBalance : baseBalance;
+
+    const setAmountByPercentage = (percentage: number) => {
+        const currentPrice = price || 0;
+        let newAmount = 0;
+        if (side === 'BUY') {
+            // For BUY, percentage is of quote asset. Amount to buy is total value / price
+            if (currentPrice > 0) {
+              newAmount = (quoteBalance * percentage) / currentPrice;
+            }
+        } else { // For SELL
+            // For SELL, percentage is of base asset.
+            newAmount = baseBalance * percentage;
+        }
+        setValue('quantity', newAmount, { shouldValidate: true });
+    };
+
     return (
       <Form {...form}>
         <form 
@@ -234,16 +255,30 @@ export function OrderForm({ selectedPrice, marketId }: OrderFormProps) {
               <FormItem>
                 <FormLabel>Amount ({orderType === 'MARKET' && side === 'BUY' ? quoteAsset : baseAsset})</FormLabel>
                 <FormControl>
-                  <Input placeholder="0.00" type="number" step="0.0001" {...field} value={field.value ?? ''} />
+                  <Input placeholder="0.00" type="number" step="any" {...field} value={field.value ?? ''} />
                 </FormControl>
                 <FormMessage />
               </FormItem>
             )}
           />
+           <div className="flex justify-between gap-1">
+                {[0.25, 0.50, 0.75, 1.0].map(pct => (
+                    <Button 
+                        key={pct}
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="flex-1 text-xs h-6"
+                        onClick={() => setAmountByPercentage(pct)}
+                    >
+                        {pct * 100}%
+                    </Button>
+                ))}
+            </div>
           {orderType === 'LIMIT' && (
             <div className="space-y-2">
                 <Label>Total</Label>
-                <Input placeholder="0.00" type="number" readOnly value={total.toFixed(2)} />
+                <Input placeholder="0.00" type="number" readOnly value={total.toFixed(2)} className="bg-muted" />
             </div>
           )}
           <Button

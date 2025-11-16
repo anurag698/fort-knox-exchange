@@ -225,7 +225,8 @@ export function OrderForm({ selectedPrice, marketId }: OrderFormProps) {
     return (
       <Form {...form}>
         <form 
-          action={orderType === 'MARKET' ? marketOrderAction : handleSubmit(handleLimitOrderSubmit)} 
+          action={orderType === 'MARKET' ? marketOrderAction : undefined}
+          onSubmit={orderType === 'LIMIT' ? handleSubmit(handleLimitOrderSubmit) : undefined}
           className="mt-4 space-y-4"
         >
           <input type="hidden" {...form.register("userId")} />

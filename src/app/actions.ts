@@ -238,20 +238,20 @@ export async function createMarketOrder(prevState: FormState, formData: FormData
         const amountToLock = quantity;
         const assetToLock = srcToken;
         
-        const tokens = (await firestore.collection('assets').get()).docs.reduce((acc, doc) => {
+        const assets = (await firestore.collection('assets').get()).docs.reduce((acc, doc) => {
             acc[doc.id] = doc.data();
             return acc;
         }, {} as Record<string, any>);
 
-        if (!tokens[srcToken] || !tokens[dstToken]) {
+        if (!assets[srcToken] || !assets[dstToken]) {
             throw new Error("Could not find token details for the market order.");
         }
-        const amountInWei = (quantity * (10 ** tokens[srcToken].decimals)).toString();
+        const amountInWei = (quantity * (10 ** assets[srcToken].decimals)).toString();
 
         const quoteQuery = new URLSearchParams({
             chainId: '137', // Hardcoded Polygon for now
-            fromTokenAddress: tokens[srcToken].contractAddress,
-            toTokenAddress: tokens[dstToken].contractAddress,
+            fromTokenAddress: assets[srcToken].contractAddress,
+            toTokenAddress: assets[dstToken].contractAddress,
             amount: amountInWei,
         }).toString();
 
@@ -285,8 +285,8 @@ export async function createMarketOrder(prevState: FormState, formData: FormData
         const hotWalletAddress = "0xc4248A802613B40B515B35C15809774635607311"; // Placeholder
         const buildTxBody = {
             chainId: 137,
-            src: tokens[srcToken].contractAddress,
-            dst: tokens[dstToken].contractAddress,
+            src: assets[srcToken].contractAddress,
+            dst: assets[dstToken].contractAddress,
             amount: amountInWei,
             from: hotWalletAddress,
             slippage: 1,

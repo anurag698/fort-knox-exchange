@@ -16,31 +16,11 @@ type FirebaseAdminServices = {
 // This variable will hold the singleton instance of the initialized services
 let adminServices: FirebaseAdminServices | null = null;
 
-
-/**
- * Defensive server/client guard.
- * If this file is accidentally executed in client bundle, it will throw a clear error.
- */
-function isClientSide(): boolean {
-  try {
-    if (typeof window !== 'undefined') return true;
-    if (typeof document !== 'undefined') return true;
-  } catch {}
-  return false;
-}
-
 /**
  * Lazy init: only initialize admin when this function is called from server code.
  * This avoids running admin initialization during bundling or in client bundles.
  */
 function initAdminIfNeeded(): FirebaseAdminServices {
-  if (isClientSide()) {
-    // Fail fast with a clear message if someone accidentally calls server SDK from client.
-    throw new Error(
-      '[firebase-admin] attempted to initialize on the client. Move any imports of server-only modules into server-side code (API routes, server components, or server utilities).'
-    );
-  }
-
   // If already initialized, return the existing instance
   if (adminServices) {
     return adminServices;
@@ -59,7 +39,6 @@ function initAdminIfNeeded(): FirebaseAdminServices {
       return adminServices;
   }
   
-
   const svcJsonEnv = process.env.FIREBASE_SERVICE_ACCOUNT_JSON;
   const googleCredsPath = process.env.GOOGLE_APPLICATION_CREDENTIALS;
   
@@ -67,31 +46,26 @@ function initAdminIfNeeded(): FirebaseAdminServices {
   
   try {
     if (svcJsonEnv) {
-      let parsed: any;
+      let parsedCreds: ServiceAccount;
       try {
-        parsed = JSON.parse(svcJsonEnv);
-      } catch (err) {
-        console.error('[firebase-admin] Failed to parse FIREBASE_SERVICE_ACCOUNT_JSON, attempting to clean it.', err);
-        try {
-          // Attempt to fix common issues like escaped newlines
-          const cleaned = svcJsonEnv.replace(/\\n/g, '\n');
-          parsed = JSON.parse(cleaned);
-        } catch (e) {
-          console.error('[firebase-admin] Re-parsing also failed.', e);
-          throw e; // re-throw after logging
-        }
+        parsedCreds = JSON.parse(svcJsonEnv);
+      } catch (e) {
+        console.error('Failed to parse FIREBASE_SERVICE_ACCOUNT_JSON:', e);
+        throw new Error('Could not parse FIREBASE_SERVICE_ACCOUNT_JSON. Check for syntax errors.');
       }
       newApp = initializeApp({
-        credential: cert(parsed as ServiceAccount),
-        projectId: parsed.project_id,
+        credential: cert(parsedCreds),
       }, appName);
     } else if (googleCredsPath) {
-        // Fallback to Application Default Credentials via file path.
-        // This works automatically in Google Cloud environments or when gcloud CLI is configured.
-        newApp = initializeApp({ credential: cert(googleCredsPath) }, appName);
+      // GAC path set for file-based credential (Cloud Run / local path)
+      newApp = initializeApp({
+        credential: cert(googleCredsPath),
+      }, appName);
     } else {
-        console.warn('[firebase-admin] No credentials provided. Using default for local emulator or ADC.');
-        newApp = initializeApp({}, appName);
+      console.warn('No Firebase admin credentials provided. Attempting to initialize with Application Default Credentials.');
+      // This will work in Google Cloud environments automatically.
+      // It will fail in local environments if gcloud CLI is not configured.
+      newApp = initializeApp({}, appName);
     }
     
     adminServices = {
@@ -103,9 +77,10 @@ function initAdminIfNeeded(): FirebaseAdminServices {
 
     return adminServices;
 
-  } catch (err) {
-    console.error('[firebase-admin] initialization failed:', err && (err as Error).message);
-    throw err;
+  } catch (err: any) {
+    console.error('[firebase-admin] initialization failed:', err?.stack || err?.message || err);
+    // It's often better to throw here to prevent the app from running in a broken state.
+    throw new Error(`Firebase Admin SDK initialization failed: ${err.message}`);
   }
 }
 

@@ -1,3 +1,4 @@
+
 'use client';
 
 import { collection, query, where, orderBy, type QueryConstraint } from 'firebase/firestore';
@@ -6,8 +7,7 @@ import type { Order } from '@/lib/types';
 
 /**
  * Fetches orders for a specific user and optionally filters by market.
- * This hook is now safe to use as it will not execute a query until
- * the user is authenticated.
+ * This hook is safe because it will not construct a query until the user is authenticated.
  * @param userId The UID of the user whose orders are to be fetched.
  * @param marketId Optional market ID to filter orders.
  */

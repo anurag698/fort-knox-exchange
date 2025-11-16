@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useEffect, useState } from "react";
@@ -15,6 +16,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import type { Asset } from "@/lib/types";
 import { Copy, Check } from "lucide-react";
+import { Tooltip, TooltipProvider, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
 const depositSchema = z.object({
   assetId: z.string().min(1, "Please select an asset."),
@@ -62,7 +64,6 @@ export function DepositForm({ assets }: { assets: Asset[] }) {
   const onCopy = async () => {
     if (!depositAddress) return;
     
-    // Check if running in a secure context (HTTPS) or localhost
     if (!navigator.clipboard) {
         toast({
             variant: 'destructive',
@@ -136,20 +137,29 @@ export function DepositForm({ assets }: { assets: Asset[] }) {
                 <p className="text-sm font-medium">Your Deposit Address:</p>
                 <div className="relative">
                     <Input readOnly value={depositAddress} className="font-mono pr-10" />
-                    <Button
-                        size="icon"
-                        variant="ghost"
-                        className="absolute top-1/2 right-1 h-7 w-7 -translate-y-1/2"
-                        onClick={onCopy}
-                        type="button" // Change type to button to prevent form submission
-                        aria-label="Copy address"
-                    >
-                        {hasCopied ? (
-                        <Check className="h-4 w-4 text-green-500" />
-                        ) : (
-                        <Copy className="h-4 w-4" />
-                        )}
-                    </Button>
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                           <Button
+                                size="icon"
+                                variant="ghost"
+                                className="absolute top-1/2 right-1 h-7 w-7 -translate-y-1/2"
+                                onClick={onCopy}
+                                type="button" 
+                                aria-label="Copy address"
+                            >
+                                {hasCopied ? (
+                                <Check className="h-4 w-4 text-green-500" />
+                                ) : (
+                                <Copy className="h-4 w-4" />
+                                )}
+                            </Button>
+                        </TooltipTrigger>
+                         <TooltipContent>
+                           <p>Copy address</p>
+                         </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
                 </div>
                 <p className="text-xs text-muted-foreground">
                     Only send funds for the selected asset to this address. Sending any other asset may result in the loss of your deposit.

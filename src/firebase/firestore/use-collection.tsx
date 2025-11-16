@@ -1,29 +1,16 @@
+
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { onSnapshot, type Query, type DocumentData } from 'firebase/firestore';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
-import { useMemoOne } from 'use-memo-one';
 
 export interface UseCollectionResult<T> {
   data: T[] | null;
   isLoading: boolean;
   error: Error | null;
 }
-
-// Helper to create a stable key from a query object
-const getQueryKey = (q: Query | null): string => {
-  if (!q) return 'null';
-  // @ts-ignore The _query property is not part of the public API, but it's the most reliable way to get a stable key
-  const { path, an, cn } = q._query;
-  return JSON.stringify({
-    path: path.segments.join('/'),
-    an, // where clauses
-    cn, // orderBy clauses
-  });
-};
-
 
 /**
  * A hook to fetch and listen to a Firestore collection in real-time.
@@ -33,60 +20,82 @@ const getQueryKey = (q: Query | null): string => {
  */
 export function useCollection<T extends DocumentData>(
   query: Query<DocumentData> | null,
-  options: { enabled: boolean } = { enabled: true }
+  options: { enabled?: boolean } = { enabled: true }
 ): UseCollectionResult<T> {
-  const { enabled } = options;
+  const { enabled = true } = options;
   const [data, setData] = useState<T[] | null>(null);
   const [isLoading, setIsLoading] = useState(enabled);
   const [error, setError] = useState<Error | null>(null);
-
-  // The query key is a stable dependency for useEffect.
-  const queryKey = useMemoOne(() => getQueryKey(query), [query]);
+  const unsubscribeRef = useRef<(() => void) | null>(null);
 
   useEffect(() => {
-    // This is the safety guard. If the query is null or the hook is disabled,
-    // we do not proceed. We also reset the state.
-    if (!query || !enabled) {
+    // Defensive guards: do NOT subscribe if disabled or no query given
+    if (!enabled || !query) {
       setData(null);
       setIsLoading(false);
       setError(null);
+      // tear down any previous subscription safely
+      if (unsubscribeRef.current) {
+        try {
+          unsubscribeRef.current();
+        } catch (_) {}
+        unsubscribeRef.current = null;
+      }
       return;
     }
 
     setIsLoading(true);
+    setError(null);
 
-    const unsubscribe = onSnapshot(
-      query,
-      (snapshot) => {
-        const result: T[] = snapshot.docs.map(doc => ({
-          ...doc.data() as T,
-          id: doc.id,
-        }));
-        setData(result);
-        setError(null);
-        setIsLoading(false);
-      },
-      (err) => {
-        // This is the critical change: instead of just logging, we now
-        // create and emit a detailed, contextual error for the LLM to analyze.
-        if (err.code === 'permission-denied') {
-          const permissionError = new FirestorePermissionError({
-            // @ts-ignore
-            path: (query as any)._query.path.segments.join('/'),
-            operation: 'list',
-          });
-          errorEmitter.emit('permission-error', permissionError);
+    try {
+      const unsub = onSnapshot(
+        query,
+        (snapshot) => {
+          const docs = snapshot.docs.map((d) => ({ id: d.id, ...(d.data ? d.data() : {}) } as T));
+          setData(docs);
+          setError(null);
+          setIsLoading(false);
+        },
+        (err) => {
+          // Do not access query internals here; keep error handling simple and safe.
+          setError(err);
+          setIsLoading(false);
+
+          if (err?.code === 'permission-denied') {
+             try {
+                const path = (query && (query as any)._query?.path?.segments)
+                ? (query as any)._query.path.segments.join('/')
+                : 'unknown-path';
+
+                const permissionError = new FirestorePermissionError({
+                    path: path,
+                    operation: 'list',
+                });
+                errorEmitter.emit('permission-error', permissionError);
+
+            } catch (e) {
+                console.warn('Could not construct FirestorePermissionError:', e);
+            }
+          }
         }
-        
-        setError(err); // Still store the original error for the component's use
-        setData(null);
-        setIsLoading(false);
-      }
-    );
+      );
+      unsubscribeRef.current = unsub;
 
-    return () => unsubscribe();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [queryKey, enabled]); // Re-run when the query or the enabled state changes.
+      return () => {
+        try {
+          unsub();
+        } catch (_) {}
+        unsubscribeRef.current = null;
+      };
+    } catch (err: any) {
+      setError(err);
+      setIsLoading(false);
+    }
+  // We are intentionally not including the query object itself in the dependency array.
+  // Instead, consumers of this hook should memoize the query object (e.g., with useMemoFirebase).
+  // This prevents infinite re-render loops caused by query objects being redefined on every render.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [enabled, query]);
 
   return { data, isLoading, error };
 }

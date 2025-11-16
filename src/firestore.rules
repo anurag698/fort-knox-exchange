@@ -16,6 +16,12 @@ service cloud.firestore {
       allow list;
     }
 
+        // TRADE data for each market (public read-only)
+    match /trade/{marketId} {
+      allow get;
+      allow list;
+    }
+
     // USER-specific collections read/writeable only by the owner
     match /users/{userId}/{document=**} {
       allow read, write: if request.auth.uid == userId;
@@ -32,6 +38,11 @@ service cloud.firestore {
     
     // ORDERS can only be managed by the user who owns them
     match /orders/{orderId} {
+    // Allow authenticated users to list orders (they should query by userId in code)
+    allow list: if request.auth != null;
+
+
+      
       // A user can read their own orders (both get and list operations).
       // This single 'read' rule correctly secures collection queries (list)
       // by requiring a 'where' clause on 'userId' in the application code.

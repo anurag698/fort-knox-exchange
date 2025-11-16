@@ -1,3 +1,4 @@
+
 'use client';
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
@@ -8,7 +9,6 @@ import { Badge } from '@/components/ui/badge';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { approveWithdrawal, rejectWithdrawal } from '@/app/actions';
-import { useTransition } from 'react';
 import { useFormStatus } from 'react-dom';
 import type { Asset } from '@/lib/types';
 import { UserDeposits } from '@/components/wallet/user-deposits';
@@ -18,38 +18,22 @@ import { useWithdrawal } from "@/hooks/use-withdrawal";
 import { useAssets } from "@/hooks/use-assets";
 
 function ModerationButtons({ disabled, withdrawalId }: { disabled: boolean, withdrawalId?: string }) {
-  const [approvePending, startApproveTransition] = useTransition();
-  const [rejectPending, startRejectTransition] = useTransition();
-  
-  const formStatus = useFormStatus();
-  const pending = formStatus.pending || approvePending || rejectPending;
-
-  const handleApprove = (formData: FormData) => {
-    startApproveTransition(async () => {
-      await approveWithdrawal(null, formData);
-    });
-  }
-
-  const handleReject = (formData: FormData) => {
-    startRejectTransition(async () => {
-      await rejectWithdrawal(null, formData);
-    });
-  }
+  const { pending } = useFormStatus();
 
   return (
     <div className="flex gap-2 w-full">
-       <form action={handleApprove} className="w-full">
+       <form action={approveWithdrawal} className="w-full">
          <input type="hidden" name="withdrawalId" value={withdrawalId} />
         <Button 
           className="w-full" 
           disabled={disabled || pending} 
           type="submit"
         >
-          {approvePending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+          {pending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
           Approve
         </Button>
       </form>
-      <form action={handleReject} className="w-full">
+      <form action={rejectWithdrawal} className="w-full">
         <input type="hidden" name="withdrawalId" value={withdrawalId} />
         <Button 
           variant="destructive" 
@@ -57,7 +41,7 @@ function ModerationButtons({ disabled, withdrawalId }: { disabled: boolean, with
           disabled={disabled || pending}
           type="submit"
         >
-          {rejectPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+          {pending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
           Reject
         </Button>
       </form>
@@ -211,18 +195,20 @@ export default function ReviewWithdrawalPage({ params }: { params: { id: string 
             </Card>
         </div>
         <div className="lg:col-span-1">
-            <Card className="flex flex-col h-full">
-                <CardHeader>
-                    <CardTitle>AI Risk Analysis</CardTitle>
-                    <CardDescription>AI-powered assessment of this request.</CardDescription>
-                </CardHeader>
-                <CardContent className="flex-grow">
-                  {renderAnalysis()}
-                </CardContent>
-                <CardFooter className="flex flex-col gap-2">
-                    <ModerationButtons disabled={!withdrawal || withdrawal.status !== 'PENDING' } withdrawalId={withdrawal?.id} />
-                </CardFooter>
-            </Card>
+            <form>
+                <Card className="flex flex-col h-full">
+                    <CardHeader>
+                        <CardTitle>AI Risk Analysis</CardTitle>
+                        <CardDescription>AI-powered assessment of this request.</CardDescription>
+                    </CardHeader>
+                    <CardContent className="flex-grow">
+                    {renderAnalysis()}
+                    </CardContent>
+                    <CardFooter className="flex flex-col gap-2">
+                        <ModerationButtons disabled={!withdrawal || withdrawal.status !== 'PENDING' } withdrawalId={withdrawal?.id} />
+                    </CardFooter>
+                </Card>
+            </form>
         </div>
        </div>
        

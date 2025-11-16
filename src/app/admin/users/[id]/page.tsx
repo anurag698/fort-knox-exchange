@@ -9,45 +9,28 @@ import { Badge } from '@/components/ui/badge';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { approveKyc, rejectKyc } from '@/app/actions';
-import { useTransition } from 'react';
 import { useFormStatus } from 'react-dom';
 import { useUserById } from "@/hooks/use-user-by-id";
 import { UserDeposits } from "@/components/wallet/user-deposits";
 import { UserWithdrawals } from "@/components/wallet/user-withdrawals";
 
 function KycButtons({ disabled, userId }: { disabled: boolean, userId?: string }) {
-  const [approvePending, startApproveTransition] = useTransition();
-  const [rejectPending, startRejectTransition] = useTransition();
-
-  const formStatus = useFormStatus();
-  const pending = formStatus.pending || approvePending || rejectPending;
-
-  const handleApprove = (formData: FormData) => {
-    startApproveTransition(async () => {
-      await approveKyc(null, formData);
-    });
-  }
-
-  const handleReject = (formData: FormData) => {
-    startRejectTransition(async () => {
-      await rejectKyc(null, formData);
-    });
-  }
+  const { pending } = useFormStatus();
 
   return (
     <div className="flex gap-2 w-full">
-      <form action={handleApprove} className="w-full">
+      <form action={approveKyc} className="w-full">
         <input type="hidden" name="userId" value={userId} />
         <Button 
           className="w-full" 
           disabled={disabled || pending}
           type="submit"
         >
-          {approvePending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+          {pending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
           Approve KYC
         </Button>
       </form>
-      <form action={handleReject} className="w-full">
+      <form action={rejectKyc} className="w-full">
         <input type="hidden" name="userId" value={userId} />
         <Button 
           variant="destructive" 
@@ -55,7 +38,7 @@ function KycButtons({ disabled, userId }: { disabled: boolean, userId?: string }
           disabled={disabled || pending}
           type="submit"
         >
-          {rejectPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+          {pending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
           Reject KYC
         </Button>
       </form>
@@ -164,20 +147,22 @@ export default function ManageUserPage({ params }: { params: { id: string } }) {
       </div>
 
         
-        <Card>
-            <CardHeader>
-            <CardTitle>User Details</CardTitle>
-            <CardDescription>
-                Review user information and manage their KYC status.
-            </CardDescription>
-            </CardHeader>
-            <CardContent>
-                {renderContent()}
-            </CardContent>
-            <CardFooter className="flex flex-col gap-2 border-t pt-6">
-                <KycButtons disabled={!user || user.kycStatus !== 'PENDING'} userId={user?.id} />
-            </CardFooter>
-        </Card>
+        <form>
+            <Card>
+                <CardHeader>
+                <CardTitle>User Details</CardTitle>
+                <CardDescription>
+                    Review user information and manage their KYC status.
+                </CardDescription>
+                </CardHeader>
+                <CardContent>
+                    {renderContent()}
+                </CardContent>
+                <CardFooter className="flex flex-col gap-2 border-t pt-6">
+                    <KycButtons disabled={!user || user.kycStatus !== 'PENDING'} userId={user?.id} />
+                </CardFooter>
+            </Card>
+        </form>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
             <UserDeposits userId={params.id} />

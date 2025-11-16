@@ -14,7 +14,8 @@ const deriveMockAddress = (coin: string, index: number): string => {
   const coinPrefix = coin.toLowerCase();
   const indexHex = index.toString(16).padStart(6, '0');
   // Add a pseudo-random element to ensure mock addresses are unique on retry
-  const randomPart = Math.random().toString(36).substring(2, 12);
+  // In a real app, the address derivation is deterministic, so this is not needed.
+  const randomPart = Math.random().toString(36).substring(2, 8);
   return `${coinPrefix}-addr-${indexHex}-${randomPart}`;
 };
 
@@ -33,34 +34,39 @@ export async function POST(request: Request) {
   try {
     const derivedAddress = await firestore.runTransaction(async (tx) => {
       const idxSnap = await tx.get(indexRef);
-      let lastIndex = 0;
-      if (!idxSnap.exists) {
-        // First time this coin is requested, create the index document.
-        tx.set(indexRef, { lastIndex: 0, createdAt: FieldValue.serverTimestamp() });
-        lastIndex = 0;
-      } else {
-        // Atomically increment the index.
-        lastIndex = (idxSnap.data()?.lastIndex ?? -1) + 1;
-        tx.update(indexRef, { lastIndex, updatedAt: FieldValue.serverTimestamp() });
+      let newIndex = 0;
+      
+      if (idxSnap.exists) {
+        // If the index document exists, the next index is the current one + 1.
+        newIndex = (idxSnap.data()?.lastIndex ?? -1) + 1;
       }
+      
+      // Update the index document with the new `lastIndex`.
+      // If the doc doesn't exist, this will create it with `lastIndex: 0`.
+      // This is now an atomic "increment and get" operation.
+      tx.set(indexRef, { 
+          lastIndex: newIndex, 
+          updatedAt: FieldValue.serverTimestamp() 
+      }, { merge: true });
+
 
       // In a real implementation, you would use a proper derivation library.
-      // For example: const address = deriveBtcAddressFromXpub(process.env.XPUB_BTC, lastIndex);
-      const address = deriveMockAddress(coin, lastIndex);
+      // For example: const address = deriveBtcAddressFromXpub(process.env.XPUB_BTC, newIndex);
+      const address = deriveMockAddress(coin, newIndex);
       
       const addrRef = firestore.collection('addresses').doc(address);
       const addrSnap = await tx.get(addrRef);
 
-      // This check is a safeguard against hash collisions, though extremely unlikely with real crypto addresses.
+      // This check is a safeguard against hash collisions or logic errors.
       if (addrSnap.exists) {
-          throw new Error(`Address collision detected for index ${lastIndex}. Please retry.`);
+          throw new Error(`Address collision detected for index ${newIndex}. Please retry.`);
       }
 
-      // Create the mapping from the derived address to the user and index.
+      // Create the mapping from the derived address to the user and the correct index.
       tx.set(addrRef, {
         coin,
         userId,
-        index: lastIndex,
+        index: newIndex, // Store the new index
         createdAt: FieldValue.serverTimestamp(),
         used: false,
       });

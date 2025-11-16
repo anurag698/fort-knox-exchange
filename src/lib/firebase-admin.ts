@@ -51,10 +51,9 @@ function initAdminIfNeeded(): FirebaseAdminServices {
         newApp = initializeApp({
           credential: cert(creds),
         }, appName);
-        initialized = true;
       } catch (e) {
         console.error('Failed to parse FIREBASE_SERVICE_ACCOUNT_JSON', e);
-        throw e;
+        throw new Error('Could not parse FIREBASE_SERVICE_ACCOUNT_JSON. Check for syntax errors.');
       }
     } else if (googleCredsPath) {
       newApp = initializeApp({

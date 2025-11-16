@@ -18,16 +18,14 @@ let adminServices: FirebaseAdminServices | null = null;
 
 
 /**
- * Detect client-side environment.
- * We don't want to initialize or call admin SDK in the browser.
+ * Defensive server/client guard.
+ * If this file is accidentally executed in client bundle, it will throw a clear error.
  */
 function isClientSide(): boolean {
   try {
     if (typeof window !== 'undefined') return true;
     if (typeof document !== 'undefined') return true;
-  } catch {
-    /* ignore */
-  }
+  } catch {}
   return false;
 }
 

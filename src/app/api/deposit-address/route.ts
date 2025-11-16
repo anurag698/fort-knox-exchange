@@ -14,24 +14,44 @@ function normalizeInput(body: any) {
 
 
 export async function POST(request: Request) {
+  const admin = getFirebaseAdmin();
+  
+  if (!admin) {
+    console.error("[deposit-address] FATAL: Firebase Admin SDK is not available. Check server configuration.");
+    return NextResponse.json({
+      error: "Service Unavailable",
+      detail: "The server's backend connection is not configured. Please contact support.",
+    }, { status: 503 });
+  }
+
+  const { firestore, FieldValue } = admin;
+
+  let body: any;
   try {
-    const { firestore, FieldValue } = getFirebaseAdmin();
-    let body: any;
-    try {
-      body = await request.json();
-    } catch (e) {
-      return NextResponse.json({ error: 'Invalid JSON payload.' }, { status: 400 });
-    }
+    body = await request.json();
+  } catch (e) {
+    return NextResponse.json({ error: 'Invalid JSON payload.' }, { status: 400 });
+  }
 
-    const { userId, assetId } = normalizeInput(body);
+  const { userId, assetId } = normalizeInput(body);
 
-    if (!userId || !assetId) {
-      return NextResponse.json({ error: 'userId and assetId are required.' }, { status: 400 });
-    }
-    
-    const symbol = String(assetId).toUpperCase();
-    console.info('[deposit-address] request', { userId, assetId: symbol });
+  if (!userId || !assetId) {
+    return NextResponse.json({ error: 'userId and assetId are required.' }, { status: 400 });
+  }
+  
+  const symbol = String(assetId).toUpperCase();
+  console.info('[deposit-address] request', { userId, assetId: symbol });
 
+  const ethXpub = process.env.ETH_XPUB;
+  const btcXpub = process.env.BTC_XPUB;
+
+  if (!ethXpub || !btcXpub) {
+      const errorDetail = 'ETH_XPUB or BTC_XPUB environment variable is not configured on the server.';
+      console.error(`[deposit-address] Configuration Error: ${errorDetail}`);
+      return NextResponse.json({ error: 'Server Configuration Incomplete', detail: errorDetail }, { status: 503 });
+  }
+
+  try {
     const assetsCol = firestore.collection('assets');
     const assetQuery = assetsCol.where('symbol', '==', symbol).limit(1);
     const assetSnapshot = await assetQuery.get();
@@ -46,13 +66,6 @@ export async function POST(request: Request) {
     const chainType = assetData.symbol === 'BTC' ? 'BTC' : 'ETH';
 
     if (chainType === 'ETH') {
-        const ethXpub = process.env.ETH_XPUB;
-        if (!ethXpub) {
-            const errorMessage = 'ETH_XPUB environment variable is not configured on the server.';
-            console.error(`[deposit-address] FATAL ERROR: ${errorMessage}`);
-            return NextResponse.json({ error: 'Server Configuration Incomplete', detail: errorMessage }, { status: 500 });
-        }
-
         const address = await firestore.runTransaction(async (tx) => {
             const addressesCol = firestore.collection('addresses');
             const existingAddressQuery = addressesCol.where('userId', '==', userId).where('coin', '==', 'ETH').limit(1);
@@ -91,13 +104,6 @@ export async function POST(request: Request) {
     }
 
     if (chainType === 'BTC') {
-        const btcXpub = process.env.BTC_XPUB;
-        if (!btcXpub) {
-             const errorMessage = 'BTC_XPUB environment variable is not configured on the server.';
-            console.error(`[deposit-address] FATAL ERROR: ${errorMessage}`);
-            return NextResponse.json({ error: 'Server Configuration Incomplete', detail: errorMessage }, { status: 500 });
-        }
-
         const address = await firestore.runTransaction(async (tx) => {
             const btcIndexRef = firestore.collection('addressIndexes').doc('BTC');
             const btcIdxSnap = await tx.get(btcIndexRef);

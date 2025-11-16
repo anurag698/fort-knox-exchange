@@ -20,9 +20,9 @@ let adminServices: FirebaseAdminServices | null = null;
  * Get initialized Firebase Admin SDK. This function will try the following, in order:
  * 1. Use FIREBASE_SERVICE_ACCOUNT_JSON env if present (recommended for Studio preview)
  * 2. Use GOOGLE_APPLICATION_CREDENTIALS/applicationDefault if present
- * 3. Otherwise log a clear error and throw when server-only actions require admin.
+ * 3. Otherwise log a clear warning and return null.
  */
-export function getFirebaseAdmin(): FirebaseAdminServices {
+export function getFirebaseAdmin(): FirebaseAdminServices | null {
   if (adminServices) return adminServices;
   
   const appName = 'firebase-admin-app-singleton';
@@ -53,7 +53,8 @@ export function getFirebaseAdmin(): FirebaseAdminServices {
       };
     } catch (err) {
       console.error('[firebase-admin] Failed to parse FIREBASE_SERVICE_ACCOUNT_JSON. Ensure it is a valid, single-line JSON string.');
-      throw new Error('Invalid FIREBASE_SERVICE_ACCOUNT_JSON environment variable. See server logs for details.');
+      // Return null instead of throwing
+      return null;
     }
   } else if (process.env.GOOGLE_APPLICATION_CREDENTIALS) {
     try {
@@ -67,12 +68,14 @@ export function getFirebaseAdmin(): FirebaseAdminServices {
       };
     } catch (err) {
       console.error('[firebase-admin] Failed to initialize with GOOGLE_APPLICATION_CREDENTIALS path.', err);
-      throw err;
+      // Return null instead of throwing
+      return null;
     }
   } else {
     const errMsg = 'Firebase Admin initialization failed. Set FIREBASE_SERVICE_ACCOUNT_JSON for this environment.';
-    console.error(`[firebase-admin] FATAL ERROR: ${errMsg}`);
-    throw new Error(errMsg);
+    console.warn(`[firebase-admin] WARNING: ${errMsg}`);
+    // Return null instead of throwing
+    return null;
   }
   
   return adminServices;

@@ -63,7 +63,7 @@ export function DepositForm({ assets }: { assets: Asset[] }) {
   const onCopy = async () => {
     if (!depositAddress) return;
     
-    // Check if running in a secure context (HTTPS)
+    // Check if running in a secure context (HTTPS) or localhost
     if (!navigator.clipboard) {
         toast({
             variant: 'destructive',
@@ -82,7 +82,7 @@ export function DepositForm({ assets }: { assets: Asset[] }) {
         toast({
             variant: 'destructive',
             title: 'Copy Failed',
-            description: 'Could not copy to clipboard. Please copy the address manually.',
+            description: 'Could not copy to clipboard. This can happen on non-HTTPS sites.',
         });
     }
   };

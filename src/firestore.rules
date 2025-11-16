@@ -4,9 +4,17 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     
-    // By default, deny all reads and writes.
+    // --- DEFAULT RULE ---
+    // By default, deny all reads and writes to all documents.
     match /{document=**} {
       allow read, write: if false;
+    }
+
+    // --- HELPER FUNCTIONS ---
+    // Reusable function to check if the authenticated user is an admin.
+    function isAdmin() {
+      return exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'ADMIN';
     }
 
     // --- PUBLIC COLLECTIONS ---
@@ -20,55 +28,50 @@ service cloud.firestore {
     match /market_data/{marketId} {
       allow read: if true;
     }
-
+    
     // --- USER DATA ---
-    // A user can only access documents within their own user folder.
     match /users/{userId} {
       // Allow a user to read their own profile. Admins can read any profile.
       allow get: if request.auth.uid == userId || isAdmin();
-      // Allow a user to create their own profile upon signup.
+      // A user can create their own profile upon signup.
       allow create: if request.auth.uid == userId;
-      // Allow a user to update their own profile, but NOT change their role.
-      // Admins can update any profile, including the role.
+      // A user can update their own profile, but NOT change their role. Admins can do anything.
       allow update: if (request.auth.uid == userId && !('role' in request.resource.data)) || isAdmin();
     }
     
-    // This rule applies to all subcollections under a user (balances, deposits, etc.)
+    // This rule applies to all subcollections under a user (balances, deposits, withdrawals, etc.)
     match /users/{userId}/{allDocuments=**} {
       allow read, write: if request.auth.uid == userId || isAdmin();
     }
 
     // --- ORDERS COLLECTION ---
-    // This is the critical rule that fixes the permission error.
+    // This is the definitive rule that fixes the permission error.
     match /orders/{orderId} {
-      // A user can read (get) a specific order if they are the owner.
-      allow get: if request.auth.uid == resource.data.userId;
+      // A user can read a specific order if they are the owner, or if they are an admin.
+      allow get: if (resource.data.userId == request.auth.uid) || isAdmin();
       
-      // A user can list (query) orders ONLY if the query filters by their own userId.
-      // This rule is what allows the "My Open Orders" component to work without error.
-      allow list: if request.auth.uid != null && request.query.filters[0][2] == request.auth.uid;
+      // A user can query the orders collection ONLY if their query is filtered by their own userId.
+      // This is what allows "My Open Orders" to work securely. Admins can query without this filter.
+      allow list: if (request.query.filters[0][2] == request.auth.uid) || isAdmin();
 
       // A user can create an order if they are the owner specified in the order data.
       allow create: if request.auth.uid == request.resource.data.userId;
 
-      // A user can only update their own order, and only to cancel it.
-      allow update: if request.auth.uid == resource.data.userId 
-                      && request.resource.data.status == 'CANCELED';
+      // A user can only update their own order, and only to cancel it. Admins can do more.
+      allow update: if (request.auth.uid == resource.data.userId && request.resource.data.status == 'CANCELED') || isAdmin();
     }
 
-    // --- DEX TRANSACTIONS ---
-    // These are created by server-side actions, so we don't need client-write rules here.
-    // If client needed to read them, a rule like the one for orders would be required.
+    // --- DEX & IDEMPOTENCY ---
+    // These collections are managed by trusted server-side code (actions, functions) or admins.
+    // No client-side read/write access is needed for regular users.
     match /dex_transactions/{txId} {
-      allow read: if isAdmin();
+      allow read, write: if isAdmin();
     }
-
-
-    // --- ADMIN HELPER FUNCTION ---
-    // Reusable function to check if the authenticated user is an admin.
-    function isAdmin() {
-      return exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
-             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'ADMIN';
+     match /idempotency/{key} {
+      allow read, write: if isAdmin();
+    }
+     match /ledger_entries/{entryId} {
+      allow read, write: if isAdmin();
     }
   }
 }

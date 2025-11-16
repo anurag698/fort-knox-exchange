@@ -120,7 +120,7 @@ export function DepositForm({ assets }: { assets: Asset[] }) {
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Asset</FormLabel>
-                  <Select onValueChange={handleAssetChange} defaultValue={field.value} disabled={isLoading}>
+                  <Select onValueChange={handleAssetChange} defaultValue={field.value} name={field.name} disabled={isLoading}>
                     <FormControl>
                       <SelectTrigger>
                         <SelectValue placeholder="Select an asset to deposit" />

@@ -1,3 +1,4 @@
+
 // tmp-debug-server.js — standalone debug server
 const express = require('express');
 const bodyParser = require('body-parser');
@@ -7,17 +8,14 @@ const crypto = require('crypto');
 const app = express();
 app.use(bodyParser.json());
 
-app.get('/', (req, res) => {
-  res.json({ ok: true, note: 'Standalone debug server running' });
-});
+app.get('/', (req, res) => res.json({ ok: true }));
 
 app.post('/debug-token', async (req, res) => {
   const out = {
     env: {
       FIREBASE_SERVICE_ACCOUNT_JSON: !!process.env.FIREBASE_SERVICE_ACCOUNT_JSON,
       GOOGLE_APPLICATION_CREDENTIALS: !!process.env.GOOGLE_APPLICATION_CREDENTIALS,
-      XPUB_BTC: !!process.env.XPUB_BTC,
-      ETH_XPUB: !!process.env.ETH_XPUB,
+      NODE_ENV: process.env.NODE_ENV || null
     },
     parsed_project_id: null,
     token_ok: false,
@@ -26,7 +24,6 @@ app.post('/debug-token', async (req, res) => {
     fake_btc_address: null,
   };
 
-  // small deterministic fake addresses (no libs required)
   const { userId='u1', coin='eth' } = req.body || {};
   const seed = `${userId}:${coin}`;
   const h = crypto.createHash('sha256').update(seed).digest('hex');
@@ -34,7 +31,7 @@ app.post('/debug-token', async (req, res) => {
   out.fake_btc_address = 'bc1' + h.slice(0,30);
 
   if (!process.env.FIREBASE_SERVICE_ACCOUNT_JSON) {
-    out.token_error = 'FIREBASE_SERVICE_ACCOUNT_JSON not set in env';
+    out.token_error = 'FIREBASE_SERVICE_ACCOUNT_JSON not set';
     return res.json(out);
   }
 
@@ -42,7 +39,7 @@ app.post('/debug-token', async (req, res) => {
     const parsed = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_JSON);
     out.parsed_project_id = parsed.project_id || null;
   } catch (e) {
-    out.token_error = 'failed to parse FIREBASE_SERVICE_ACCOUNT_JSON: ' + (e.message || e);
+    out.token_error = 'failed to parse SA JSON: ' + (e.message || e);
     return res.json(out);
   }
 
@@ -60,5 +57,5 @@ app.post('/debug-token', async (req, res) => {
   res.json(out);
 });
 
-const port = process.env.PORT || 8000;
+const port = process.env.PORT || 8080;
 app.listen(port, ()=>console.log('tmp-debug-server listening on', port));

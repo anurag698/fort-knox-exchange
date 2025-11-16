@@ -27,13 +27,15 @@ export function useOrders(userId?: string, marketId?: string) {
     // Query the subcollection path: `users/{userId}/orders`
     const ordersCollectionRef = collection(firestore, 'users', targetUserId, 'orders');
 
-    const constraints: QueryConstraint[] = [
-      orderBy('createdAt', 'desc'),
-    ];
+    const constraints: QueryConstraint[] = [];
 
     if (marketId) {
-      constraints.unshift(where('marketId', '==', marketId));
+      constraints.push(where('marketId', '==', marketId));
     }
+    
+    // We remove the orderBy here to avoid needing a composite index.
+    // Sorting will be done on the client.
+    // constraints.push(orderBy('createdAt', 'desc'));
 
     return query(ordersCollectionRef, ...constraints);
     

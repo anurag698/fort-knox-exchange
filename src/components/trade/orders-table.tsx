@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { AlertCircle, XCircle } from "lucide-react";
-import { useEffect } from "react";
+import { useEffect, useMemo } from "react";
 import { useActionState } from "react";
 import { cancelOrder } from "@/app/actions";
 import { useToast } from "@/hooks/use-toast";
@@ -39,6 +39,12 @@ function CancelOrderButton({ orderId, userId }: { orderId: string, userId: strin
 
 export function OrdersTable({ marketId, userId }: { marketId: string, userId: string }) {
     const { data: orders, isLoading, error } = useOrders(userId, marketId);
+
+    const sortedOrders = useMemo(() => {
+        if (!orders) return [];
+        // Sort the orders by creation date on the client-side
+        return [...orders].sort((a, b) => b.createdAt.toDate() - a.createdAt.toDate());
+    }, [orders]);
 
      const getStatusBadgeVariant = (status: Order['status']) => {
         switch (status) {
@@ -79,7 +85,7 @@ export function OrdersTable({ marketId, userId }: { marketId: string, userId: st
         );
     }
     
-    if (!orders || orders.length === 0) {
+    if (!sortedOrders || sortedOrders.length === 0) {
         return (
             <div className="text-center py-12 text-muted-foreground">
                 <p>You have no open orders for this market.</p>
@@ -101,7 +107,7 @@ export function OrdersTable({ marketId, userId }: { marketId: string, userId: st
                 </TableRow>
             </TableHeader>
             <TableBody>
-                {orders.map(order => {
+                {sortedOrders.map(order => {
                     const canCancel = (order.status === 'OPEN' || order.status === 'PARTIAL');
                     return (
                         <TableRow key={order.id}>

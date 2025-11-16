@@ -1,197 +1,132 @@
+// src/app/seed-data/page.tsx
+import React from "react";
 
-'use client';
+/**
+ * Admin / Setup page for debugging environment variables.
+ * - Shows presence and length of important server env vars (no secret values printed).
+ * - Provides copy-paste instructions for Firebase Studio and local .env.
+ *
+ * Paste this file and visit /seed-data after restarting your preview server.
+ */
 
-import { useActionState, useEffect, useState } from 'react';
-import { seedDatabase, updateMarketData } from '@/app/actions';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { useToast } from '@/hooks/use-toast';
-import { Loader2, CheckCircle, XCircle, AlertTriangle } from 'lucide-react';
-import { useFormStatus } from 'react-dom';
-import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
-import { CodeBlock } from '@/components/ui/code-block';
-
-function SeedButton() {
-  const { pending } = useFormStatus();
-  return (
-    <Button type="submit" disabled={pending} className="w-full">
-      {pending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-      Seed Database
-    </Button>
-  );
-}
-
-function UpdateDataButton() {
-  const { pending } = useFormStatus();
-  return (
-    <Button type="submit" disabled={pending} className="w-full">
-      {pending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-      Update Market Data
-    </Button>
-  );
-}
-
-type EnvStatus = {
-  key: string;
-  present: boolean;
-  description: string;
-};
+const safe = (v: string | undefined) => (!!v ? true : false);
 
 export default function SeedDataPage() {
-  const { toast } = useToast();
-  const [seedState, seedAction] = useActionState(seedDatabase, { status: 'idle', message: '' });
-  const [marketDataState, marketDataAction] = useActionState(updateMarketData, { status: 'idle', message: '' });
-  const [envStatus, setEnvStatus] = useState<EnvStatus[]>([]);
-  const [loadingStatus, setLoadingStatus] = useState(true);
-
-  useEffect(() => {
-    async function checkEnv() {
-      try {
-        const response = await fetch('/api/_env_check');
-        const data = await response.json();
-        const status: EnvStatus[] = [
-          { key: 'FIREBASE_SERVICE_ACCOUNT_JSON', present: data.FIREBASE_SERVICE_ACCOUNT_JSON, description: 'Required for all server-side Firebase operations (e.g., seeding, KYC, orders).' },
-          { key: 'ETH_XPUB', present: data.ETH_XPUB, description: 'Required to generate unique ETH deposit addresses for users.' },
-          { key: 'ETH_NETWORK_RPC', present: data.ETH_NETWORK_RPC, description: 'Required for on-chain operations like market orders.' },
-        ];
-        setEnvStatus(status);
-      } catch (error) {
-        console.error("Failed to fetch env status:", error);
-      } finally {
-        setLoadingStatus(false);
-      }
-    }
-    checkEnv();
-  }, []);
-
-  useEffect(() => {
-    if (seedState.status === 'success') {
-      toast({ title: 'Success!', description: seedState.message });
-    } else if (seedState.status === 'error') {
-      toast({ variant: 'destructive', title: 'Error', description: seedState.message });
-    }
-  }, [seedState, toast]);
-
-  useEffect(() => {
-    if (marketDataState.status === 'success') {
-      toast({ title: 'Success!', description: marketDataState.message });
-    } else if (marketDataState.status === 'error') {
-      toast({ variant: 'destructive', title: 'Error', description: marketDataState.message });
-    }
-  }, [marketDataState, toast]);
-
-  const allVarsSet = envStatus.every(s => s.present);
+  const envReport = {
+    NODE_ENV: process.env.NODE_ENV ?? null,
+    NEXT_PUBLIC_BASE_URL: safe(process.env.NEXT_PUBLIC_BASE_URL),
+    ETH_XPUB_present: safe(process.env.ETH_XPUB),
+    ETH_XPUB_len: process.env.ETH_XPUB ? String(process.env.ETH_XPUB.length) : "0",
+    ETH_NETWORK_RPC_present: safe(process.env.ETH_NETWORK_RPC),
+    FIREBASE_SERVICE_ACCOUNT_JSON_present: safe(process.env.FIREBASE_SERVICE_ACCOUNT_JSON),
+    FIREBASE_SERVICE_ACCOUNT_JSON_len: process.env.FIREBASE_SERVICE_ACCOUNT_JSON ? String(process.env.FIREBASE_SERVICE_ACCOUNT_JSON.length) : "0",
+    GOOGLE_APPLICATION_CREDENTIALS_present: safe(process.env.GOOGLE_APPLICATION_CREDENTIALS),
+  };
 
   return (
-    <div className="flex flex-col gap-8 items-center py-8">
-      <div className="w-full max-w-3xl">
-        <Card>
-          <CardHeader>
-            <CardTitle>Server Environment Status</CardTitle>
-            <CardDescription>
-              This checklist shows the status of required server-side secrets. The internal server error will persist until these are all configured correctly.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            {loadingStatus ? (
-              <div className="flex items-center justify-center p-8">
-                <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-              </div>
-            ) : (
-              <ul className="space-y-3">
-                {envStatus.map(status => (
-                  <li key={status.key} className="flex items-start gap-4">
-                    <div>
-                      {status.present ? (
-                        <CheckCircle className="h-5 w-5 text-green-500" />
-                      ) : (
-                        <XCircle className="h-5 w-5 text-red-500" />
-                      )}
-                    </div>
-                    <div>
-                      <p className="font-mono font-medium">{status.key}</p>
-                      <p className="text-sm text-muted-foreground">{status.description}</p>
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            )}
-            {!allVarsSet && !loadingStatus && (
-               <Alert variant="destructive" className="mt-6">
-                <AlertTriangle className="h-4 w-4" />
-                <AlertTitle>Action Required</AlertTitle>
-                <AlertDescription>
-                  One or more secrets are missing. Follow the steps below to resolve the internal server error.
-                </AlertDescription>
-              </Alert>
-            )}
-          </CardContent>
-        </Card>
-      </div>
+    <div style={{ fontFamily: "system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial", padding: 28 }}>
+      <h1 style={{ marginBottom: 8 }}>Seed / Admin — Environment Debug</h1>
+      <p style={{ color: "#666", marginBottom: 20 }}>
+        This page is a server-side diagnostic. It shows <strong>presence</strong> (true/false) and safe length info for
+        important server environment variables. It does <strong>not</strong> print secret values.
+      </p>
 
-       <div className="w-full max-w-3xl space-y-8">
-         <Card>
-            <CardHeader>
-                <CardTitle>1. Configure Environment Variables</CardTitle>
-                <CardDescription>
-                    Go to your Firebase Studio **Environment** settings for this project. Add the missing variables from the checklist above.
-                </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-                <h3 className="font-semibold">How to get `FIREBASE_SERVICE_ACCOUNT_JSON`:</h3>
-                <ol className="list-decimal list-inside space-y-2 text-sm text-muted-foreground">
-                    <li>Go to your Firebase Console → Project Settings → Service accounts.</li>
-                    <li>Click **Generate new private key** and download the JSON file.</li>
-                    <li>
-                        Convert the entire JSON file into a single line. You can use an online tool or run this command in your terminal where the file was downloaded:
-                        <CodeBlock>
-                            {`node -e "console.log(JSON.stringify(require('./your-downloaded-file.json')))"`}
-                        </CodeBlock>
-                    </li>
-                    <li>Copy the entire single-line output and paste it as the value for `FIREBASE_SERVICE_ACCOUNT_JSON` in Studio.</li>
-                </ol>
-            </CardContent>
-        </Card>
+      <section style={{ marginBottom: 24 }}>
+        <h2 style={{ marginBottom: 8 }}>Current server environment (safe)</h2>
+        <table style={{ borderCollapse: "collapse", width: "100%", maxWidth: 980 }}>
+          <thead>
+            <tr>
+              <th style={{ textAlign: "left", borderBottom: "1px solid #eee", padding: "8px 6px" }}>Key</th>
+              <th style={{ textAlign: "left", borderBottom: "1px solid #eee", padding: "8px 6px" }}>Value (safe)</th>
+            </tr>
+          </thead>
+          <tbody>
+            {Object.entries(envReport).map(([k, v]) => (
+              <tr key={k}>
+                <td style={{ padding: "8px 6px", borderBottom: "1px solid #fafafa", width: 320 }}>{k}</td>
+                <td style={{ padding: "8px 6px", borderBottom: "1px solid #fafafa", color: typeof v === "string" && v === "0" ? "#A00" : "#111" }}>
+                  {String(v)}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </section>
 
-        <Card>
-            <CardHeader>
-                <CardTitle>2. Restart the Server</CardTitle>
-                <CardDescription>
-                   After adding the secrets, you **must** restart the server for the changes to take effect. In Firebase Studio, use the "Stop" and then "Start" buttons for your preview.
-                </CardDescription>
-            </CardHeader>
-        </Card>
+      <section style={{ marginBottom: 24 }}>
+        <h2 style={{ marginBottom: 8 }}>Why this matters</h2>
+        <p style={{ color: "#444" }}>
+          The deposit-address API requires:
+        </p>
+        <ul>
+          <li><strong>FIREBASE_SERVICE_ACCOUNT_JSON</strong> — server admin credentials to access Firestore (stringified JSON).</li>
+          <li><strong>ETH_XPUB</strong> — extended public key used to derive deterministic ETH deposit addresses.</li>
+          <li><strong>ETH_NETWORK_RPC</strong> — an Ethereum RPC endpoint (Alchemy/Infura/QuickNode).</li>
+        </ul>
+        <p style={{ color: "#444" }}>
+          If any are missing the server will abort and return a 500. The table above shows which keys are visible to the running server.
+        </p>
+      </section>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>3. Seed Database (Optional)</CardTitle>
-            <CardDescription>
-              Once your environment is configured, use these actions to populate your database with initial assets, markets, and live statistics.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-             <div className="space-y-2">
-              <p className="text-sm font-medium">Seed Database</p>
-              <p className="text-xs text-muted-foreground">
-                Creates the initial set of supported assets (e.g., BTC, ETH) and trading markets (e.g., BTC-USDT). Run this first.
-              </p>
-              <form action={seedAction}>
-                <SeedButton />
-              </form>
-            </div>
-            <div className="space-y-2">
-              <p className="text-sm font-medium">Update Market Data</p>
-              <p className="text-xs text-muted-foreground">
-                  Fetches the latest 24h ticker data from an API and stores it in the `market_data` collection for real-time display.
-              </p>
-              <form action={marketDataAction}>
-                  <UpdateDataButton />
-              </form>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+      <section style={{ marginBottom: 24 }}>
+        <h2 style={{ marginBottom: 8 }}>How to fix (Firebase Studio preview)</h2>
+        <ol>
+          <li>Open <strong>Firebase Studio</strong> → Workspace → <strong>Environment</strong> or <strong>Environment / Variables</strong>.</li>
+          <li>Click <strong>Add variable</strong> and add these variables (case-sensitive):
+            <ul>
+              <li><code>FIREBASE_SERVICE_ACCOUNT_JSON</code> — the entire JSON from Firebase service account (stringified).</li>
+              <li><code>ETH_XPUB</code> — your ETH xpub string (starts with <code>xpub</code>).</li>
+              <li><code>ETH_NETWORK_RPC</code> — your RPC URL (Alchemy/Infura/QuickNode).</li>
+              <li>(optional) <code>NEXT_PUBLIC_BASE_URL</code> — e.g. <code>http://localhost:3000</code>.</li>
+            </ul>
+          </li>
+          <li><strong>IMPORTANT:</strong> if Firebase Studio rejects multiline values, convert your service account JSON to a single-line escaped JSON (see commands below).</li>
+          <li>Save the environment variables <strong>and then STOP and START the preview</strong>. Restart is required for envs to load.</li>
+          <li>Visit <code>/seed-data</code> again and confirm the keys show <code>true</code> (FIREBASE_SERVICE_ACCOUNT_JSON and ETH_XPUB must be true).</li>
+        </ol>
+      </section>
 
+      <section style={{ marginBottom: 24 }}>
+        <h2 style={{ marginBottom: 8 }}>Commands to produce single-line JSON (run locally)</h2>
+        <p style={{ color: "#444" }}>
+          If you have the service account file <code>serviceAccountKey.json</code>, run one of these in your terminal and paste the full stdout into Studio:
+        </p>
+        <pre style={{ background: "#fafafa", padding: 12, borderRadius: 6, overflowX: "auto" }}>
+{`# Node:
+node -e "const fs=require('fs'); const j=JSON.parse(fs.readFileSync('./serviceAccountKey.json','utf8')); console.log(JSON.stringify(j));"
+
+# Python:
+python -c "import json;print(json.dumps(json.load(open('serviceAccountKey.json'))))"
+`}
+        </pre>
+      </section>
+
+      <section style={{ marginBottom: 24 }}>
+        <h2 style={{ marginBottom: 8 }}>Quick local .env example (for local dev)</h2>
+        <pre style={{ background: "#fafafa", padding: 12, borderRadius: 6, overflowX: "auto" }}>
+{`# .env (do NOT commit)
+NEXT_PUBLIC_BASE_URL=http://localhost:3000
+ETH_XPUB=xpub6CYourXpubHere
+ETH_NETWORK_RPC=https://eth-mainnet.g.alchemy.com/v2/YOUR_KEY
+FIREBASE_SERVICE_ACCOUNT_JSON='{"type":"service_account","project_id":"...","private_key_id":"...","private_key":"-----BEGIN PRIVATE KEY-----\\nMIIE...\\n-----END PRIVATE KEY-----\\n","client_email":"..."}'
+`}
+        </pre>
+        <p style={{ color: "#666" }}>
+          Then <code>npm run dev</code> (or <code>pnpm dev</code>) to verify locally.
+        </p>
+      </section>
+
+      <section style={{ marginBottom: 32 }}>
+        <h2 style={{ marginBottom: 8 }}>If this still fails</h2>
+        <p style={{ color: "#444" }}>
+          1. After adding variables and restarting preview, paste the exact JSON shown on this page here (or paste the output of <code>curl http://localhost:3000/api/_admin_debug</code>).<br/>
+          2. If Firebase Studio won’t accept the value, run the node/python command above, copy stdout and paste that exact string as the value.
+        </p>
+      </section>
+
+      <footer style={{ color: "#888", fontSize: 13 }}>
+        <strong>Security note:</strong> Do not commit service account JSON or .env to git. Use .gitignore and production secrets manager for production.
+      </footer>
     </div>
   );
 }

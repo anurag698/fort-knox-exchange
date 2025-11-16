@@ -27,23 +27,29 @@ const getQueryKey = (q: Query | null): string => {
 
 /**
  * A hook to fetch and listen to a Firestore collection in real-time.
- * @param query The Firestore query to execute.
+ * @param query The Firestore query to execute. Can be null.
+ * @param options An object with an `enabled` flag to conditionally run the hook.
  * @returns An object containing the data, loading state, and any error.
  */
 export function useCollection<T extends DocumentData>(
-  query: Query<DocumentData> | null
+  query: Query<DocumentData> | null,
+  options: { enabled: boolean } = { enabled: true }
 ): UseCollectionResult<T> {
+  const { enabled } = options;
   const [data, setData] = useState<T[] | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(enabled);
   const [error, setError] = useState<Error | null>(null);
 
   // The query key is a stable dependency for useEffect.
   const queryKey = useMemoOne(() => getQueryKey(query), [query]);
 
   useEffect(() => {
-    if (!query) {
-      setData([]);
+    // This is the safety guard. If the query is null or the hook is disabled,
+    // we do not proceed. We also reset the state.
+    if (!query || !enabled) {
+      setData(null);
       setIsLoading(false);
+      setError(null);
       return;
     }
 
@@ -80,7 +86,7 @@ export function useCollection<T extends DocumentData>(
 
     return () => unsubscribe();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [queryKey]); // Use the stable query key as the dependency
+  }, [queryKey, enabled]); // Re-run when the query or the enabled state changes.
 
   return { data, isLoading, error };
 }

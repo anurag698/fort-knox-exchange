@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useEffect, useState } from "react";
@@ -82,7 +81,7 @@ export function DepositForm({ assets }: { assets: Asset[] }) {
         toast({
             variant: 'destructive',
             title: 'Copy Failed',
-            description: 'Could not copy to clipboard. This can happen on non-HTTPS sites.',
+            description: 'Could not copy to clipboard. Please select the text and copy it manually.',
         });
     }
   };

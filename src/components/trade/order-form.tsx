@@ -46,7 +46,7 @@ export function OrderForm({ selectedPrice, marketId }: OrderFormProps) {
   const [orderType, setOrderType] = useState<'LIMIT' | 'MARKET'>('LIMIT');
   const [isSubmitting, setIsSubmitting] = useState(false);
   
-  const [marketOrderState, marketOrderAction] = useActionState(createMarketOrder, { status: "idle", message: "" });
+  const [marketOrderState, marketOrderAction, isMarketOrderPending] = useActionState(createMarketOrder, { status: "idle", message: "" });
 
   const defaultValues: Partial<OrderFormValues> = {
       price: undefined,
@@ -97,11 +97,11 @@ export function OrderForm({ selectedPrice, marketId }: OrderFormProps) {
   }, [marketId, buyForm, sellForm]);
 
   useEffect(() => {
-    if (marketOrderState.status === 'success') {
+    if (marketOrderState.status === 'success' && marketOrderState.message) {
       toast({ title: "Success", description: marketOrderState.message });
       buyForm.reset(defaultValues);
       sellForm.reset(defaultValues);
-    } else if (marketOrderState.status === 'error') {
+    } else if (marketOrderState.status === 'error' && marketOrderState.message) {
       toast({ variant: "destructive", title: "Error", description: marketOrderState.message });
     }
   }, [marketOrderState, toast, buyForm, sellForm, defaultValues]);
@@ -201,23 +201,17 @@ export function OrderForm({ selectedPrice, marketId }: OrderFormProps) {
     const quantity = watch("quantity");
     const total = price && quantity ? price * quantity : 0;
     
-    const onSubmit = (data: OrderFormValues) => {
-        if (orderType === 'LIMIT') {
-            handleLimitOrderSubmit(data);
-        } else {
-            const formData = new FormData();
-            Object.entries(data).forEach(([key, value]) => {
-                if (value !== undefined && value !== null) {
-                    formData.append(key, String(value));
-                }
-            });
-            marketOrderAction(formData);
-        }
-    };
-
     return (
       <Form {...form}>
-        <form onSubmit={handleSubmit(onSubmit)} className="mt-4 space-y-4">
+        <form 
+          action={orderType === 'MARKET' ? marketOrderAction : handleSubmit(handleLimitOrderSubmit)} 
+          className="mt-4 space-y-4"
+        >
+          <input type="hidden" {...form.register("userId")} />
+          <input type="hidden" {...form.register("marketId")} />
+          <input type="hidden" {...form.register("side")} />
+          <input type="hidden" {...form.register("type")} />
+
            {orderType === 'LIMIT' && (
              <FormField
                 control={control}
@@ -256,7 +250,7 @@ export function OrderForm({ selectedPrice, marketId }: OrderFormProps) {
             type="submit"
             className={cn("w-full", side === 'BUY' ? "bg-green-600 hover:bg-green-700 text-white" : "")}
             variant={side === 'SELL' ? 'destructive' : 'default'}
-            disabled={!user || isSubmitting || (orderType === 'MARKET' && marketOrderState.status === 'executing')}
+            disabled={!user || isSubmitting || isMarketOrderPending}
           >
             {user ? `${side} ${baseAsset}` : 'Please sign in'}
           </Button>

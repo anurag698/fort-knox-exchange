@@ -16,27 +16,35 @@ const POLYGON_RPC_URL = 'https://polygon-rpc.com';
  * **WARNING: This is not secure for production use.**
  */
 class WalletService {
-    private wallet: ethers.Wallet;
+    private wallet?: ethers.Wallet;
     private provider: ethers.JsonRpcProvider;
-    private firestore: FirebaseFirestore.Firestore;
-    private FieldValue: any;
+    private firestore?: FirebaseFirestore.Firestore;
+    private FieldValue?: any;
+    private initialized = false;
 
     constructor() {
-        const privateKey = process.env.HOT_WALLET_PRIVATE_KEY;
-        if (!privateKey) {
-            console.warn("HOT_WALLET_PRIVATE_KEY is not set. The WalletService will not be able to sign transactions.");
-            // Create a dummy wallet to avoid crashing the server
-            this.wallet = ethers.Wallet.createRandom();
-        } else {
-            this.wallet = new ethers.Wallet(privateKey);
-        }
-        
+        // Defer heavy initialization to an explicit init method
         this.provider = new ethers.JsonRpcProvider(POLYGON_RPC_URL);
-        this.wallet = this.wallet.connect(this.provider);
+    }
+    
+    private init() {
+        if (this.initialized) {
+            return;
+        }
 
         const { firestore, FieldValue } = getFirebaseAdmin();
         this.firestore = firestore;
         this.FieldValue = FieldValue;
+
+        const privateKey = process.env.HOT_WALLET_PRIVATE_KEY;
+        if (!privateKey) {
+            console.warn("HOT_WALLET_PRIVATE_KEY is not set. The WalletService will not be able to sign transactions.");
+            this.wallet = ethers.Wallet.createRandom(this.provider);
+        } else {
+            this.wallet = new ethers.Wallet(privateKey, this.provider);
+        }
+
+        this.initialized = true;
     }
 
     /**
@@ -46,6 +54,12 @@ class WalletService {
      * @returns The on-chain transaction hash.
      */
     async broadcastAndReconcileTransaction(dexTxId: string): Promise<string> {
+        this.init(); // Ensure services are initialized
+        
+        if (!this.firestore || !this.wallet) {
+            throw new Error("WalletService not properly initialized. Check server configuration.");
+        }
+
         console.log(`[WalletService] Broadcasting and reconciling transaction for dexTxId: ${dexTxId}`);
 
         const txDocRef = this.firestore.collection('dex_transactions').doc(dexTxId);
@@ -103,6 +117,8 @@ class WalletService {
     }
 
     private async reconcileTrade(orderId: string, txHash: string) {
+        if (!this.firestore || !this.FieldValue) throw new Error("Firestore not initialized for reconcileTrade.");
+
         // We need to find the user ID from the order. Since orders are now in a subcollection,
         // we must query the collection group.
         const orderQuery = this.firestore.collectionGroup('orders').where('id', '==', orderId).limit(1);
@@ -134,8 +150,8 @@ class WalletService {
             // Let's pretend we got 1:1 for simplicity; a real app needs a price or receipt data.
             const amountReceived = quantity;
 
-            const srcBalanceRef = this.firestore.collection('users').doc(userId).collection('balances').doc(srcAssetId);
-            const dstBalanceRef = this.firestore.collection('users').doc(userId).collection('balances').doc(dstAssetId);
+            const srcBalanceRef = this.firestore!.collection('users').doc(userId).collection('balances').doc(srcAssetId);
+            const dstBalanceRef = this.firestore!.collection('users').doc(userId).collection('balances').doc(dstAssetId);
 
             const srcBalanceSnap = await t.get(srcBalanceRef);
             if (!srcBalanceSnap.exists) throw new Error (`Source balance ${srcAssetId} not found for user ${userId}`);
@@ -159,7 +175,7 @@ class WalletService {
             });
 
             // Create ledger entry
-            const ledgerRef = this.firestore.collection('users').doc(userId).collection('ledgerEntries').doc();
+            const ledgerRef = this.firestore!.collection('users').doc(userId).collection('ledgerEntries').doc();
             t.set(ledgerRef, {
                 id: ledgerRef.id,
                 userId,
@@ -177,9 +193,17 @@ class WalletService {
 
 
 // Singleton instance of the wallet service
-const walletService = new WalletService();
+let walletService: WalletService | null = null;
+
+function getWalletService() {
+    if (!walletService) {
+        walletService = new WalletService();
+    }
+    return walletService;
+}
+
 
 // Export a function that uses the singleton, making it easier to mock in tests
 export const broadcastAndReconcileTransaction = (dexTxId: string) => {
-    return walletService.broadcastAndReconcileTransaction(dexTxId);
+    return getWalletService().broadcastAndReconcileTransaction(dexTxId);
 }

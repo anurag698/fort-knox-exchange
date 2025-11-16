@@ -1,136 +1,127 @@
 
 // src/lib/firebase-admin.ts
-import { getApps, getApp, initializeApp, credential, App } from 'firebase-admin/app';
-import { getAuth, Auth } from 'firebase-admin/auth';
-import { getFirestore, Firestore, FieldValue } from 'firebase-admin/firestore';
+import { App, getApp, getApps, initializeApp, cert, type ServiceAccount } from 'firebase-admin/app';
+import { getAuth as getAdminAuth, type Auth } from 'firebase-admin/auth';
+import { getFirestore as getAdminFirestore, type Firestore, FieldValue } from 'firebase-admin/firestore';
 import 'server-only';
 
+// Define a type for the services for clarity
 type FirebaseAdminServices = {
+  app: App;
   firestore: Firestore;
   auth: Auth;
-  app: App;
   FieldValue: typeof FieldValue;
 };
 
+// This variable will hold the singleton instance of the initialized services
+let adminServices: FirebaseAdminServices | null = null;
+
+
 /**
- * Defensive server/client guard.
- * If this file is accidentally executed in client bundle, it will throw a clear error.
+ * Detect client-side environment.
+ * We don't want to initialize or call admin SDK in the browser.
  */
-function isClientSide() {
+function isClientSide(): boolean {
   try {
-    // window and document are only defined client-side
     if (typeof window !== 'undefined') return true;
     if (typeof document !== 'undefined') return true;
-  } catch {}
+  } catch {
+    /* ignore */
+  }
   return false;
 }
 
-if (isClientSide()) {
-  // if this line appears in browser console, you have a client import problem
-  console.error('[FATAL] firebase-admin module executed in client bundle — search your imports for src/lib/firebase-admin or firebase-admin');
+/**
+ * Lazy init: only initialize admin when this function is called from server code.
+ * This avoids running admin initialization during bundling or in client bundles.
+ */
+function initAdminIfNeeded(): FirebaseAdminServices {
+  if (isClientSide()) {
+    // Fail fast with a clear message if someone accidentally calls server SDK from client.
+    throw new Error(
+      '[firebase-admin] attempted to initialize on the client. Move any imports of server-only modules into server-side code (API routes, server components, or server utilities).'
+    );
+  }
+
+  // If already initialized, return the existing instance
+  if (adminServices) {
+    return adminServices;
+  }
   
-  // Export stubs that fail early and clearly to help debugging.
-  // These exports need to exist to satisfy static analysis during build,
-  // but they will throw a runtime error if ever called on the client.
-  const clientStub = () => { throw new Error('firebase-admin function called in client bundle.'); };
+  const appName = 'firebase-admin-app-singleton';
+  const existingApp = getApps().find(app => app.name === appName);
   
-  const firestoreStub = clientStub as unknown as Firestore;
-  const authStub = clientStub as unknown as Auth;
-  const FieldValueStub = clientStub as unknown as typeof FieldValue;
-  const appStub = clientStub as unknown as App;
-
-  const servicesStub: FirebaseAdminServices = {
-    firestore: firestoreStub,
-    auth: authStub,
-    app: appStub,
-    FieldValue: FieldValueStub
-  };
-  
-  export const getFirebaseAdmin = (): FirebaseAdminServices => {
-    throw new Error('getFirebaseAdmin should not be called on the client.');
-  };
-  export const firestore = firestoreStub;
-  export const auth = authStub;
-
-} else {
-  // Server-side initialization
-  let services: FirebaseAdminServices | null = null;
-  
-  function initFirebaseAdmin(): FirebaseAdminServices {
-     if (services) {
-      return services;
-    }
-
-    const appName = 'firebase-admin-app-singleton';
-    const existingApp = getApps().find(app => app.name === appName);
-    
-    if (existingApp) {
-        services = { 
-            firestore: getFirestore(existingApp), 
-            auth: getAuth(existingApp), 
-            app: existingApp,
-            FieldValue,
-        };
-        return services;
-    }
-
-    const svcJsonEnv = process.env.FIREBASE_SERVICE_ACCOUNT_JSON;
-    const googleCredsPath = process.env.GOOGLE_APPLICATION_CREDENTIALS;
-
-    // debug info to logs
-    console.log('[firebase-admin] init server-side. env keys present?',
-      { hasSAJson: !!svcJsonEnv, hasGoogleCredPath: !!googleCredsPath, NODE_ENV: process.env.NODE_ENV });
-    
-    let adminApp: App;
-
-    try {
-      if (svcJsonEnv) {
-        let parsed: any;
-        try { parsed = JSON.parse(svcJsonEnv); }
-        catch (err) {
-          // try to fix newline-escaped env values
-          try {
-            const cleaned = svcJsonEnv.replace(/\\n/g, '\n');
-            parsed = JSON.parse(cleaned);
-          } catch (e: any) {
-            console.error('[firebase-admin] FIREBASE_SERVICE_ACCOUNT_JSON parse failed', e);
-            throw e;
-          }
-        }
-        adminApp = initializeApp({
-          credential: credential.cert(parsed),
-          projectId: parsed.project_id,
-        }, appName);
-        console.log('[firebase-admin] initialized from FIREBASE_SERVICE_ACCOUNT_JSON', { projectId: parsed.project_id });
-        
-      } else {
-          // Fallback to Application Default Credentials (ADC).
-          // This works automatically in Google Cloud environments or when gcloud CLI is configured.
-          adminApp = initializeApp({}, appName);
-          console.log('[firebase-admin] initialized using Application Default Credentials (ADC)');
-      }
-
-      services = { 
-        firestore: getFirestore(adminApp), 
-        auth: getAuth(adminApp), 
-        app: adminApp,
+  if (existingApp) {
+      adminServices = { 
+        app: existingApp,
+        firestore: getAdminFirestore(existingApp), 
+        auth: getAdminAuth(existingApp),
         FieldValue,
       };
-      return services;
+      return adminServices;
+  }
+  
 
-    } catch (err: any) {
-      console.error('[firebase-admin] initialization FAILED', err && err.message ? err.message : err);
-      throw err;
+  const svcJsonEnv = process.env.FIREBASE_SERVICE_ACCOUNT_JSON;
+  const googleCredsPath = process.env.GOOGLE_APPLICATION_CREDENTIALS;
+
+  // Minimal debug log (server only)
+  console.log('[firebase-admin] init attempt. hasSAJson:', !!svcJsonEnv, 'hasGOOGLE_CREDS_PATH:', !!googleCredsPath);
+  
+  let newApp: App;
+  
+  try {
+    if (svcJsonEnv) {
+      let parsed: any;
+      try {
+        parsed = JSON.parse(svcJsonEnv);
+      } catch (err) {
+        try {
+          const cleaned = svcJsonEnv.replace(/\\n/g, '\n');
+          parsed = JSON.parse(cleaned);
+        } catch (e) {
+          console.error('[firebase-admin] Failed to parse FIREBASE_SERVICE_ACCOUNT_JSON', e);
+          throw e;
+        }
+      }
+      newApp = initializeApp({
+        credential: cert(parsed as ServiceAccount),
+        projectId: parsed.project_id,
+      }, appName);
+      console.log('[firebase-admin] initialized using FIREBASE_SERVICE_ACCOUNT_JSON project:', parsed.project_id);
+    } else {
+        // Fallback to Application Default Credentials (ADC).
+        // This works automatically in Google Cloud environments or when gcloud CLI is configured.
+        newApp = initializeApp({}, appName);
+        console.log('[firebase-admin] initialized using Application Default Credentials (ADC)');
     }
+    
+    adminServices = {
+        app: newApp,
+        firestore: getAdminFirestore(newApp),
+        auth: getAdminAuth(newApp),
+        FieldValue
+    };
+
+    return adminServices;
+
+  } catch (err) {
+    console.error('[firebase-admin] initialization failed:', err && (err as Error).message);
+    throw err;
   }
-  
-  // getFirebaseAdmin is the named accessor for code that expects it.
-  // Correctly export using ES module syntax.
-  export function getFirebaseAdmin(): FirebaseAdminServices {
-    return initFirebaseAdmin();
-  }
-  
-  const adminServices = initFirebaseAdmin();
-  export const firestore = adminServices.firestore;
-  export const auth = adminServices.auth;
 }
+
+/**
+ * Named export used across the codebase.
+ * Lazily initializes admin (server-only).
+ * Returns the entire services object.
+ */
+export function getFirebaseAdmin(): FirebaseAdminServices {
+  return initAdminIfNeeded();
+}
+
+/**
+ * Default export kept for compatibility with any default imports.
+ * This also returns the full services object for consistency.
+ */
+export default getFirebaseAdmin;

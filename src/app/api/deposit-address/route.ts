@@ -1,76 +1,64 @@
 
-import { NextResponse, type NextRequest } from 'next/server';
-import { getFirestore } from '@/lib/firebase-admin';
-import { z } from 'zod';
+import { NextResponse } from 'next/server';
+import { getFirebaseAdmin } from '@/lib/firebase-admin';
 import { deriveBtcAddressFromXpub } from '@/lib/btc-address';
 import { deriveEthAddressFromXpub } from '@/lib/eth-address';
-import admin from 'firebase-admin';
 
-const requestSchema = z.object({
-  userId: z.string(),
-  coin: z.string(),
-});
-
-export async function POST(request: NextRequest) {
-  const body = await request.json();
-  const validation = requestSchema.safeParse(body);
-
-  if (!validation.success) {
-    return NextResponse.json({ error: 'Invalid input', details: validation.error.flatten() }, { status: 400 });
-  }
-
-  const { userId, coin } = validation.data;
-  const db = getFirestore();
-
+export async function POST(request: Request) {
   try {
+    const { firestore, FieldValue } = getFirebaseAdmin();
+    const body = await request.json();
+    const { userId, coin } = body ?? {};
+    if (!userId || !coin) {
+      return NextResponse.json({ error: 'userId and coin required' }, { status: 400 });
+    }
+
+    const db = firestore;
+    const coinUpper = coin.toString().toUpperCase();
+
     const address = await db.runTransaction(async (tx) => {
-      const coinUpperCase = coin.toUpperCase();
-      const indexRef = db.collection('addressIndexes').doc(coinUpperCase);
-      
-      // 1. READ phase
+      const indexRef = db.collection('addressIndexes').doc(coinUpper);
+      // READ first
       const idxSnap = await tx.get(indexRef);
+      const lastIndex = idxSnap.exists ? Number(idxSnap.data()?.lastIndex ?? -1) : -1;
+      const newIndex = lastIndex + 1;
 
-      const newIndex = idxSnap.exists ? (Number(idxSnap.data()?.lastIndex ?? -1) + 1) : 0;
-      
-      let derivedAddress: string;
-
-      if (coinUpperCase === 'BTC') {
+      // DERIVE address (pure local computation)
+      let derived: string;
+      if (coinUpper === 'BTC') {
         const xpub = process.env.XPUB_BTC;
-        if (!xpub) throw new Error('XPUB_BTC env var not configured');
-        derivedAddress = deriveBtcAddressFromXpub(xpub, newIndex);
-      } else if (['ETH', 'USDT', 'USDC', 'MATIC'].includes(coinUpperCase)) {
+        if (!xpub) throw new Error('XPUB_BTC env not configured');
+        derived = deriveBtcAddressFromXpub(xpub, newIndex);
+      } else if (['ETH', 'USDT', 'USDC', 'MATIC'].includes(coinUpper)) {
         const ethXpub = process.env.ETH_XPUB;
-        if (!ethXpub) throw new Error('ETH_XPUB env var not configured');
-        derivedAddress = deriveEthAddressFromXpub(ethXpub, newIndex);
+        if (!ethXpub) throw new Error('ETH_XPUB env not configured');
+        derived = deriveEthAddressFromXpub(ethXpub, newIndex);
       } else {
-        throw new Error(`Unsupported coin for address generation: ${coin}`);
-      }
-      
-      const addressRef = db.collection('addresses').doc(derivedAddress);
-      
-      // 2. WRITE phase
-      if (idxSnap.exists) {
-        tx.update(indexRef, { lastIndex: newIndex });
-      } else {
-        tx.set(indexRef, { lastIndex: newIndex, createdAt: admin.firestore.FieldValue.serverTimestamp() });
+        throw new Error('unsupported coin: ' + coin);
       }
 
-      tx.set(addressRef, {
-        coin: coinUpperCase,
+      // ALL READS DONE — now do writes
+      if (!idxSnap.exists) {
+        tx.set(indexRef, { lastIndex: newIndex, createdAt: FieldValue.serverTimestamp() });
+      } else {
+        tx.update(indexRef, { lastIndex: newIndex });
+      }
+
+      const addrRef = db.collection('addresses').doc(derived);
+      tx.set(addrRef, {
+        coin: coinUpper,
         userId,
         index: newIndex,
-        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        createdAt: FieldValue.serverTimestamp(),
         used: false,
       });
 
-      return derivedAddress;
+      return derived;
     });
 
     return NextResponse.json({ address });
-
-  } catch (err) {
-    const error = err as Error;
-    console.error(`[API/deposit-address] Failed for user ${userId} and coin ${coin}:`, error);
-    return NextResponse.json({ error: error.message || 'Failed to generate deposit address.' }, { status: 500 });
+  } catch (err: any) {
+    console.error('deposit-address error', err);
+    return NextResponse.json({ error: err?.message || 'internal' }, { status: 500 });
   }
 }

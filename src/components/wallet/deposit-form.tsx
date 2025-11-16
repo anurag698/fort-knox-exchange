@@ -17,7 +17,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import type { Asset } from "@/lib/types";
 import { Copy, Check, Loader2 } from "lucide-react";
 import { Tooltip, TooltipProvider, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import axios from 'axios';
 
 const depositSchema = z.object({
   assetId: z.string().min(1, "Please select an asset."),
@@ -32,7 +31,6 @@ export function DepositForm({ assets }: { assets: Asset[] }) {
   const [state, formAction, isActionPending] = useActionState(requestDeposit, { status: "idle", message: "" });
   
   const [depositAddress, setDepositAddress] = useState("");
-  const [isGenerating, setIsGenerating] = useState(false);
   const [hasCopied, setHasCopied] = useState(false);
 
   const form = useForm<DepositFormValues>({
@@ -47,28 +45,13 @@ export function DepositForm({ assets }: { assets: Asset[] }) {
   }, [user, form]);
 
   useEffect(() => {
-    const generateAddress = async () => {
-        if (state.status === 'success' && state.data) {
-            toast({ title: "Request Received", description: state.message });
-            setIsGenerating(true);
-            setDepositAddress('');
-            try {
-                const response = await axios.post('/api/deposit-address', {
-                    userId: state.data.userId,
-                    coin: state.data.assetId,
-                });
-                setDepositAddress(response.data.address);
-            } catch (error) {
-                const errorMessage = axios.isAxiosError(error) ? error.response?.data.error : (error as Error).message;
-                toast({ variant: "destructive", title: "Address Generation Failed", description: errorMessage });
-            } finally {
-                setIsGenerating(false);
-            }
-        } else if (state.status === 'error') {
-            toast({ variant: "destructive", title: "Error", description: state.message });
-        }
+    if (state.status === 'success' && state.data?.address) {
+        toast({ title: "Address Generated", description: state.message });
+        setDepositAddress(state.data.address);
+    } else if (state.status === 'error') {
+        toast({ variant: "destructive", title: "Error", description: state.message });
+        setDepositAddress("");
     }
-    generateAddress();
   }, [state, toast]);
 
   const onCopy = async () => {
@@ -102,8 +85,6 @@ export function DepositForm({ assets }: { assets: Asset[] }) {
       setDepositAddress(""); // Clear address when asset changes
   }
 
-  const isLoading = isActionPending || isGenerating;
-
   return (
     <Card>
       <CardHeader>
@@ -120,7 +101,7 @@ export function DepositForm({ assets }: { assets: Asset[] }) {
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Asset</FormLabel>
-                  <Select onValueChange={handleAssetChange} defaultValue={field.value} name={field.name} disabled={isLoading}>
+                  <Select onValueChange={handleAssetChange} defaultValue={field.value} name={field.name} disabled={isActionPending}>
                     <FormControl>
                       <SelectTrigger>
                         <SelectValue placeholder="Select an asset to deposit" />
@@ -139,11 +120,11 @@ export function DepositForm({ assets }: { assets: Asset[] }) {
               )}
             />
             
-            <Button type="submit" className="w-full" disabled={!user || isLoading}>
-              {isLoading ? (
+            <Button type="submit" className="w-full" disabled={!user || isActionPending}>
+              {isActionPending ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  {isGenerating ? 'Generating...' : 'Requesting...'}
+                  Generating...
                 </>
               ) : user ? 'Generate Deposit Address' : 'Please sign in'}
             </Button>

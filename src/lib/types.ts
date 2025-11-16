@@ -2,6 +2,7 @@
 
 
 
+
 export type Market = {
   id: string;
   baseAssetId: string;
@@ -18,6 +19,8 @@ export type Asset = {
   id: string;
   symbol: string;
   name: string;
+  contractAddress: string;
+  decimals: number;
   createdAt: string;
 };
 

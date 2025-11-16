@@ -13,45 +13,55 @@ export async function seedInitialData(firestore: Firestore, FieldValue: any) {
     const marketsCol = firestore.collection('markets');
     
     const assetsToSeed = [
-        { id: 'USDT', name: 'Tether', symbol: 'USDT' },
-        { id: 'BTC', name: 'Bitcoin', symbol: 'BTC' },
-        { id: 'ETH', name: 'Ethereum', symbol: 'ETH' },
-        { id: 'SOL', name: 'Solana', symbol: 'SOL' },
-        { id: 'ADA', name: 'Cardano', symbol: 'ADA' },
-        { id: 'MATIC', name: 'Polygon', symbol: 'MATIC' },
-        { id: 'DOGE', name: 'Dogecoin', symbol: 'DOGE' },
-        { id: 'XRP', name: 'Ripple', symbol: 'XRP' },
-        { id: 'DOT', name: 'Polkadot', symbol: 'DOT' },
-        { id: 'LINK', name: 'Chainlink', symbol: 'LINK' },
-        { id: 'SHIB', name: 'Shiba Inu', symbol: 'SHIB' },
-        { id: 'AVAX', name: 'Avalanche', symbol: 'AVAX' },
-        { id: 'LTC', name: 'Litecoin', symbol: 'LTC' },
-        { id: 'TRX', name: 'TRON', symbol: 'TRX' },
-        { id: 'UNI', name: 'Uniswap', symbol: 'UNI' },
-        { id: 'BNB', name: 'Binance Coin', symbol: 'BNB' },
-        { id: 'BCH', name: 'Bitcoin Cash', symbol: 'BCH' },
-        { id: 'XLM', name: 'Stellar', symbol: 'XLM' },
-        { id: 'ATOM', name: 'Cosmos', symbol: 'ATOM' },
-        { id: 'FIL', name: 'Filecoin', symbol: 'FIL' },
-        { id: 'NEAR', name: 'NEAR Protocol', symbol: 'NEAR' },
-        { id: 'APT', name: 'Aptos', symbol: 'APT' },
-        { id: 'IMX', name: 'Immutable', symbol: 'IMX' },
-        { id: 'SUI', name: 'Sui', symbol: 'SUI' },
-        { id: 'SAND', name: 'The Sandbox', symbol: 'SAND' },
-        { id: 'AAVE', name: 'Aave', symbol: 'AAVE' },
-        { id: 'MKR', name: 'Maker', symbol: 'MKR' },
-        { id: 'MANA', name: 'Decentraland', symbol: 'MANA' },
-        { id: 'FTM', name: 'Fantom', symbol: 'FTM' },
+        { id: 'USDT', name: 'Tether', symbol: 'USDT', contractAddress: '0xc2132D05D31c914a87C6611C10748AEb04B58e8F', decimals: 6 },
+        { id: 'BTC', name: 'Bitcoin', symbol: 'BTC', contractAddress: '0x1BFD67037B42Cf73acF2047067bd4F2C47D9BfD6', decimals: 8 },
+        { id: 'ETH', name: 'Ethereum', symbol: 'ETH', contractAddress: '0x7ceB23fD6bC0adD59E62ac25578270cFf1b9f619', decimals: 18 },
+        { id: 'SOL', name: 'Solana', symbol: 'SOL', contractAddress: '0x0d500B1d8E8eF31E21C99d1Db9A6444d3ADf1270', decimals: 18 }, // This is WMATIC as placeholder for SOL on Polygon
+        { id: 'ADA', name: 'Cardano', symbol: 'ADA', contractAddress: '0x3B38753A261315b452714526d71374A7C7915159', decimals: 18 },
+        { id: 'MATIC', name: 'Polygon', symbol: 'MATIC', contractAddress: '0x0000000000000000000000000000000000001010', decimals: 18 },
+        { id: 'DOGE', name: 'Dogecoin', symbol: 'DOGE', contractAddress: '0x81bAF65A1489063544521A1072D82937754f2483', decimals: 8 },
+        { id: 'XRP', name: 'Ripple', symbol: 'XRP', contractAddress: '0x2d6768112e5A6112E29Db1d4413345753A5A3514', decimals: 6 },
+        { id: 'DOT', name: 'Polkadot', symbol: 'DOT', contractAddress: '0x76B0a07204f1285223A4315265649d2b2c159846', decimals: 10 },
+        { id: 'LINK', name: 'Chainlink', symbol: 'LINK', contractAddress: '0x53E0bca35eC356BD5ddDFebbD1Fc0fD03FaAa054', decimals: 18 },
+        { id: 'SHIB', name: 'Shiba Inu', symbol: 'SHIB', contractAddress: '0x6f8a06447Ff6FcF75d803135a7de15CE88C1d4ec', decimals: 18 },
+        { id: 'AVAX', name: 'Avalanche', symbol: 'AVAX', contractAddress: '0x2C89bbc92BD86F8075d1DEcc58C7F4E0107f286b', decimals: 18 },
+        { id: 'LTC', name: 'Litecoin', symbol: 'LTC', contractAddress: '0x43E515B442aCDE1B45c43236A015423075153549', decimals: 8 },
+        { id: 'TRX', name: 'TRON', symbol: 'TRX', contractAddress: '0x85E076361Cc813A90e6CF220C444c34d3C42b46d', decimals: 6 },
+        { id: 'UNI', name: 'Uniswap', symbol: 'UNI', contractAddress: '0xb33EaAd8d922B1083446DC23f610c2567fB5180f', decimals: 18 },
+        { id: 'BNB', name: 'Binance Coin', symbol: 'BNB', contractAddress: '0x5335E8715201B46b18981Ce7C021dA45915d31b0', decimals: 18 },
+        { id: 'BCH', name: 'Bitcoin Cash', symbol: 'BCH', contractAddress: '0x3228a635b756997a339311A46761A63901b09C48', decimals: 8 },
+        { id: 'XLM', name: 'Stellar', symbol: 'XLM', contractAddress: '0x6288A5832a8A29A6623631389886315214470438', decimals: 7 },
+        { id: 'ATOM', name: 'Cosmos', symbol: 'ATOM', contractAddress: '0xac51C4c48Dc3116487eD4BC16542e27B5694Da1b', decimals: 6 },
+        { id: 'FIL', name: 'Filecoin', symbol: 'FIL', contractAddress: '0x333423DE45722384732569651589454154244433', decimals: 18 },
+        { id: 'NEAR', name: 'NEAR Protocol', symbol: 'NEAR', contractAddress: '0x8f2B158d6971578A739893322D877B042065839C', decimals: 24 },
+        { id: 'APT', name: 'Aptos', symbol: 'APT', contractAddress: '0x6F2902355431522f778536f6A785191B981b2D1A', decimals: 8 },
+        { id: 'IMX', name: 'Immutable', symbol: 'IMX', contractAddress: '0x0c9fc9549add84422F358055309A18967982f173', decimals: 18 },
+        { id: 'SUI', name: 'Sui', symbol: 'SUI', contractAddress: '0x354b3a8863A2f93A17a8a65f9E5f4581f1d1d86c', decimals: 9 },
+        { id: 'SAND', name: 'The Sandbox', symbol: 'SAND', contractAddress: '0xBbba073C31bF03b8ACf7c28EF0738DeCF3695683', decimals: 18 },
+        { id: 'AAVE', name: 'Aave', symbol: 'AAVE', contractAddress: '0xD6DF932A45C0f255f85145f286EA0b292B21C90B', decimals: 18 },
+        { id: 'MKR', name: 'Maker', symbol: 'MKR', contractAddress: '0x6fE3d0F096FC932A105D61EB2586B527A6754543', decimals: 18 },
+        { id: 'MANA', name: 'Decentraland', symbol: 'MANA', contractAddress: '0xA1c57f48F0Deb89f569dFbE6E2B7f46D33606fD4', decimals: 18 },
+        { id: 'FTM', name: 'Fantom', symbol: 'FTM', contractAddress: '0x4E15361FD6b4BB609Fa63C81A2be19d873717870', decimals: 18 },
     ];
 
     for (const asset of assetsToSeed) {
-        const doc = await assetsCol.doc(asset.id).get();
+        const docRef = assetsCol.doc(asset.id);
+        const doc = await docRef.get();
         if (!doc.exists) {
             console.log(`Seeding ${asset.symbol} asset...`);
-            await assetsCol.doc(asset.id).set({
+            await docRef.set({
                 ...asset,
                 createdAt: FieldValue.serverTimestamp(),
             });
+        } else {
+             // Ensure contract address and decimals are present
+             const data = doc.data();
+             if (!data?.contractAddress || !data?.decimals) {
+                 await docRef.update({
+                     contractAddress: asset.contractAddress,
+                     decimals: asset.decimals
+                 });
+             }
         }
     }
 

@@ -239,7 +239,8 @@ export async function createMarketOrder(prevState: FormState, formData: FormData
         const amountToLock = quantity;
         const assetToLock = srcToken;
         
-        const assets = (await firestore.collection('assets').get()).docs.reduce((acc, doc) => {
+        const assetsSnapshot = await firestore.collection('assets').get();
+        const assets = assetsSnapshot.docs.reduce((acc, doc) => {
             acc[doc.id] = doc.data();
             return acc;
         }, {} as Record<string, any>);
@@ -247,7 +248,10 @@ export async function createMarketOrder(prevState: FormState, formData: FormData
         if (!assets[srcToken] || !assets[dstToken]) {
             throw new Error("Could not find token details for the market order.");
         }
-        const amountInWei = (quantity * (10 ** assets[srcToken].decimals)).toString();
+        
+        const assetData = assets[srcToken];
+        const decimals = assetData.decimals || 18; // Default to 18 if not specified
+        const amountInWei = (quantity * (10 ** decimals)).toString();
 
         const quoteQuery = new URLSearchParams({
             chainId: '137', // Hardcoded Polygon for now
@@ -410,7 +414,7 @@ export async function requestDeposit(prevState: FormState, formData: FormData): 
         const { firestore, FieldValue } = getFirebaseAdmin();
         const newDepositRef = firestore.collection('users').doc(userId).collection('deposits').doc();
 
-        const newDeposit = {
+        await newDepositRef.set({
             id: newDepositRef.id,
             userId,
             assetId,
@@ -418,15 +422,32 @@ export async function requestDeposit(prevState: FormState, formData: FormData): 
             status: 'PENDING',
             createdAt: FieldValue.serverTimestamp(),
             updatedAt: FieldValue.serverTimestamp(),
-        };
-        await newDepositRef.set(newDeposit);
+        });
+        
+        // This is a server action, so we can get the full URL from headers
+        const host = headers().get('host');
+        const protocol = process.env.NODE_ENV === 'development' ? 'http' : 'https';
+        const apiUrl = `${protocol}://${host}/api/deposit-address`;
 
+        const response = await fetch(apiUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ userId, coin: assetId }),
+        });
+
+        if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.error || 'Failed to generate address.');
+        }
+
+        const data = await response.json();
+        
         revalidatePath('/portfolio');
         
         return {
             status: 'success',
-            message: `Deposit request created. Generating address...`,
-            data: { assetId, userId },
+            message: `Address generated successfully.`,
+            data: { address: data.address },
         };
 
     } catch (e) {

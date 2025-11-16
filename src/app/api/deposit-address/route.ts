@@ -1,9 +1,9 @@
 
+// server-side: src/app/api/deposit-address/route.ts
 import { NextResponse } from 'next/server';
 import { getFirebaseAdmin } from '@/lib/firebase-admin';
-import { deriveBtcAddressFromXpub } from '@/lib/btc-address';
 import { deriveEthAddressFromXpub } from '@/lib/eth-address';
-import type { Asset } from '@/lib/types';
+import { deriveBtcAddressFromXpub } from '@/lib/btc-address';
 
 // Helper: standardize incoming asset key (accept asset, token, assetId)
 function normalizeInput(body: any) {
@@ -40,7 +40,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: `Unsupported asset: ${symbol}` }, { status: 400 });
     }
 
-    const assetData = assetSnapshot.docs[0].data() as Asset;
+    const assetData = assetSnapshot.docs[0].data();
     console.info('[deposit-address] token metadata', assetData ? assetData : 'not found');
     
     const chainType = assetData.symbol === 'BTC' ? 'BTC' : 'ETH';
@@ -49,7 +49,7 @@ export async function POST(request: Request) {
         const ethXpub = process.env.ETH_XPUB;
         if (!ethXpub) {
             console.error('[deposit-address] missing ETH_XPUB');
-            return NextResponse.json({ error: 'ETH_XPUB env not configured' }, { status: 500 });
+            throw new Error('ETH_XPUB env not configured');
         }
 
         const address = await firestore.runTransaction(async (tx) => {
@@ -93,7 +93,7 @@ export async function POST(request: Request) {
         const btcXpub = process.env.BTC_XPUB;
         if (!btcXpub) {
             console.error('[deposit-address] missing BTC_XPUB');
-            return NextResponse.json({ error: 'BTC_XPUB env not configured' }, { status: 500 });
+            throw new Error('BTC_XPUB env not configured');
         }
 
         const address = await firestore.runTransaction(async (tx) => {
@@ -127,7 +127,20 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ error: `Unsupported chain type for asset ${symbol}` }, { status: 400 });
   } catch (err: any) {
-    console.error('[deposit-address] unexpected error:', err?.stack || err?.message || err);
-    return NextResponse.json({ error: 'internal server error', detail: err?.message || 'unknown' }, { status: 500 });
+    console.error("[deposit-address] FATAL ERROR:", {
+      message: err?.message,
+      stack: err?.stack,
+      env: {
+        ETH_XPUB: !!process.env.ETH_XPUB,
+        ETH_NETWORK_RPC: !!process.env.ETH_NETWORK_RPC,
+        FIREBASE_SERVICE_ACCOUNT_JSON: !!process.env.FIREBASE_SERVICE_ACCOUNT_JSON,
+        GOOGLE_APPLICATION_CREDENTIALS: !!process.env.GOOGLE_APPLICATION_CREDENTIALS
+      }
+    });
+
+    return NextResponse.json({
+      error: "internal server error",
+      detail: err?.message || "unknown",
+    }, { status: 500 });
   }
 }

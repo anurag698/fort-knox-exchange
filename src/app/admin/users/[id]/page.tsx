@@ -8,7 +8,7 @@ import { AlertCircle, ArrowLeft, Loader2, User as UserIcon } from 'lucide-react'
 import { Badge } from '@/components/ui/badge';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
-import { approveKyc, rejectKyc } from '@/app/actions';
+import { approveKyc, rejectKyc } from '@/app/admin/actions';
 import { useFormStatus } from 'react-dom';
 import { useUserById } from "@/hooks/use-user-by-id";
 import { UserDeposits } from "@/components/wallet/user-deposits";

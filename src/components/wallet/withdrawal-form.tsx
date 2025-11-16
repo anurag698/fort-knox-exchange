@@ -7,7 +7,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useUser, useFirestore } from "@/firebase";
-import { requestWithdrawal } from "@/app/actions";
+import { requestWithdrawal } from "@/app/wallet/actions";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -163,5 +163,3 @@ export function WithdrawalForm({ assets, balances }: { assets: Asset[], balances
     </Card>
   );
 }
-
-    

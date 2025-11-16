@@ -20,7 +20,7 @@ import { Button } from '@/components/ui/button';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
-import { updateUserProfile, submitKyc } from '@/app/actions';
+import { updateUserProfile, submitKyc } from '@/app/settings/actions';
 import type { UserProfile } from '@/lib/types';
 
 
@@ -342,5 +342,3 @@ export default function SettingsPage() {
     </div>
   );
 }
-
-    

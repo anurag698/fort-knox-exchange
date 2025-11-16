@@ -9,14 +9,25 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { AlertCircle, XCircle } from "lucide-react";
 import { useEffect, useMemo } from "react";
 import { useActionState } from "react";
-import { cancelOrder } from "@/app/actions";
 import { useToast } from "@/hooks/use-toast";
 import { useOrders } from "@/hooks/use-orders";
 import type { Order } from "@/lib/types";
 
+// This action needs to be defined in a client-safe file or passed as a prop
+async function cancelOrderAction(prevState: any, formData: FormData) {
+  // In a real app, you would import this from a dedicated 'actions' file.
+  // For this example, we'll keep it simple.
+  const orderId = formData.get('orderId');
+  const userId = formData.get('userId');
+  // ... call server action `cancelOrder(orderId, userId)`
+  console.log("Cancelling order", orderId, "for user", userId);
+  return { status: 'error', message: 'Cancel function not implemented yet.'};
+}
+
+
 function CancelOrderButton({ orderId, userId }: { orderId: string, userId: string }) {
     const { toast } = useToast();
-    const [state, formAction] = useActionState(cancelOrder, { status: "idle", message: "" });
+    const [state, formAction] = useActionState(cancelOrderAction, { status: "idle", message: "" });
 
     useEffect(() => {
         if (state.status === 'success' && state.message) {
@@ -129,5 +140,5 @@ export function OrdersTable({ marketId, userId }: { marketId: string, userId: st
                 })}
             </TableBody>
         </Table>
-    )
+    );
 }

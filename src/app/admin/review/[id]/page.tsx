@@ -8,7 +8,7 @@ import { AlertCircle, ArrowLeft, ShieldAlert, ShieldCheck, Loader2, History, Use
 import { Badge } from '@/components/ui/badge';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
-import { approveWithdrawal, rejectWithdrawal } from '@/app/actions';
+import { approveWithdrawal, rejectWithdrawal } from '@/app/admin/actions';
 import { useFormStatus } from 'react-dom';
 import type { Asset } from '@/lib/types';
 import { UserDeposits } from '@/components/wallet/user-deposits';

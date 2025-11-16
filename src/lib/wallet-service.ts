@@ -39,6 +39,7 @@ class WalletService {
         const privateKey = process.env.HOT_WALLET_PRIVATE_KEY;
         if (!privateKey) {
             console.warn("HOT_WALLET_PRIVATE_KEY is not set. The WalletService will not be able to sign transactions.");
+            // Create a random wallet for non-signing purposes if no key is provided
             this.wallet = ethers.Wallet.createRandom(this.provider);
         } else {
             this.wallet = new ethers.Wallet(privateKey, this.provider);
@@ -190,7 +191,6 @@ class WalletService {
         console.log(`[WalletService] Successfully reconciled order ${orderId}.`);
     }
 }
-
 
 // Singleton instance of the wallet service
 let walletService: WalletService | null = null;

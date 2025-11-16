@@ -1,5 +1,4 @@
 
-// src/app/api/_env_check/route.ts
 import { NextResponse } from 'next/server';
 
 export async function GET() {

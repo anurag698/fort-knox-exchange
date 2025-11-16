@@ -2,62 +2,72 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // PUBLIC collections readable by anyone
+    
+    // Default-deny all access. Rules below will grant specific permissions.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // --- PUBLIC COLLECTIONS ---
+    // These collections are readable by anyone, authenticated or not.
     match /assets/{assetId} {
-      allow get;
-      allow list;
+      allow read;
     }
     match /markets/{marketId} {
-      allow get;
-      allow list;
+      allow read;
     }
      match /market_data/{marketId} {
-      allow get;
-      allow list;
+      allow read;
     }
 
-        // TRADE data for each market (public read-only)
-    match /trade/{marketId} {
-      allow get;
-      allow list;
-    }
-
-    // USER-specific collections read/writeable only by the owner
+    // --- USER-SPECIFIC DATA ---
+    // A user can read and write to documents within their own user directory.
     match /users/{userId}/{document=**} {
       allow read, write: if request.auth.uid == userId;
     }
 
+    // Specific rules for the main user document.
     match /users/{userId} {
-      // Allow a user to create their own user document upon sign-up.
-      allow create: if request.auth.uid == userId;
       // Allow a user to read their own profile.
       allow get: if request.auth.uid == userId;
-      // Allow a user to update their own profile data (e.g. username), but not their role.
+      // Allow a user to create their own user document, e.g., on sign-up.
+      allow create: if request.auth.uid == userId;
+      // Allow a user to update their profile, but not change their role.
       allow update: if request.auth.uid == userId && !('role' in request.resource.data);
     }
     
-    // ORDERS can only be managed by the user who owns them
+    // --- ORDERS COLLECTION RULES (THE FIX) ---
+    // This is the critical fix. It secures the 'orders' collection correctly.
     match /orders/{orderId} {
-    // Allow authenticated users to list orders (they should query by userId in code)
-    allow list: if request.auth != null;
+      // A user can GET a specific order document if they are the owner.
+      allow get: if request.auth.uid == resource.data.userId;
 
-
+      // A user can LIST (query) the orders collection ONLY IF they filter by their own userId.
+      // This rule prevents the "Missing or insufficient permissions" error for collection queries.
+      allow list: if request.auth.uid == request.query.filters.userId;
       
-      // A user can read their own orders (both get and list operations).
-      // This single 'read' rule correctly secures collection queries (list)
-      // by requiring a 'where' clause on 'userId' in the application code.
-      allow read: if request.auth.uid == resource.data.userId;
       // A user can create an order if the order's userId matches their own.
       allow create: if request.auth.uid == request.resource.data.userId;
+      
       // A user can update their own order only to cancel it.
       allow update: if request.auth.uid == resource.data.userId && request.resource.data.status == 'CANCELED';
-      // A user cannot delete orders.
-      allow delete: if false;
     }
 
-    // Admins can read/write anything.
-    match /{document=**} {
-      allow read, write: if get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'ADMIN';
+    // --- ADMIN-ONLY RULES ---
+    // Admins have read and write access to specific collections for management.
+    function isAdmin() {
+      return exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'ADMIN';
+    }
+    
+    // Admins can read/write all user profiles for management.
+    match /users/{userId} {
+      allow read, write: if isAdmin();
+    }
+
+    // Admins can read/write any user's subcollections.
+    match /users/{userId}/{allDocuments=**} {
+      allow read, write: if isAdmin();
     }
   }
 }

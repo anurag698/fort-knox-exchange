@@ -13,6 +13,7 @@ const requestSchema = z.object({
 const deriveMockAddress = (coin: string, index: number): string => {
   const coinPrefix = coin.toLowerCase();
   const indexHex = index.toString(16).padStart(6, '0');
+  // Add a pseudo-random element to ensure mock addresses are unique on retry
   const randomPart = Math.random().toString(36).substring(2, 12);
   return `${coinPrefix}-addr-${indexHex}-${randomPart}`;
 };
@@ -34,9 +35,11 @@ export async function POST(request: Request) {
       const idxSnap = await tx.get(indexRef);
       let lastIndex = 0;
       if (!idxSnap.exists) {
+        // First time this coin is requested, create the index document.
         tx.set(indexRef, { lastIndex: 0, createdAt: FieldValue.serverTimestamp() });
         lastIndex = 0;
       } else {
+        // Atomically increment the index.
         lastIndex = (idxSnap.data()?.lastIndex ?? -1) + 1;
         tx.update(indexRef, { lastIndex, updatedAt: FieldValue.serverTimestamp() });
       }
@@ -48,10 +51,12 @@ export async function POST(request: Request) {
       const addrRef = firestore.collection('addresses').doc(address);
       const addrSnap = await tx.get(addrRef);
 
+      // This check is a safeguard against hash collisions, though extremely unlikely with real crypto addresses.
       if (addrSnap.exists) {
           throw new Error(`Address collision detected for index ${lastIndex}. Please retry.`);
       }
 
+      // Create the mapping from the derived address to the user and index.
       tx.set(addrRef, {
         coin,
         userId,

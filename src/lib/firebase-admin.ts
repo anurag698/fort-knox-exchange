@@ -1,5 +1,5 @@
 
-// src/lib/firebase-admin.ts  (DROP THIS IN NOW)
+// src/lib/firebase-admin.ts
 import { getApps, getApp, initializeApp, credential, App } from 'firebase-admin/app';
 import { getAuth, Auth } from 'firebase-admin/auth';
 import { getFirestore, Firestore, FieldValue } from 'firebase-admin/firestore';
@@ -12,9 +12,11 @@ type FirebaseAdminServices = {
   FieldValue: typeof FieldValue;
 };
 
-
+/**
+ * Defensive server/client guard.
+ * If this file is accidentally executed in client bundle, it will throw a clear error.
+ */
 function isClientSide() {
-  // true if this module ever runs in a browser / client bundle
   try {
     // window and document are only defined client-side
     if (typeof window !== 'undefined') return true;
@@ -26,35 +28,50 @@ function isClientSide() {
 if (isClientSide()) {
   // if this line appears in browser console, you have a client import problem
   console.error('[FATAL] firebase-admin module executed in client bundle — search your imports for src/lib/firebase-admin or firebase-admin');
-  // Export a stub that fails early and clearly
-  const stub: any = {
-    apps: [],
-    initializeApp: () => { throw new Error('firebase-admin called in client; move server-only imports to API routes / server code'); },
-    credential: { cert: () => { throw new Error('firebase-admin credential called in client'); } },
-    firestore: () => { throw new Error('firebase-admin firestore called in client'); },
-    auth: () => { throw new Error('firebase-admin auth called in client'); },
-    FieldValue: {}
+  
+  // Export stubs that fail early and clearly to help debugging.
+  // These exports need to exist to satisfy static analysis during build,
+  // but they will throw a runtime error if ever called on the client.
+  const clientStub = () => { throw new Error('firebase-admin function called in client bundle.'); };
+  
+  const firestoreStub = clientStub as unknown as Firestore;
+  const authStub = clientStub as unknown as Auth;
+  const FieldValueStub = clientStub as unknown as typeof FieldValue;
+  const appStub = clientStub as unknown as App;
+
+  const servicesStub: FirebaseAdminServices = {
+    firestore: firestoreStub,
+    auth: authStub,
+    app: appStub,
+    FieldValue: FieldValueStub
   };
   
-  // To prevent the app from crashing entirely, we can export the stub.
-  // The error will be thrown upon usage.
-  module.exports = {
-    getFirebaseAdmin: () => stub
+  export const getFirebaseAdmin = (): FirebaseAdminServices => {
+    throw new Error('getFirebaseAdmin should not be called on the client.');
   };
+  export const firestore = firestoreStub;
+  export const auth = authStub;
 
 } else {
-  // Server-side safe init
-  const appName = 'firebase-admin-app-singleton';
-
+  // Server-side initialization
+  let services: FirebaseAdminServices | null = null;
+  
   function initFirebaseAdmin(): FirebaseAdminServices {
-     const existingApp = getApps().find(app => app.name === appName);
+     if (services) {
+      return services;
+    }
+
+    const appName = 'firebase-admin-app-singleton';
+    const existingApp = getApps().find(app => app.name === appName);
+    
     if (existingApp) {
-        return { 
+        services = { 
             firestore: getFirestore(existingApp), 
             auth: getAuth(existingApp), 
             app: existingApp,
             FieldValue,
         };
+        return services;
     }
 
     const svcJsonEnv = process.env.FIREBASE_SERVICE_ACCOUNT_JSON;
@@ -68,14 +85,15 @@ if (isClientSide()) {
 
     try {
       if (svcJsonEnv) {
-        let parsed;
+        let parsed: any;
         try { parsed = JSON.parse(svcJsonEnv); }
         catch (err) {
+          // try to fix newline-escaped env values
           try {
             const cleaned = svcJsonEnv.replace(/\\n/g, '\n');
             parsed = JSON.parse(cleaned);
           } catch (e: any) {
-            console.error('[firebase-admin] FIREBASE_SERVICE_ACCOUNT_JSON parse failed', e.message);
+            console.error('[firebase-admin] FIREBASE_SERVICE_ACCOUNT_JSON parse failed', e);
             throw e;
           }
         }
@@ -92,12 +110,13 @@ if (isClientSide()) {
           console.log('[firebase-admin] initialized using Application Default Credentials (ADC)');
       }
 
-      return { 
+      services = { 
         firestore: getFirestore(adminApp), 
         auth: getAuth(adminApp), 
         app: adminApp,
         FieldValue,
       };
+      return services;
 
     } catch (err: any) {
       console.error('[firebase-admin] initialization FAILED', err && err.message ? err.message : err);
@@ -105,14 +124,13 @@ if (isClientSide()) {
     }
   }
   
-  let services: FirebaseAdminServices | null = null;
-
-  module.exports = {
-    getFirebaseAdmin: () => {
-        if (!services) {
-            services = initFirebaseAdmin();
-        }
-        return services;
-    }
-  };
+  // getFirebaseAdmin is the named accessor for code that expects it.
+  // Correctly export using ES module syntax.
+  export function getFirebaseAdmin(): FirebaseAdminServices {
+    return initFirebaseAdmin();
+  }
+  
+  const adminServices = initFirebaseAdmin();
+  export const firestore = adminServices.firestore;
+  export const auth = adminServices.auth;
 }

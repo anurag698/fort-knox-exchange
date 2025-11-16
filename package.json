@@ -65,6 +65,7 @@
     "react-dom": "^18.3.1",
     "react-hook-form": "^7.54.2",
     "recharts": "^2.15.1",
+    "secp256k1": "^5.0.0",
     "stream-browserify": "^3.0.0",
     "stream-http": "^3.2.0",
     "tailwind-merge": "^3.0.1",

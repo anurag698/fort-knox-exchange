@@ -2,8 +2,10 @@
 // src/app/api/deposit-address/route.ts
 import { NextResponse } from 'next/server';
 import { getFirebaseAdmin } from '@/lib/firebase-admin';
-import { deriveEthAddressFromXpub } from '@/lib/eth-address';
 import { deriveBtcAddressFromXpub } from '@/lib/btc-address';
+import * as bip32 from 'bip32';
+import secp from 'secp256k1';
+import * as ethUtil from 'ethereumjs-util';
 
 // Helper: standardize incoming asset key (accept asset, token, assetId)
 function normalizeInput(body: any) {
@@ -12,20 +14,40 @@ function normalizeInput(body: any) {
   return { userId, assetId };
 }
 
+function toEthAddressFromPub(pubKeyBuffer: Buffer): string {
+  let uncompressed: Buffer;
+  if (pubKeyBuffer.length === 33) {
+    // convert compressed -> uncompressed using secp256k1
+    uncompressed = Buffer.from(secp.publicKeyConvert(pubKeyBuffer, false)); // 65 bytes
+  } else if (pubKeyBuffer.length === 65) {
+    uncompressed = pubKeyBuffer;
+  } else {
+    throw new Error('unexpected pubkey length: ' + pubKeyBuffer.length);
+  }
+  // drop 0x04 prefix if present
+  const pubNoPrefix = uncompressed.length === 65 ? uncompressed.slice(1) : uncompressed;
+  const hash = ethUtil.keccak256(pubNoPrefix);
+  return ethUtil.toChecksumAddress('0x' + hash.slice(-20).toString('hex'));
+}
+
+function deriveAddressFromXpubSmart(xpub: string, index: number): string {
+  const node = bip32.fromBase58(xpub);
+  // If xpub.depth >= 4 it's likely at m/44'/60'/0'/0 (external chain included)
+  const assumeIncludesExternal = node.depth >= 4;
+  let child;
+  if (assumeIncludesExternal) {
+    // node.derive(index) => m/.../0/index
+    child = node.derive(index);
+  } else {
+    // node.derive(0).derive(index) => m/.../0/index
+    child = node.derive(0).derive(index);
+  }
+  if (!child || !child.publicKey) throw new Error('derived child missing publicKey');
+  return toEthAddressFromPub(child.publicKey);
+}
+
 
 export async function POST(request: Request) {
-  // DEV-ONLY GUARD: If in development and secrets are missing, return a mock address.
-  if (process.env.NODE_ENV === 'development' && !process.env.FIREBASE_SERVICE_ACCOUNT_JSON) {
-    console.warn('[deposit-address] DEV-ONLY: Returning mock address because FIREBASE_SERVICE_ACCOUNT_JSON is not set.');
-    const body = await request.json();
-    const { assetId } = normalizeInput(body);
-    const isBtc = String(assetId).toUpperCase() === 'BTC';
-    const mockAddress = isBtc 
-        ? 'bc1qdevm0ckaddressfortestingpurposes' 
-        : '0x0000000000000000000000000000000000DEADC0';
-    return NextResponse.json({ address: mockAddress, chain: isBtc ? 'BTC' : 'ETH', source: 'dev-mock' });
-  }
-
   const admin = getFirebaseAdmin();
   
   if (!admin) {
@@ -54,14 +76,8 @@ export async function POST(request: Request) {
   const symbol = String(assetId).toUpperCase();
   console.info('[deposit-address] request', { userId, assetId: symbol });
 
-  const ethXpub = process.env.ETH_XPUB;
+  const bscXpub = process.env.BSC_XPUB; // Using BSC_XPUB for EVM chains
   const btcXpub = process.env.BTC_XPUB;
-
-  if (!ethXpub || !btcXpub) {
-      const errorDetail = 'ETH_XPUB or BTC_XPUB environment variable is not configured on the server.';
-      console.error(`[deposit-address] Configuration Error: ${errorDetail}`);
-      return NextResponse.json({ error: 'Server Configuration Incomplete', detail: errorDetail }, { status: 503 });
-  }
 
   try {
     const assetsCol = firestore.collection('assets');
@@ -78,6 +94,11 @@ export async function POST(request: Request) {
     const chainType = assetData.symbol === 'BTC' ? 'BTC' : 'ETH';
 
     if (chainType === 'ETH') {
+        if (!bscXpub) {
+            const errorDetail = 'BSC_XPUB (for EVM addresses) environment variable is not configured on the server.';
+            console.error(`[deposit-address] Configuration Error: ${errorDetail}`);
+            return NextResponse.json({ error: 'Server Configuration Incomplete', detail: errorDetail }, { status: 503 });
+        }
         const address = await firestore.runTransaction(async (tx) => {
             const addressesCol = firestore.collection('addresses');
             const existingAddressQuery = addressesCol.where('userId', '==', userId).where('coin', '==', 'ETH').limit(1);
@@ -92,7 +113,7 @@ export async function POST(request: Request) {
             const lastIndex = ethIdxSnap.exists ? Number(ethIdxSnap.data()?.lastIndex ?? -1) : -1;
             const newIndex = lastIndex + 1;
 
-            const derivedAddress = deriveEthAddressFromXpub(ethXpub, newIndex);
+            const derivedAddress = deriveAddressFromXpubSmart(bscXpub, newIndex);
 
             if (!ethIdxSnap.exists) {
                 tx.set(ethIndexRef, { lastIndex: newIndex, createdAt: FieldValue.serverTimestamp() });
@@ -116,6 +137,11 @@ export async function POST(request: Request) {
     }
 
     if (chainType === 'BTC') {
+        if (!btcXpub) {
+          const errorDetail = 'BTC_XPUB environment variable is not configured on the server.';
+          console.error(`[deposit-address] Configuration Error: ${errorDetail}`);
+          return NextResponse.json({ error: 'Server Configuration Incomplete', detail: errorDetail }, { status: 503 });
+        }
         const address = await firestore.runTransaction(async (tx) => {
             const btcIndexRef = firestore.collection('addressIndexes').doc('BTC');
             const btcIdxSnap = await tx.get(btcIndexRef);
@@ -152,11 +178,9 @@ export async function POST(request: Request) {
       message: errorMessage,
       stack: err?.stack,
       env: {
-        ETH_XPUB: !!process.env.ETH_XPUB,
+        BSC_XPUB: !!process.env.BSC_XPUB,
         BTC_XPUB: !!process.env.BTC_XPUB,
-        ETH_NETWORK_RPC: !!process.env.ETH_NETWORK_RPC,
         FIREBASE_SERVICE_ACCOUNT_JSON: !!process.env.FIREBASE_SERVICE_ACCOUNT_JSON,
-        GOOGLE_APPLICATION_CREDENTIALS: !!process.env.GOOGLE_APPLICATION_CREDENTIALS
       }
     });
 

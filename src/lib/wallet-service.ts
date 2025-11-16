@@ -103,10 +103,20 @@ class WalletService {
     }
 
     private async reconcileTrade(orderId: string, txHash: string) {
-        const orderRef = this.firestore.collection('orders').doc(orderId);
+        // We need to find the user ID from the order. Since orders are now in a subcollection,
+        // we must query the collection group.
+        const orderQuery = this.firestore.collectionGroup('orders').where('id', '==', orderId).limit(1);
+        const orderSnapshot = await orderQuery.get();
+
+        if (orderSnapshot.empty) {
+            throw new Error(`Order ${orderId} not found anywhere for reconciliation.`);
+        }
+
+        const orderDoc = orderSnapshot.docs[0];
+        const orderRef = orderDoc.ref;
         
         await this.firestore.runTransaction(async (t) => {
-            const orderSnap = await t.get(orderRef);
+            const orderSnap = await t.get(orderRef); // get the order again within the transaction
             if (!orderSnap.exists) throw new Error(`Order ${orderId} not found for reconciliation.`);
             
             const order = orderSnap.data()!;

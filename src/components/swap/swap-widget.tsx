@@ -184,8 +184,8 @@ export function SwapWidget() {
         if (receipt.status === 1) {
           toast({ title: "Swap Successful!", description: `Transaction confirmed successfully.` });
           
-          // Step 3: Record the non-custodial order in Firestore for history
-          const ordersRef = collection(firestore, 'orders');
+          // Step 3: Record the non-custodial order in the user's subcollection
+          const ordersRef = collection(firestore, 'users', user.uid, 'orders');
           await addDoc(ordersRef, {
             userId: user.uid,
             marketId: `${fromToken.symbol}-${toToken.symbol}`,

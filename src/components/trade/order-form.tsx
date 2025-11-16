@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useEffect, useState } from 'react';
@@ -120,7 +121,8 @@ export function OrderForm({ selectedPrice, marketId }: OrderFormProps) {
       return;
     }
 
-    const newOrderRef = doc(collection(firestore, 'orders'));
+    // Create the new order in the user's subcollection
+    const newOrderRef = doc(collection(firestore, 'users', user.uid, 'orders'));
     const newOrderData: Omit<Order, 'createdAt' | 'updatedAt' | 'id'> & { id?: string } = {
       userId: user.uid,
       marketId,

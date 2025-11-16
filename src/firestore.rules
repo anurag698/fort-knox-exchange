@@ -13,7 +13,8 @@ service cloud.firestore {
     // --- HELPER FUNCTIONS ---
     // Reusable function to check if the authenticated user is an admin.
     function isAdmin() {
-      return exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+      return request.auth != null &&
+             exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
              get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'ADMIN';
     }
 
@@ -44,26 +45,17 @@ service cloud.firestore {
       allow read, write: if request.auth.uid == userId || isAdmin();
     }
 
-    // --- ORDERS COLLECTION ---
-    // This is the definitive rule that fixes the permission error.
+    // --- ORDERS ---
+    // Top-level orders collection is now restricted for admin use or direct GETs.
+    // User-facing list queries now happen on the subcollection.
     match /orders/{orderId} {
-      // A user can read a specific order if they are the owner, or if they are an admin.
-      allow get: if (resource.data.userId == request.auth.uid) || isAdmin();
-      
-      // A user can query the orders collection ONLY if their query is filtered by their own userId.
-      // This is what allows "My Open Orders" to work securely. Admins can query without this filter.
-      allow list: if (request.query.filters[0][2] == request.auth.uid) || isAdmin();
-
-      // A user can create an order if they are the owner specified in the order data.
+      allow get: if resource.data.userId == request.auth.uid || isAdmin();
+      allow list: if isAdmin(); // Only admins can list all orders.
       allow create: if request.auth.uid == request.resource.data.userId;
-
-      // A user can only update their own order, and only to cancel it. Admins can do more.
       allow update: if (request.auth.uid == resource.data.userId && request.resource.data.status == 'CANCELED') || isAdmin();
     }
-
-    // --- DEX & IDEMPOTENCY ---
-    // These collections are managed by trusted server-side code (actions, functions) or admins.
-    // No client-side read/write access is needed for regular users.
+    
+    // DEX & IDEMPOTENCY - These are admin/backend-only collections
     match /dex_transactions/{txId} {
       allow read, write: if isAdmin();
     }

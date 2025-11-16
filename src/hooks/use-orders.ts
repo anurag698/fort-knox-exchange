@@ -7,7 +7,7 @@ import type { Order } from '@/lib/types';
 
 /**
  * Fetches orders for a specific user and optionally filters by market.
- * This hook is safe because it will not construct a query until the user is authenticated.
+ * This hook now queries the `users/{userId}/orders` subcollection.
  * @param userId The UID of the user whose orders are to be fetched.
  * @param marketId Optional market ID to filter orders.
  */
@@ -21,8 +21,10 @@ export function useOrders(userId?: string, marketId?: string) {
       return null;
     }
 
+    // Query the subcollection path: `users/{userId}/orders`
+    const ordersCollectionRef = collection(firestore, 'users', userId, 'orders');
+
     const constraints: QueryConstraint[] = [
-      where('userId', '==', userId),
       orderBy('createdAt', 'desc'),
     ];
 
@@ -30,7 +32,7 @@ export function useOrders(userId?: string, marketId?: string) {
       constraints.unshift(where('marketId', '==', marketId));
     }
 
-    return query(collection(firestore, 'orders'), ...constraints);
+    return query(ordersCollectionRef, ...constraints);
     
   }, [firestore, userId, marketId]); 
 

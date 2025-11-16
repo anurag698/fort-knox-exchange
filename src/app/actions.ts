@@ -152,7 +152,8 @@ export async function cancelOrder(prevState: FormState, formData: FormData): Pro
 
   try {
     const { firestore, FieldValue } = getFirebaseAdmin();
-    const orderRef = firestore.collection('orders').doc(orderId);
+    // Path to the order in the user's subcollection
+    const orderRef = firestore.collection('users').doc(userId).collection('orders').doc(orderId);
     
     await firestore.runTransaction(async (transaction) => {
       const orderDoc = await transaction.get(orderRef);
@@ -160,9 +161,12 @@ export async function cancelOrder(prevState: FormState, formData: FormData): Pro
         throw new Error('Order not found.');
       }
       const orderData = orderDoc.data();
+      
+      // userId check is implicitly handled by the path, but we can double-check
       if (orderData?.userId !== userId) {
         throw new Error('You do not have permission to cancel this order.');
       }
+
       if (orderData?.status !== 'OPEN' && orderData?.status !== 'PARTIAL') {
         throw new Error(`Order cannot be cancelled in its current state: ${orderData?.status}`);
       }
@@ -219,7 +223,8 @@ export async function createMarketOrder(prevState: FormState, formData: FormData
     const { firestore, FieldValue } = getFirebaseAdmin();
     const [baseAssetId, quoteAssetId] = marketId.split('-');
     
-    const orderRef = firestore.collection('orders').doc();
+    // Create the new order in the user's subcollection
+    const orderRef = firestore.collection('users').doc(userId).collection('orders').doc();
 
     try {
         const host = headers().get('host');

@@ -3,57 +3,104 @@ import { NextResponse } from 'next/server';
 import { getFirebaseAdmin } from '@/lib/firebase-admin';
 import { deriveBtcAddressFromXpub } from '@/lib/btc-address';
 import { deriveEthAddressFromXpub } from '@/lib/eth-address';
+import type { Asset } from '@/lib/types';
 
 export async function POST(request: Request) {
   try {
     const { firestore, FieldValue } = getFirebaseAdmin();
     const body = await request.json();
-    const { userId, coin } = body ?? {};
-    if (!userId || !coin) {
-      return NextResponse.json({ error: 'userId and coin required' }, { status: 400 });
+    const { userId, assetId } = body ?? {};
+
+    if (!userId || !assetId) {
+      return NextResponse.json({ error: 'userId and assetId are required' }, { status: 400 });
     }
 
     const db = firestore;
-    const coinUpper = coin.toString().toUpperCase();
+    
+    // 1. Look up the asset metadata from the `assets` collection
+    const assetRef = db.collection('assets').doc(assetId);
+    const assetDoc = await assetRef.get();
 
+    if (!assetDoc.exists) {
+        return NextResponse.json({ error: `Unsupported asset: ${assetId}` }, { status: 400 });
+    }
+    
+    const assetData = assetDoc.data() as Asset;
+    const chain = assetData.symbol === 'BTC' ? 'BTC' : 'ETH'; // Simplified: Assume ETH-based or BTC
+
+    // 2. Run transaction to get or create the appropriate deposit address
     const address = await db.runTransaction(async (tx) => {
-      const indexRef = db.collection('addressIndexes').doc(coinUpper);
-      // READ first
-      const idxSnap = await tx.get(indexRef);
-      const lastIndex = idxSnap.exists ? Number(idxSnap.data()?.lastIndex ?? -1) : -1;
-      const newIndex = lastIndex + 1;
+      // For ERC20 tokens or ETH itself, we need the user's single ETH address
+      if (chain === 'ETH') {
+          const ethIndexRef = db.collection('addressIndexes').doc('ETH');
+          const ethIdxSnap = await tx.get(ethIndexRef);
+          
+          // Check if an ETH address already exists for this user
+          const existingAddressesQuery = db.collection('addresses')
+              .where('userId', '==', userId)
+              .where('coin', '==', 'ETH')
+              .limit(1);
+          const existingAddrSnap = await tx.get(existingAddressesQuery);
+          
+          if (!existingAddrSnap.empty) {
+              return existingAddrSnap.docs[0].data().address;
+          }
 
-      // DERIVE address (pure local computation)
-      let derived: string;
-      if (coinUpper === 'BTC') {
-        const xpub = process.env.XPUB_BTC;
-        if (!xpub) throw new Error('XPUB_BTC env not configured');
-        derived = deriveBtcAddressFromXpub(xpub, newIndex);
-      } else if (['ETH', 'USDT', 'USDC', 'MATIC'].includes(coinUpper)) {
-        const ethXpub = process.env.ETH_XPUB;
-        if (!ethXpub) throw new Error('ETH_XPUB env not configured');
-        derived = deriveEthAddressFromXpub(ethXpub, newIndex);
+          // If not, derive a new one
+          const lastIndex = ethIdxSnap.exists ? Number(ethIdxSnap.data()?.lastIndex ?? -1) : -1;
+          const newIndex = lastIndex + 1;
+          
+          const ethXpub = process.env.ETH_XPUB;
+          if (!ethXpub) throw new Error('ETH_XPUB env not configured');
+          const derived = deriveEthAddressFromXpub(ethXpub, newIndex);
+
+          if (!ethIdxSnap.exists) {
+              tx.set(ethIndexRef, { lastIndex: newIndex, createdAt: FieldValue.serverTimestamp() });
+          } else {
+              tx.update(ethIndexRef, { lastIndex: newIndex });
+          }
+
+          const addrRef = db.collection('addresses').doc(derived);
+          tx.set(addrRef, {
+              coin: 'ETH', // Store it as an ETH address
+              userId,
+              index: newIndex,
+              createdAt: FieldValue.serverTimestamp(),
+              used: false,
+          });
+
+          return derived;
+
+      } else if (chain === 'BTC') {
+          // For BTC, derive a new, unique address
+          const btcIndexRef = db.collection('addressIndexes').doc('BTC');
+          const btcIdxSnap = await tx.get(btcIndexRef);
+          const lastIndex = btcIdxSnap.exists ? Number(btcIdxSnap.data()?.lastIndex ?? -1) : -1;
+          const newIndex = lastIndex + 1;
+
+          const btcXpub = process.env.XPUB_BTC;
+          if (!btcXpub) throw new Error('XPUB_BTC env not configured');
+          const derived = deriveBtcAddressFromXpub(btcXpub, newIndex);
+          
+          if (!btcIdxSnap.exists) {
+            tx.set(btcIndexRef, { lastIndex: newIndex, createdAt: FieldValue.serverTimestamp() });
+          } else {
+            tx.update(btcIndexRef, { lastIndex: newIndex });
+          }
+          
+          const addrRef = db.collection('addresses').doc(derived);
+          tx.set(addrRef, {
+            coin: 'BTC',
+            userId,
+            index: newIndex,
+            createdAt: FieldValue.serverTimestamp(),
+            used: false,
+          });
+
+          return derived;
       } else {
-        throw new Error('unsupported coin: ' + coin);
+          throw new Error(`Chain type for asset ${assetId} is not supported.`);
       }
-
-      // ALL READS DONE — now do writes
-      if (!idxSnap.exists) {
-        tx.set(indexRef, { lastIndex: newIndex, createdAt: FieldValue.serverTimestamp() });
-      } else {
-        tx.update(indexRef, { lastIndex: newIndex });
-      }
-
-      const addrRef = db.collection('addresses').doc(derived);
-      tx.set(addrRef, {
-        coin: coinUpper,
-        userId,
-        index: newIndex,
-        createdAt: FieldValue.serverTimestamp(),
-        used: false,
-      });
-
-      return derived;
     });
 
     return NextResponse.json({ address });

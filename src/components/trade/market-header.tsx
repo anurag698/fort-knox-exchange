@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { ChevronsUpDown, Check } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -36,6 +36,9 @@ export function MarketHeader({ marketId }: MarketHeaderProps) {
   const { data: assets, isLoading: assetsLoading } = useAssets();
   const [marketData, setMarketData] = useState<MarketData | null>(null);
   const [open, setOpen] = useState(false);
+  const lastUpdateTime = useRef(0);
+  const updateTimeout = useRef<NodeJS.Timeout | null>(null);
+  const latestData = useRef<MarketData | null>(null);
 
   const assetsMap = new Map(assets?.map(a => [a.id, a]));
   const currentMarket = markets?.find(m => m.id === marketId);
@@ -46,6 +49,10 @@ export function MarketHeader({ marketId }: MarketHeaderProps) {
   useEffect(() => {
     if (!marketId) return;
 
+    setMarketData(null); // Reset data when market changes
+    latestData.current = null;
+    lastUpdateTime.current = 0;
+
     const ws = new WebSocket(
       `wss://stream.binance.com:9443/ws/${marketId
         .replace('-', '')
@@ -55,18 +62,37 @@ export function MarketHeader({ marketId }: MarketHeaderProps) {
     ws.onmessage = event => {
       const data = JSON.parse(event.data);
       if (data) {
-        setMarketData({
+        latestData.current = {
           price: parseFloat(data.c),
           priceChangePercent: parseFloat(data.P),
           high: parseFloat(data.h),
           low: parseFloat(data.l),
           volume: parseFloat(data.v),
-        } as MarketData);
+        } as MarketData;
+
+        const now = Date.now();
+        if (now - lastUpdateTime.current > 500) { // Throttle updates to every 500ms
+            setMarketData(latestData.current);
+            lastUpdateTime.current = now;
+            if (updateTimeout.current) {
+                clearTimeout(updateTimeout.current);
+                updateTimeout.current = null;
+            }
+        } else if (!updateTimeout.current) {
+            updateTimeout.current = setTimeout(() => {
+                setMarketData(latestData.current);
+                lastUpdateTime.current = Date.now();
+                updateTimeout.current = null;
+            }, 500);
+        }
       }
     };
 
     return () => {
       ws.close();
+      if (updateTimeout.current) {
+        clearTimeout(updateTimeout.current);
+      }
     };
   }, [marketId]);
 

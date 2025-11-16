@@ -1,3 +1,4 @@
+
 // src/lib/firebase-admin.ts
 import { App, getApp, getApps, initializeApp, cert, type ServiceAccount } from 'firebase-admin/app';
 import { getAuth as getAdminAuth, type Auth } from 'firebase-admin/auth';
@@ -43,7 +44,7 @@ export function getFirebaseAdmin(): FirebaseAdminServices {
     try {
       const creds = JSON.parse(svcJson);
       const newApp = initializeApp({ credential: cert(creds) }, appName);
-      console.info('[firebase-admin] initialized from FIREBASE_SERVICE_ACCOUNT_JSON');
+      console.info('[firebase-admin] Initialized successfully from FIREBASE_SERVICE_ACCOUNT_JSON.');
       adminServices = {
           app: newApp,
           firestore: getAdminFirestore(newApp),
@@ -51,15 +52,13 @@ export function getFirebaseAdmin(): FirebaseAdminServices {
           FieldValue
       };
     } catch (err) {
-      console.error('[firebase-admin] Failed to parse FIREBASE_SERVICE_ACCOUNT_JSON. Make sure it is valid JSON.');
-      console.error(err);
-      // Throw an explicit error so server routes fail fast with a helpful message
-      throw new Error('Invalid FIREBASE_SERVICE_ACCOUNT_JSON environment variable. See server logs for parse error.');
+      console.error('[firebase-admin] Failed to parse FIREBASE_SERVICE_ACCOUNT_JSON. Ensure it is a valid, single-line JSON string.');
+      throw new Error('Invalid FIREBASE_SERVICE_ACCOUNT_JSON environment variable. See server logs for details.');
     }
   } else if (process.env.GOOGLE_APPLICATION_CREDENTIALS) {
     try {
       const newApp = initializeApp({ credential: cert(process.env.GOOGLE_APPLICATION_CREDENTIALS) }, appName);
-      console.info('[firebase-admin] initialized using application default credentials');
+      console.info('[firebase-admin] Initialized successfully using GOOGLE_APPLICATION_CREDENTIALS.');
       adminServices = {
           app: newApp,
           firestore: getAdminFirestore(newApp),
@@ -67,13 +66,12 @@ export function getFirebaseAdmin(): FirebaseAdminServices {
           FieldValue
       };
     } catch (err) {
-      console.error('[firebase-admin] Failed to initialize applicationDefault credential', err);
+      console.error('[firebase-admin] Failed to initialize with GOOGLE_APPLICATION_CREDENTIALS path.', err);
       throw err;
     }
   } else {
-    const errMsg = '[firebase-admin] No service account JSON or application default credentials found. Set FIREBASE_SERVICE_ACCOUNT_JSON or GOOGLE_APPLICATION_CREDENTIALS.';
-    console.error(errMsg);
-    // Do NOT silently continue: server routes that require Firestore should be explicit.
+    const errMsg = 'Firebase Admin initialization failed. Set FIREBASE_SERVICE_ACCOUNT_JSON for this environment.';
+    console.error(`[firebase-admin] FATAL ERROR: ${errMsg}`);
     throw new Error(errMsg);
   }
   

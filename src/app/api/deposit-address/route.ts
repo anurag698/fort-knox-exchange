@@ -20,13 +20,13 @@ export async function POST(request: Request) {
     try {
       body = await request.json();
     } catch (e) {
-      return NextResponse.json({ error: 'invalid json' }, { status: 400 });
+      return NextResponse.json({ error: 'Invalid JSON payload.' }, { status: 400 });
     }
 
     const { userId, assetId } = normalizeInput(body);
 
     if (!userId || !assetId) {
-      return NextResponse.json({ error: 'userId and assetId are required' }, { status: 400 });
+      return NextResponse.json({ error: 'userId and assetId are required.' }, { status: 400 });
     }
     
     const symbol = String(assetId).toUpperCase();
@@ -48,8 +48,9 @@ export async function POST(request: Request) {
     if (chainType === 'ETH') {
         const ethXpub = process.env.ETH_XPUB;
         if (!ethXpub) {
-            console.error('[deposit-address] missing ETH_XPUB');
-            throw new Error('ETH_XPUB env not configured');
+            const errorMessage = 'ETH_XPUB environment variable is not configured on the server.';
+            console.error(`[deposit-address] FATAL ERROR: ${errorMessage}`);
+            return NextResponse.json({ error: 'Server Configuration Incomplete', detail: errorMessage }, { status: 500 });
         }
 
         const address = await firestore.runTransaction(async (tx) => {
@@ -92,8 +93,9 @@ export async function POST(request: Request) {
     if (chainType === 'BTC') {
         const btcXpub = process.env.BTC_XPUB;
         if (!btcXpub) {
-            console.error('[deposit-address] missing BTC_XPUB');
-            throw new Error('BTC_XPUB env not configured');
+             const errorMessage = 'BTC_XPUB environment variable is not configured on the server.';
+            console.error(`[deposit-address] FATAL ERROR: ${errorMessage}`);
+            return NextResponse.json({ error: 'Server Configuration Incomplete', detail: errorMessage }, { status: 500 });
         }
 
         const address = await firestore.runTransaction(async (tx) => {
@@ -127,11 +129,13 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ error: `Unsupported chain type for asset ${symbol}` }, { status: 400 });
   } catch (err: any) {
+    const errorMessage = err?.message || 'An unknown error occurred.';
     console.error("[deposit-address] FATAL ERROR:", {
-      message: err?.message,
+      message: errorMessage,
       stack: err?.stack,
       env: {
         ETH_XPUB: !!process.env.ETH_XPUB,
+        BTC_XPUB: !!process.env.BTC_XPUB,
         ETH_NETWORK_RPC: !!process.env.ETH_NETWORK_RPC,
         FIREBASE_SERVICE_ACCOUNT_JSON: !!process.env.FIREBASE_SERVICE_ACCOUNT_JSON,
         GOOGLE_APPLICATION_CREDENTIALS: !!process.env.GOOGLE_APPLICATION_CREDENTIALS
@@ -139,8 +143,8 @@ export async function POST(request: Request) {
     });
 
     return NextResponse.json({
-      error: "internal server error",
-      detail: err?.message || "unknown",
+      error: "Internal Server Error",
+      detail: errorMessage,
     }, { status: 500 });
   }
 }

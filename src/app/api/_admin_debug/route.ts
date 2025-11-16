@@ -1,5 +1,6 @@
 
 import { NextResponse } from 'next/server';
+import { getFirebaseAdmin } from '@/lib/firebase-admin';
 
 export async function GET(request: Request) {
   const out: any = {
@@ -12,22 +13,19 @@ export async function GET(request: Request) {
       ETH_NETWORK_RPC: !!process.env.ETH_NETWORK_RPC,
       NEXT_PUBLIC_BASE_URL: !!process.env.NEXT_PUBLIC_BASE_URL,
     },
-    parsed_project_id: null,
-    parsed_error: null,
+    firebase_admin_init: {
+      success: false,
+      error: null,
+      projectId: null,
+    }
   };
 
-  // quick parse of SA JSON if present
   try {
-    if (process.env.FIREBASE_SERVICE_ACCOUNT_JSON) {
-      try {
-        const parsed = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_JSON);
-        out.parsed_project_id = parsed.project_id || null;
-      } catch (e: any) {
-        out.parsed_error = 'FIREBASE_SERVICE_ACCOUNT_JSON parse error: ' + (e && e.message ? e.message : String(e));
-      }
-    }
+    const admin = getFirebaseAdmin();
+    out.firebase_admin_init.success = true;
+    out.firebase_admin_init.projectId = admin.app.options.projectId || null;
   } catch (e: any) {
-    out.parsed_error = e && e.message ? e.message : String(e);
+    out.firebase_admin_init.error = e.message || String(e);
   }
 
   return NextResponse.json(out);

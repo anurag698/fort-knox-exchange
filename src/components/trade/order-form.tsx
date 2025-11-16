@@ -321,5 +321,3 @@ export function OrderForm({ selectedPrice, marketId }: OrderFormProps) {
     </Card>
   );
 }
-
-    

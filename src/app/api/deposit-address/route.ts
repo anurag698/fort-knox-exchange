@@ -2,25 +2,13 @@
 // diagnostic block — paste at top of src/app/api/deposit-address/route.ts
 import { NextResponse } from "next/server";
 
-(function diagEnv() {
-  try {
-    // boolean presence + length (not contents) for safety
-    const report = {
-      NODE_ENV: process.env.NODE_ENV || null,
-      NEXT_PUBLIC_BASE_URL: !!process.env.NEXT_PUBLIC_BASE_URL,
-      ETH_XPUB_present: !!process.env.ETH_XPUB,
-      ETH_XPUB_length: process.env.ETH_XPUB ? process.env.ETH_XPUB.length : 0,
-      ETH_NETWORK_RPC_present: !!process.env.ETH_NETWORK_RPC,
-      FIREBASE_SERVICE_ACCOUNT_JSON_present: !!process.env.FIREBASE_SERVICE_ACCOUNT_JSON,
-      FIREBASE_SERVICE_ACCOUNT_JSON_length: process.env.FIREBASE_SERVICE_ACCOUNT_JSON ? process.env.FIREBASE_SERVICE_ACCOUNT_JSON.length : 0,
-      GOOGLE_APPLICATION_CREDENTIALS_present: !!process.env.GOOGLE_APPLICATION_CREDENTIALS
-    };
-    // Log to server console
-    console.info('[deposit-address:env-report]', JSON.stringify(report));
-  } catch (e) {
-    console.error('[deposit-address:env-report:error]', String(e));
-  }
-})();
+if (process.env.NODE_ENV === 'development' && !process.env.ETH_XPUB) {
+  return NextResponse.json({
+    address: '0x0000000000000000000000000000000000DEAD',
+    chain: 'ETH',
+    note: 'dev-mock'
+  }, { status: 200 });
+}
 
 // server-side: src/app/api/deposit-address/route.ts
 import { getFirebaseAdmin } from '@/lib/firebase-admin';

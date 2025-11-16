@@ -14,6 +14,18 @@ function normalizeInput(body: any) {
 
 
 export async function POST(request: Request) {
+  // DEV-ONLY GUARD: If in development and secrets are missing, return a mock address.
+  if (process.env.NODE_ENV === 'development' && !process.env.FIREBASE_SERVICE_ACCOUNT_JSON) {
+    console.warn('[deposit-address] DEV-ONLY: Returning mock address because FIREBASE_SERVICE_ACCOUNT_JSON is not set.');
+    const body = await request.json();
+    const { assetId } = normalizeInput(body);
+    const isBtc = String(assetId).toUpperCase() === 'BTC';
+    const mockAddress = isBtc 
+        ? 'bc1qdevm0ckaddressfortestingpurposes' 
+        : '0x0000000000000000000000000000000000DEADC0';
+    return NextResponse.json({ address: mockAddress, chain: isBtc ? 'BTC' : 'ETH', source: 'dev-mock' });
+  }
+
   const admin = getFirebaseAdmin();
   
   if (!admin) {

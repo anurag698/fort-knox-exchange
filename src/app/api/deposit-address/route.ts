@@ -40,21 +40,20 @@ export async function POST(request: Request) {
     }
 
     const assetData = assetSnapshot.docs[0].data() as Asset;
-    // Simplified chain logic: BTC is UTXO, everything else is on an ETH-like chain.
-    const chain = assetData.symbol === 'BTC' ? 'BTC' : 'ETH';
+    // Chain can be explicitly stored on the asset or inferred.
+    // Here we simplify: BTC is 'BTC' chain, all others are on 'ETH' compatible chains.
+    const chainType = assetData.symbol === 'BTC' ? 'BTC' : 'ETH';
 
-    // ==========================================================
-    // ETH & ERC20 Token Logic: Return a single, persistent address
-    // ==========================================================
-    if (chain === 'ETH') {
+    // =========================================================================
+    // ETH & ERC20 Token Logic: Return a single, persistent address for the user
+    // =========================================================================
+    if (chainType === 'ETH') {
       const address = await firestore.runTransaction(async (tx) => {
         // 1. READ: Check if an ETH address already exists for this user
-        const existingAddressesQuery = firestore.collection('addresses')
-          .where('userId', '==', userId)
-          .where('coin', '==', 'ETH')
-          .limit(1);
+        const addressesCol = firestore.collection('addresses');
+        const existingAddressQuery = addressesCol.where('userId', '==', userId).where('coin', '==', 'ETH').limit(1);
+        const existingAddrSnap = await tx.get(existingAddressQuery);
 
-        const existingAddrSnap = await tx.get(existingAddressesQuery);
         if (!existingAddrSnap.empty) {
           return existingAddrSnap.docs[0].data().address;
         }
@@ -65,9 +64,12 @@ export async function POST(request: Request) {
         const lastIndex = ethIdxSnap.exists ? Number(ethIdxSnap.data()?.lastIndex ?? -1) : -1;
         const newIndex = lastIndex + 1;
 
-        // 3. DERIVE: Perform the derivation (pure computation)
+        // 3. DERIVE: Perform the derivation (pure computation, no side-effects)
         const ethXpub = process.env.ETH_XPUB;
-        if (!ethXpub) throw new Error('ETH_XPUB env not configured');
+        if (!ethXpub) {
+          console.error('FATAL: ETH_XPUB environment variable is not configured.');
+          throw new Error('ETH_XPUB env not configured');
+        }
         const derivedAddress = deriveEthAddressFromXpub(ethXpub, newIndex);
 
         // 4. WRITE: Update the index and create the new address mapping
@@ -79,7 +81,7 @@ export async function POST(request: Request) {
 
         const newAddrRef = firestore.collection('addresses').doc(derivedAddress);
         tx.set(newAddrRef, {
-          coin: 'ETH',
+          coin: 'ETH', // The master address is always an ETH one
           userId,
           index: newIndex,
           createdAt: FieldValue.serverTimestamp(),
@@ -95,7 +97,7 @@ export async function POST(request: Request) {
     // ==========================================================
     // BTC Logic: Derive a new, unique address for each request
     // ==========================================================
-    if (chain === 'BTC') {
+    if (chainType === 'BTC') {
       const address = await firestore.runTransaction(async (tx) => {
         // 1. READ: Get the next available index
         const btcIndexRef = firestore.collection('addressIndexes').doc('BTC');
@@ -104,8 +106,11 @@ export async function POST(request: Request) {
         const newIndex = lastIndex + 1;
 
         // 2. DERIVE: Perform derivation
-        const btcXpub = process.env.XPUB_BTC;
-        if (!btcXpub) throw new Error('XPUB_BTC env not configured');
+        const btcXpub = process.env.BTC_XPUB;
+        if (!btcXpub) {
+          console.error('FATAL: BTC_XPUB environment variable is not configured.');
+          throw new Error('BTC_XPUB env not configured');
+        }
         const derivedAddress = deriveBtcAddressFromXpub(btcXpub, newIndex);
 
         // 3. WRITE: Update index and create address mapping
@@ -132,7 +137,7 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ error: `Unsupported chain type for asset ${symbol}` }, { status: 400 });
   } catch (err: any) {
-    console.error('deposit-address error', err);
+    console.error('deposit-address error:', { message: err.message, stack: err.stack });
     return NextResponse.json({ error: err?.message || 'Internal server error' }, { status: 500 });
   }
 }

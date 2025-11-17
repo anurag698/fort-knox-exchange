@@ -77,10 +77,10 @@ export function TokenSelector({ chainId, onSelectToken, selectedToken }: TokenSe
           <ChevronDown className="h-4 w-4" />
         </Button>
       </DialogTrigger>
-      <DialogContent className="max-w-md">
+      <DialogContent className="max-w-md" aria-describedby="token-dialog-description">
         <DialogHeader>
           <DialogTitle>Select a Token</DialogTitle>
-           <DialogDescription>
+           <DialogDescription id="token-dialog-description">
             Search for a token by name, symbol, or address.
           </DialogDescription>
         </DialogHeader>

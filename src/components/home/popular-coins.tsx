@@ -39,7 +39,14 @@ export function PopularCoins() {
       setPricesLoading(false);
       return;
     };
-    const ws = new WebSocket(`wss://stream.binance.com:9443/ws/${marketSymbols.map(s => `${s.toLowerCase()}@trade`).join('/')}`);
+    
+    const streams = marketSymbols.map(s => `${s.toLowerCase()}@trade`).join('/');
+    if (!streams) {
+        setPricesLoading(false);
+        return;
+    }
+
+    const ws = new WebSocket(`wss://stream.binance.com:9443/ws/${streams}`);
     
     ws.onmessage = (event) => {
       const data = JSON.parse(event.data);

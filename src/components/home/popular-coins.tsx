@@ -31,8 +31,7 @@ export function PopularCoins() {
 
   const marketSymbols = useMemo(() => {
     if (!markets) return [];
-    // We only care about USDT pairs for this component
-    return markets.filter(m => m.quoteAssetId === 'USDT').map(m => `${m.baseAssetId}${m.quoteAssetId}`);
+    return markets.filter(m => m.quoteAssetId === 'USDT').map(m => `${m.baseAssetId}USDT`);
   }, [markets]);
 
   useEffect(() => {
@@ -69,9 +68,8 @@ export function PopularCoins() {
     if (!markets) return [];
     return markets.map(market => ({
       ...market,
-      // Mock data for change
       change: (market.id.charCodeAt(0) % 11) - 5 + Math.random() * 2 - 1, 
-    })).filter(m => m.quoteAssetId === 'USDT').slice(0, 5); // Show top 5 USDT pairs
+    })).filter(m => m.quoteAssetId === 'USDT').slice(0, 5); 
   }, [markets]);
 
   const isLoading = marketsLoading || pricesLoading;

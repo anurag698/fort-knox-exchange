@@ -1,155 +1,168 @@
 
-'use client';
+"use client";
 
-import { useState, useEffect, useMemo } from 'react';
-import { Balances } from '@/components/trade/balances';
-import { MemoizedLightweightChart } from '@/components/trade/lightweight-chart';
-import { OrderBook } from '@/components/trade/order-book';
-import { OrderForm } from '@/components/trade/order-form';
-import { UserTrades } from '@/components/trade/user-trades';
-import { RecentTrades } from '@/components/trade/recent-trades';
-import { MarketHeader } from '@/components/trade/market-header';
-import { DepthChart } from '@/components/trade/depth-chart';
-import type { RawOrder } from '@/lib/types';
-import MobileTabs from '@/components/trade/mobile-tabs';
-import type { MobileTab } from '@/components/trade/mobile-tabs';
-import { cn } from '@/lib/utils';
-import { useIsMobile } from '@/hooks/use-mobile';
-import { X } from 'lucide-react';
-import { AlertsManager } from '@/components/trade/alerts-manager';
-import { usePriceAlerts } from '@/hooks/use-price-alerts';
-import { useMarketDataStore } from '@/hooks/use-market-data-store';
-import { marketDataService } from '@/lib/market-data-service';
+import { useEffect, useState, useMemo } from "react";
 
+// -------------------------------
+// Clipboard Safe Copy
+// -------------------------------
+async function safeCopy(text: string) {
+  if (typeof navigator === "undefined") return;
+  if (!navigator.clipboard || !window.isSecureContext) {
+    console.warn("Clipboard not available here");
+    return;
+  }
+  try {
+    await navigator.clipboard.writeText(text);
+  } catch (e) {
+    console.warn("Clipboard failed:", e);
+  }
+}
 
-export default function TradePageClient({ marketId }: { marketId: string }) {
-  const [selectedPrice, setSelectedPrice] = useState<number | undefined>(
-    undefined
-  );
-
-  const [mobileTab, setMobileTab] = useState<MobileTab>('Orderbook');
-  const [isChartFullscreen, setIsChartFullscreen] = useState(false);
-  const isMobile = useIsMobile();
-  
-  const bids = useMarketDataStore(state => state.bids);
-  const asks = useMarketDataStore(state => state.asks);
-  const isConnected = useMarketDataStore(state => state.isConnected);
-  const isLoading = !isConnected && bids.length === 0;
+// -------------------------------
+// WebSocket Hook for Orderbook
+// -------------------------------
+function useBinanceOrderBook(symbol: string) {
+  const [bids, setBids] = useState<any[][]>([]);
+  const [asks, setAsks] = useState<any[][]>([]);
+  const [lastUpdate, setLastUpdate] = useState(Date.now());
 
   useEffect(() => {
-    marketDataService.setMarket(marketId);
-  }, [marketId]);
-  
+    if (!symbol) return;
+
+    let ws: WebSocket | null = null;
+    let reconnectTimer: NodeJS.Timeout;
+
+    const connect = () => {
+      const stream = `${symbol.toLowerCase()}@depth20@100ms`;
+
+      ws = new WebSocket(`wss://stream.binance.com/ws/${stream}`);
+
+      ws.onopen = () => {
+        console.log("WS Connected:", stream);
+      };
+
+      ws.onmessage = (msg) => {
+        try {
+          const data = JSON.parse(msg.data);
+
+          if (data.b && Array.isArray(data.b)) setBids(data.b);
+          if (data.a && Array.isArray(data.a)) setAsks(data.a);
+
+          setLastUpdate(Date.now());
+        } catch (err) {
+          console.log("Parse error:", err);
+        }
+      };
+
+      ws.onerror = (err) => {
+        console.log("WS error:", err);
+      };
+
+      ws.onclose = () => {
+        console.log("WS closed → reconnecting...");
+        reconnectTimer = setTimeout(connect, 1500);
+      };
+    };
+
+    connect();
+
+    return () => {
+      if (ws) ws.close();
+      clearTimeout(reconnectTimer);
+    };
+  }, [symbol]);
+
+  return { bids, asks, lastUpdate };
+}
+
+// -------------------------------
+// MAIN TRADE PAGE CLIENT COMPONENT
+// -------------------------------
+export default function TradePageClient({ marketId }: { marketId: string }) {
+  const symbol = marketId.replace("-", "").toLowerCase(); // BTC-USDT → btcusdt
+
+  const { bids, asks } = useBinanceOrderBook(symbol);
+
+  // ---------------------------------------------
+  // Calculate Mid Price (fully safe)
+  // ---------------------------------------------
   const midPrice = useMemo(() => {
-    if (!bids || !Array.isArray(bids) || !asks || !Array.isArray(asks) || bids.length === 0 || asks.length === 0) {
-      return 0;
-    }
+    if (!Array.isArray(bids) || !Array.isArray(asks)) return null;
+    if (bids.length === 0 || asks.length === 0) return null;
+
     const bestBid = parseFloat(bids[0][0]);
     const bestAsk = parseFloat(asks[0][0]);
+
+    if (Number.isNaN(bestBid) || Number.isNaN(bestAsk)) return null;
+
     return (bestBid + bestAsk) / 2;
   }, [bids, asks]);
 
-  // Hook for handling price alert logic
-  usePriceAlerts(marketId, midPrice);
-
-
-  const renderMobileContent = () => {
-    return (
-      <div className="relative overflow-x-hidden">
-          <div className="swipe-slide flex transition-transform duration-300" style={{ transform: `translateX(-${['Orderbook', 'Trades', 'Depth', 'Positions', 'Alerts'].indexOf(mobileTab) * 100}%)` }}>
-              <div className="w-full flex-shrink-0">
-                  <OrderBook 
-                      marketId={marketId} 
-                      onPriceSelect={setSelectedPrice} 
-                    />
-              </div>
-              <div className="w-full flex-shrink-0">
-                  <RecentTrades marketId={marketId} />
-              </div>
-              <div className="w-full flex-shrink-0">
-                  <DepthChart bids={bids} asks={asks} />
-              </div>
-               <div className="w-full flex-shrink-0">
-                  <UserTrades marketId={marketId} />
-              </div>
-              <div className="w-full flex-shrink-0">
-                  <AlertsManager marketId={marketId} />
-              </div>
-          </div>
-      </div>
-    );
-  }
-
-
+  // ---------------------------------------------
+  // RENDER UI
+  // ---------------------------------------------
   return (
-    <>
-      <div className="flex flex-col gap-4">
-        <MarketHeader marketId={marketId} />
+    <div className="p-4 space-y-4">
 
-        {/* Desktop Layout */}
-        <div className="hidden xl:grid grid-cols-1 xl:grid-cols-12 gap-4">
-          <div className="xl:col-span-3 flex flex-col gap-4">
-            <OrderBook 
-              marketId={marketId} 
-              onPriceSelect={setSelectedPrice} 
-              height={360}
-            />
-            <DepthChart bids={bids} asks={asks} />
-          </div>
+      <h1 className="text-xl font-semibold">
+        {symbol.toUpperCase()} — Live Trading
+      </h1>
 
-          <div className="xl:col-span-6 flex flex-col gap-4">
-            <MemoizedLightweightChart
-              marketId={marketId}
-              setIsChartFullscreen={setIsChartFullscreen} 
-            />
-            <div className="grid grid-cols-2 gap-4">
-              <OrderForm marketId={marketId} selectedPrice={selectedPrice} />
-              <AlertsManager marketId={marketId} />
-            </div>
-          </div>
-
-          <div className="xl:col-span-3 flex flex-col gap-4">
-            <Balances marketId={marketId} />
-            <RecentTrades marketId={marketId} />
-          </div>
-
-          <div className="xl:col-span-12">
-            <UserTrades marketId={marketId} />
-          </div>
-        </div>
-
-        {/* Mobile Layout */}
-          <div className="xl:hidden flex flex-col gap-4">
-              <MemoizedLightweightChart
-                marketId={marketId}
-                setIsChartFullscreen={setIsChartFullscreen} 
-              />
-              <OrderForm marketId={marketId} selectedPrice={selectedPrice} />
-              <Balances marketId={marketId} />
-              <MobileTabs activeTab={mobileTab} setActiveTab={setMobileTab} />
-              {renderMobileContent()}
-          </div>
+      {/* Mid Price */}
+      <div className="bg-gray-900 p-4 rounded-xl text-lg">
+        Mid Price:{" "}
+        {midPrice ? (
+          <span className="text-green-400">{midPrice.toFixed(2)}</span>
+        ) : (
+          <span className="text-gray-500">Loading…</span>
+        )}
       </div>
-      {isChartFullscreen && (
-        <div
-          className="fixed inset-0 z-50 bg-background flex flex-col fullscreen-enter"
-          onClick={() => setIsChartFullscreen(false)}
-        >
-          <div className="flex justify-end p-2">
-            <button className="text-white p-2">
-              <X className="h-6 w-6" />
-              <span className="sr-only">Close fullscreen chart</span>
-            </button>
-          </div>
-      
-          <div className="flex-1 w-full h-full">
-            <MemoizedLightweightChart
-              marketId={marketId}
-              setIsChartFullscreen={setIsChartFullscreen} 
-            />
-          </div>
+
+      {/* Order Book */}
+      <div className="grid grid-cols-2 gap-4">
+        <div className="bg-gray-800 p-4 rounded-xl">
+          <h2 className="font-semibold mb-2">Bids</h2>
+          {bids && bids.length > 0 ? (
+            bids.slice(0, 10).map(([price, qty], i) => (
+              <div
+                key={i}
+                className="flex justify-between text-green-400 hover:bg-gray-700 px-2 rounded"
+              >
+                <span>{parseFloat(price).toFixed(2)}</span>
+                <span>{qty}</span>
+              </div>
+            ))
+          ) : (
+            <div className="text-gray-500">Waiting for data…</div>
+          )}
         </div>
-      )}
-    </>
+
+        <div className="bg-gray-800 p-4 rounded-xl">
+          <h2 className="font-semibold mb-2">Asks</h2>
+          {asks && asks.length > 0 ? (
+            asks.slice(0, 10).map(([price, qty], i) => (
+              <div
+                key={i}
+                className="flex justify-between text-red-400 hover:bg-gray-700 px-2 rounded"
+              >
+                <span>{parseFloat(price).toFixed(2)}</span>
+                <span>{qty}</span>
+              </div>
+            ))
+          ) : (
+            <div className="text-gray-500">Waiting for data…</div>
+          )}
+        </div>
+      </div>
+
+      {/* Copy Button Example */}
+      <button
+        onClick={() => safeCopy(marketId)}
+        className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg"
+      >
+        Copy Market ID
+      </button>
+    </div>
   );
 }

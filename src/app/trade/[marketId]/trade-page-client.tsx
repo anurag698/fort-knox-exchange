@@ -88,6 +88,7 @@ export default function TradePageClient({ marketId }: { marketId: string }) {
                       asks={asks}
                       isLoading={isLoading}
                       error={error}
+                      midPrice={midPrice}
                     />
               </div>
               <div className="w-full flex-shrink-0">

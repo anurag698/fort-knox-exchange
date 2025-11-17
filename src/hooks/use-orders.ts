@@ -1,4 +1,3 @@
-
 'use client';
 
 import { collection, query, where, orderBy, type QueryConstraint } from 'firebase/firestore';

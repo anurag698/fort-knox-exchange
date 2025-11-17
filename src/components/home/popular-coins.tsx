@@ -11,7 +11,7 @@ import Link from 'next/link';
 import { Button } from '../ui/button';
 import { useMarkets } from '@/hooks/use-markets';
 import { useMarketDataStore } from '@/hooks/use-market-data-store';
-import { marketDataService } from '@/lib/market-data-service';
+import MarketDataService from '@/lib/market-data-service';
 
 // Mock icons for coins
 const coinIcons: { [key: string]: React.ElementType } = {
@@ -38,10 +38,21 @@ export function PopularCoins() {
     if (displayMarkets.length === 0) return;
 
     const symbols = displayMarkets.map(m => m.id.replace('-', '').toLowerCase());
-    marketDataService.subscribeToTickers(symbols);
+    
+    // Instantiate the service for each symbol to subscribe
+    symbols.forEach(symbol => {
+        const service = MarketDataService.getInstance(symbol);
+        // The component doesn't need to do anything else,
+        // as the service will push updates to the zustand store.
+    });
 
+    // There's no unsubscribe method on the class, so we just let the instances exist.
+    // In a more complex app, you might add reference counting or a disconnect method.
     return () => {
-      marketDataService.unsubscribeFromTickers(symbols);
+        // symbols.forEach(symbol => {
+        //   const service = MarketDataService.getInstance(symbol);
+        //   service.disconnect(); // Assuming a disconnect method exists
+        // });
     };
   }, [displayMarkets]);
 

@@ -22,6 +22,8 @@ export function deriveXpubFromMnemonic(mnemonic: string): string {
 
 export function getDepositAddress(xpub: string, index: number): string {
   const node = bip32.fromBase58(xpub);
+  // Correctly derive external chain (0) first, then the address index.
+  // This is the standard path for receiving addresses from an account-level XPUB.
   const child = node.derive(0).derive(index);
 
   const publicKey = ethers.utils.computePublicKey(child.publicKey, false);

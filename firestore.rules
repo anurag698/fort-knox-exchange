@@ -1,0 +1,84 @@
+
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // --- DEFAULT RULE ---
+    // By default, deny all reads and writes to all documents.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // --- HELPER FUNCTIONS ---
+    // Reusable function to check if the authenticated user is an admin.
+    function isAdmin() {
+      return request.auth != null &&
+             exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'ADMIN';
+    }
+
+    // --- PUBLIC COLLECTIONS ---
+    // Anyone can read the list of assets, markets, and live market data.
+    match /assets/{assetId} {
+      allow read: if true;
+    }
+    match /markets/{marketId} {
+      allow read: if true;
+    }
+    match /market_data/{marketId} {
+      allow read: if true;
+    }
+    
+    // --- ADMIN-ONLY DATA ---
+    match /addressIndexes/{coinId} {
+      allow read, write: if isAdmin();
+    }
+    match /addresses/{address} {
+      allow read, write: if isAdmin();
+    }
+    match /dex_transactions/{txId} {
+      allow read, write: if isAdmin();
+    }
+     match /idempotency/{key} {
+      allow read, write: if isAdmin();
+    }
+     match /ledger_entries/{entryId} {
+      allow read, write: if isAdmin();
+    }
+
+    // --- USER DATA ---
+    match /users/{userId} {
+      // Allow a user to read their own profile. Admins can read any profile.
+      allow get: if request.auth.uid == userId || isAdmin();
+      // A user can create their own profile upon signup.
+      allow create: if request.auth.uid == userId;
+      // A user can update their own profile, but NOT change their role. Admins can do anything.
+      allow update: if (request.auth.uid == userId && !('role' in request.resource.data)) || isAdmin();
+      // Only Admins can list all users.
+      allow list: if isAdmin();
+
+      // Subcollection for deposit addresses specific to a user.
+      match /deposit_addresses/{addressId} {
+        allow read: if request.auth.uid == userId;
+        // Writes are handled by the server-side API route, not directly by clients.
+        allow write: if false;
+      }
+
+      // This rule applies to all other subcollections under a user (balances, orders, etc.)
+      match /{allOtherDocuments=**} {
+        allow read, write: if request.auth.uid == userId || isAdmin();
+      }
+    }
+
+    // --- ORDERS ---
+    // Top-level orders collection group access
+    match /orders/{orderId} {
+      allow get: if resource.data.userId == request.auth.uid || isAdmin();
+      allow list: if isAdmin(); // Only admins can list all orders from the top-level.
+      allow create: if request.auth.uid == request.resource.data.userId;
+      allow update: if (request.auth.uid == resource.data.userId && request.resource.data.status == 'CANCELED') || isAdmin();
+    }
+    
+  }
+}

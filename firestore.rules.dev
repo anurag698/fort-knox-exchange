@@ -8,4 +8,48 @@ service cloud.firestore {
       allow read, write: if true;
     }
   }
+}rules_version = '2';
+
+/**
+ * Fort Knox Exchange - Firestore Security Rules
+ * 
+ * CRITICAL SECURITY:
+ * - Users can READ their own deposit addresses
+ * - Only SERVER (Admin SDK) can WRITE addresses and indexes
+ * - Prevents client-side manipulation of wallet data
+ * 
+ * @version 1.0.0
+ */
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // User documents - READ only for authenticated users
+    match /users/{userId} {
+      // Allow users to read their own data
+      allow read: if request.auth != null && request.auth.uid == userId;
+      
+      // CRITICAL: Block ALL client writes
+      // Only server (Admin SDK) can write deposit addresses and indexes
+      allow write: if false;
+    }
+    
+    // System configuration - SERVER ONLY
+    match /system/{document=**} {
+      // Block all client access
+      allow read, write: if false;
+    }
+    
+    // Transaction logs - READ only for own transactions
+    match /transactions/{txId} {
+      allow read: if request.auth != null && 
+                     resource.data.userId == request.auth.uid;
+      allow write: if false;
+    }
+    
+    // Admin-only collections
+    match /admin/{document=**} {
+      allow read, write: if false;
+    }
+  }
 }

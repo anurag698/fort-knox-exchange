@@ -2,48 +2,31 @@
 // src/app/api/deposit-address/route.ts
 import { NextResponse } from 'next/server';
 import { getFirebaseAdmin } from '@/lib/firebase-admin';
-import { deriveBtcAddressFromXpub } from '@/lib/btc-address';
-import * as bip32 from 'bip32';
-import secp from 'secp256k1';
-import * as ethUtil from 'ethereumjs-util';
+import { deriveAddressFromXpub, isValidBSCAddress } from '@/lib/wallet';
 
-// Helper: standardize incoming asset key (accept asset, token, assetId)
-function normalizeInput(body: any) {
-  const userId = body?.userId || body?.uid || body?.user || null;
-  const assetId = (body?.assetId || body?.asset || body?.token || body?.symbol || null);
-  return { userId, assetId };
-}
+const BSC_XPUB = process.env.BSC_XPUB;
+const BSC_DERIVATION_BASE = process.env.BSC_DERIVATION_BASE || "m/44'/60'/0'";
 
-function toEthAddressFromPub(pubKeyBuffer: Buffer): string {
-  let uncompressed: Buffer;
-  if (pubKeyBuffer.length === 33) {
-    // convert compressed -> uncompressed using secp256k1
-    uncompressed = Buffer.from(secp.publicKeyConvert(pubKeyBuffer, false)); // 65 bytes
-  } else if (pubKeyBuffer.length === 65) {
-    uncompressed = pubKeyBuffer;
-  } else {
-    throw new Error('unexpected pubkey length: ' + pubKeyBuffer.length);
+// Rate limiting configuration
+const RATE_LIMIT_WINDOW = 60000; // 1 minute
+const MAX_REQUESTS = 5;
+const rateLimitStore = new Map<string, { count: number; resetAt: number }>();
+
+function checkRateLimit(uid: string): boolean {
+  const now = Date.now();
+  const userLimit = rateLimitStore.get(uid);
+
+  if (!userLimit || now > userLimit.resetAt) {
+    rateLimitStore.set(uid, { count: 1, resetAt: now + RATE_LIMIT_WINDOW });
+    return true;
   }
-  // drop 0x04 prefix if present
-  const pubNoPrefix = uncompressed.length === 65 ? uncompressed.slice(1) : uncompressed;
-  const hash = ethUtil.keccak256(pubNoPrefix);
-  return ethUtil.toChecksumAddress('0x' + hash.slice(-20).toString('hex'));
-}
 
-function deriveAddressFromXpubSmart(xpub: string, index: number): string {
-  const node = bip32.fromBase58(xpub);
-  // If xpub.depth >= 4 it's likely at m/44'/60'/0'/0 (external chain included)
-  const assumeIncludesExternal = node.depth >= 4;
-  let child;
-  if (assumeIncludesExternal) {
-    // node.derive(index) => m/.../0/index
-    child = node.derive(index);
-  } else {
-    // node.derive(0).derive(index) => m/.../0/index
-    child = node.derive(0).derive(index);
+  if (userLimit.count >= MAX_REQUESTS) {
+    return false;
   }
-  if (!child || !child.publicKey) throw new Error('derived child missing publicKey');
-  return toEthAddressFromPub(child.publicKey);
+
+  userLimit.count++;
+  return true;
 }
 
 
@@ -51,142 +34,93 @@ export async function POST(request: Request) {
   const admin = getFirebaseAdmin();
   
   if (!admin) {
-    console.error("[deposit-address] FATAL: Firebase Admin SDK is not available. Check server configuration.");
     return NextResponse.json({
       error: "Service Unavailable",
       detail: "The server's backend connection is not configured. Please contact support.",
     }, { status: 503 });
   }
 
-  const { firestore, FieldValue } = admin;
-
-  let body: any;
-  try {
-    body = await request.json();
-  } catch (e) {
-    return NextResponse.json({ error: 'Invalid JSON payload.' }, { status: 400 });
+  if (!BSC_XPUB) {
+      return NextResponse.json({ error: 'Server misconfigured', detail: 'BSC_XPUB not set' }, { status: 500 });
   }
 
-  const { userId, assetId } = normalizeInput(body);
-
-  if (!userId || !assetId) {
-    return NextResponse.json({ error: 'userId and assetId are required.' }, { status: 400 });
-  }
-  
-  const symbol = String(assetId).toUpperCase();
-  console.info('[deposit-address] request', { userId, assetId: symbol });
-
-  const bscXpub = process.env.BSC_XPUB; // Using BSC_XPUB for EVM chains
-  const btcXpub = process.env.BTC_XPUB;
+  const { firestore, auth, FieldValue } = admin;
 
   try {
-    const assetsCol = firestore.collection('assets');
-    const assetQuery = assetsCol.where('symbol', '==', symbol).limit(1);
-    const assetSnapshot = await assetQuery.get();
+    // 1. Verify Firebase Authentication
+    const authHeader = request.headers.get('authorization');
+    if (!authHeader?.startsWith('Bearer ')) {
+      return NextResponse.json({ error: 'Unauthorized', message: 'Missing or invalid auth token' }, { status: 401 });
+    }
+    const token = authHeader.split('Bearer ')[1];
+    let decodedToken;
+    try {
+      decodedToken = await auth.verifyIdToken(token);
+    } catch (error: any) {
+      console.error('[AUTH] Token verification failed:', error.message);
+      return NextResponse.json({ error: 'Unauthorized', message: 'Invalid token' }, { status: 401 });
+    }
+    const uid = decodedToken.uid;
 
-    if (assetSnapshot.empty) {
-      return NextResponse.json({ error: `Unsupported asset: ${symbol}` }, { status: 400 });
+    // 2. Rate Limiting
+    if (!checkRateLimit(uid)) {
+      console.warn(`[RATE-LIMIT] User ${uid} exceeded rate limit`);
+      return NextResponse.json({ error: 'Too Many Requests', message: 'Please try again later' }, { status: 429 });
     }
 
-    const assetData = assetSnapshot.docs[0].data();
-    console.info('[deposit-address] token metadata', assetData ? assetData : 'not found');
+    // 3. Parse Request Body
+    let body: any;
+    try {
+      body = await request.json();
+    } catch (e) {
+      return NextResponse.json({ error: 'Bad Request', message: 'Invalid JSON body' }, { status: 400 });
+    }
+    const assetId = (body?.assetId || 'BSC').toUpperCase();
+    if (assetId !== 'BSC' && !assetId.startsWith('BSC-')) {
+        return NextResponse.json({ error: 'Unsupported Asset', message: 'Only BSC and BEP-20 assets are supported.' }, { status: 400 });
+    }
     
-    const chainType = assetData.symbol === 'BTC' ? 'BTC' : 'ETH';
+    const userRef = firestore.collection('users').doc(uid);
+    const depositAddressCollectionRef = userRef.collection('deposit_addresses');
 
-    if (chainType === 'ETH') {
-        if (!bscXpub) {
-            const errorDetail = 'BSC_XPUB (for EVM addresses) environment variable is not configured on the server.';
-            console.error(`[deposit-address] Configuration Error: ${errorDetail}`);
-            return NextResponse.json({ error: 'Server Configuration Incomplete', detail: errorDetail }, { status: 503 });
+    // 4. Firestore Transaction to get existing or create new address
+    const result = await firestore.runTransaction(async (transaction) => {
+        const existingAddressQuery = depositAddressCollectionRef.where('assetId', '==', assetId).limit(1);
+        const existingAddressSnap = await transaction.get(existingAddressQuery);
+        
+        if (!existingAddressSnap.empty) {
+            const existingData = existingAddressSnap.docs[0].data();
+            return { address: existingData.address, index: existingData.index, assetId: existingData.assetId };
         }
-        const address = await firestore.runTransaction(async (tx) => {
-            const addressesCol = firestore.collection('addresses');
-            const existingAddressQuery = addressesCol.where('userId', '==', userId).where('coin', '==', 'ETH').limit(1);
-            const existingAddrSnap = await tx.get(existingAddressQuery);
 
-            if (!existingAddrSnap.empty) {
-                return existingAddrSnap.docs[0].data().address;
-            }
+        const userDoc = await transaction.get(userRef);
+        const userData = userDoc.exists ? userDoc.data() : {};
+        let index = (userData?.depositIndexes?.bsc ?? -1) + 1;
 
-            const ethIndexRef = firestore.collection('addressIndexes').doc('ETH');
-            const ethIdxSnap = await tx.get(ethIndexRef);
-            const lastIndex = ethIdxSnap.exists ? Number(ethIdxSnap.data()?.lastIndex ?? -1) : -1;
-            const newIndex = lastIndex + 1;
+        const derivedAddress = deriveAddressFromXpub(BSC_XPUB, index);
+        if (!isValidBSCAddress(derivedAddress)) {
+            throw new Error('Invalid address derived');
+        }
 
-            const derivedAddress = deriveAddressFromXpubSmart(bscXpub, newIndex);
-
-            if (!ethIdxSnap.exists) {
-                tx.set(ethIndexRef, { lastIndex: newIndex, createdAt: FieldValue.serverTimestamp() });
-            } else {
-                tx.update(ethIndexRef, { lastIndex: newIndex });
-            }
-
-            const newAddrRef = firestore.collection('addresses').doc(derivedAddress);
-            tx.set(newAddrRef, {
-                coin: 'ETH',
-                userId,
-                index: newIndex,
-                createdAt: FieldValue.serverTimestamp(),
-                used: false,
-            });
-
-            return derivedAddress;
+        const newAddressRef = depositAddressCollectionRef.doc();
+        transaction.set(newAddressRef, {
+            address: derivedAddress,
+            assetId,
+            index,
+            createdAt: FieldValue.serverTimestamp(),
+            status: 'active',
+            derivationPath: `${BSC_DERIVATION_BASE}/0/${index}`
         });
 
-        return NextResponse.json({ address, chain: 'ETH' });
-    }
+        transaction.set(userRef, { depositIndexes: { bsc: index } }, { merge: true });
 
-    if (chainType === 'BTC') {
-        if (!btcXpub) {
-          const errorDetail = 'BTC_XPUB environment variable is not configured on the server.';
-          console.error(`[deposit-address] Configuration Error: ${errorDetail}`);
-          return NextResponse.json({ error: 'Server Configuration Incomplete', detail: errorDetail }, { status: 503 });
-        }
-        const address = await firestore.runTransaction(async (tx) => {
-            const btcIndexRef = firestore.collection('addressIndexes').doc('BTC');
-            const btcIdxSnap = await tx.get(btcIndexRef);
-            const lastIndex = btcIdxSnap.exists ? Number(btcIdxSnap.data()?.lastIndex ?? -1) : -1;
-            const newIndex = lastIndex + 1;
-
-            const derivedAddress = deriveBtcAddressFromXpub(btcXpub, newIndex);
-
-            if (!btcIdxSnap.exists) {
-                tx.set(btcIndexRef, { lastIndex: newIndex, createdAt: FieldValue.serverTimestamp() });
-            } else {
-                tx.update(btcIndexRef, { lastIndex: newIndex });
-            }
-            
-            const newAddrRef = firestore.collection('addresses').doc(derivedAddress);
-            tx.set(newAddrRef, {
-                coin: 'BTC',
-                userId,
-                index: newIndex,
-                createdAt: FieldValue.serverTimestamp(),
-                used: false,
-            });
-
-            return derivedAddress;
-        });
-
-        return NextResponse.json({ address, chain: 'BTC' });
-    }
-
-    return NextResponse.json({ error: `Unsupported chain type for asset ${symbol}` }, { status: 400 });
-  } catch (err: any) {
-    const errorMessage = err?.message || 'An unknown error occurred.';
-    console.error("[deposit-address] FATAL ERROR:", {
-      message: errorMessage,
-      stack: err?.stack,
-      env: {
-        BSC_XPUB: !!process.env.BSC_XPUB,
-        BTC_XPUB: !!process.env.BTC_XPUB,
-        FIREBASE_SERVICE_ACCOUNT_JSON: !!process.env.FIREBASE_SERVICE_ACCOUNT_JSON,
-      }
+        return { address: derivedAddress, index, assetId };
     });
 
-    return NextResponse.json({
-      error: "Internal Server Error",
-      detail: errorMessage,
-    }, { status: 500 });
+    return NextResponse.json(result, { status: 200 });
+
+  } catch (err: any) {
+    console.error('[deposit-address] FATAL ERROR:', err);
+    return NextResponse.json({ error: 'internal_server_error', detail: err?.message || String(err) }, { status: 500 });
   }
 }

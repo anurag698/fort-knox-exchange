@@ -60,6 +60,8 @@ const nextConfig: NextConfig = {
         };
     }
 
+    config.externals.push('bip39');
+
     return config;
   }
 };

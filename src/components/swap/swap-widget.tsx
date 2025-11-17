@@ -140,9 +140,16 @@ export function SwapWidget() {
         const network = await provider.getNetwork();
         setChainId(Number(network.chainId));
       }
-    } catch (error) {
-      toast({ variant: 'destructive', title: 'Failed to connect wallet.', description: (error as Error).message });
-      console.error(error);
+    } catch (error: any) {
+        let description = 'An unknown error occurred.';
+        // MetaMask error codes are useful for specific feedback
+        if (error.code === 4001) {
+            description = 'Connection rejected. Please approve the connection in MetaMask.';
+        } else if (error.message) {
+            description = error.message;
+        }
+        toast({ variant: 'destructive', title: 'Failed to connect wallet.', description });
+        console.error("Wallet connection error:", error);
     } finally {
       setIsConnecting(false);
     }

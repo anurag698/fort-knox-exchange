@@ -118,7 +118,7 @@ export function OrderBook({ onPriceSelect, marketId, bids, asks, isLoading, erro
               onClick={() => onPriceSelect(order.price)}
             >
               <div 
-                className={`absolute top-0 right-0 h-full ${isBid ? 'bg-green-500/10' : 'bg-red-500/10'}`} 
+                className={`absolute top-0 right-0 h-full ${isBid ? 'bg-green-500/20' : 'bg-red-500/20'}`} 
                 style={{ width: `${(order.total / maxTotal) * 100}%`}}
               />
               <span className={`z-10 w-1/3 text-left ${isBid ? "text-green-500" : "text-red-500"}`}>{order.price.toFixed(pricePrecision)}</span>
@@ -210,4 +210,5 @@ export function OrderBook({ onPriceSelect, marketId, bids, asks, isLoading, erro
     </Card>
   );
 }
+
 

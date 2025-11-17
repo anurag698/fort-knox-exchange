@@ -1,7 +1,9 @@
+
 // src/lib/wallet-service.ts
 import { ethers } from "ethers";
 import Safe, { EthersAdapter } from "@safe-global/protocol-kit";
 import SafeServiceClient from "@safe-global/api-kit"; // Service client
+import { getFirebaseAdmin } from '@/lib/firebase-admin';
 
 // env (make sure .env has these)
 const RPC_URL = process.env.POLYGON_RPC_URL!;
@@ -115,6 +117,80 @@ export const isSafeDeployed = async () => {
   return code && code !== "0x" && code !== "0x0";
 };
 
+/**
+ * Sweeps funds from the hot wallet to the Safe treasury if the balance exceeds a threshold.
+ * This function is a placeholder for a full sweeper bot implementation.
+ * In a real scenario, this would be triggered by a cron job.
+ */
+export async function sweeperBot() {
+  console.log('[SWEEPER] Running sweeper bot logic...');
+  const { firestore } = getFirebaseAdmin();
+  const { provider, signer } = await initSafeClient();
+  const hotWalletAddress = await signer.getAddress();
+
+  // 1. Define sweep thresholds for different tokens
+  const sweepThresholds = {
+    'USDT': {
+      address: '0xc2132D05D31c914a87C6611C10748AEb04B58e8F',
+      threshold: 1000, // Sweep if over 1000 USDT
+      decimals: 6,
+    },
+    'WMATIC': {
+       address: '0x0d500B1d8E8eF31E21C99d1Db9A6444d3ADf1270',
+       threshold: 500, // Sweep if over 500 WMATIC
+       decimals: 18,
+    }
+  };
+
+  for (const [symbol, config] of Object.entries(sweepThresholds)) {
+    try {
+        // 2. Check hot wallet balance for the token
+        const erc20 = new ethers.Contract(config.address, ['function balanceOf(address) view returns (uint256)'], provider);
+        const balanceWei = await erc20.balanceOf(hotWalletAddress);
+        const balance = parseFloat(ethers.formatUnits(balanceWei, config.decimals));
+
+        console.log(`[SWEEPER] Hot wallet balance for ${symbol}: ${balance}`);
+
+        // 3. If balance exceeds threshold, propose a sweep transaction
+        if (balance > config.threshold) {
+            console.log(`[SWEEPER] Threshold exceeded for ${symbol}. Proposing sweep...`);
+            const amountToSweepWei = ethers.parseUnits((balance - (config.threshold * 0.95)).toString(), config.decimals);
+            
+            // Propose a transfer FROM the hot wallet TO the Safe
+            // This is a standard ERC20 transfer, not a Safe transaction itself yet.
+            // In a full implementation, you might have the hot wallet controlled by the Safe.
+            // For now, we simulate proposing a transaction that would be executed by the hot wallet.
+            const transferData = buildErc20TransferData(config.address, SAFE_ADDRESS, amountToSweepWei.toString());
+
+            // Since the hot wallet is the signer, we just build and send, not propose to Safe Service.
+            // For a true sweep TO the safe, it's a simple transfer.
+            const tx = await signer.sendTransaction({
+              to: config.address,
+              data: transferData,
+            });
+            
+            console.log(`[SWEEPER] Sweep transaction for ${symbol} sent. TxHash: ${tx.hash}`);
+
+            // Log this action to Firestore for audit
+            await firestore.collection('sweeper_log').add({
+              symbol,
+              amount: ethers.formatUnits(amountToSweepWei, config.decimals),
+              hotWalletAddress,
+              safeAddress: SAFE_ADDRESS,
+              txHash: tx.hash,
+              status: 'SENT',
+              createdAt: new Date(),
+            });
+        }
+    } catch (e) {
+      console.error(`[SWEEPER] Error processing sweep for ${symbol}:`, e);
+    }
+  }
+
+  console.log('[SWEEPER] Sweeper bot run finished.');
+}
+
+
 // Export types if needed
 export default {
   initSafeClient,
@@ -124,4 +200,5 @@ export default {
   getPendingTransactions,
   proposeErc20Transfer,
   isSafeDeployed,
+  sweeperBot,
 };

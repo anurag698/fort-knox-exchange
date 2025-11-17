@@ -41,12 +41,12 @@ export default function TradePageClient({ marketId }: { marketId: string }) {
   }, [marketId]);
   
   const midPrice = useMemo(() => {
-    if (bids.length > 0 && asks.length > 0) {
-      const bestBid = parseFloat(bids[0][0]);
-      const bestAsk = parseFloat(asks[0][0]);
-      return (bestBid + bestAsk) / 2;
+    if (!bids || !Array.isArray(bids) || !asks || !Array.isArray(asks) || bids.length === 0 || asks.length === 0) {
+      return 0;
     }
-    return 0;
+    const bestBid = parseFloat(bids[0][0]);
+    const bestAsk = parseFloat(asks[0][0]);
+    return (bestBid + bestAsk) / 2;
   }, [bids, asks]);
 
   // Hook for handling price alert logic

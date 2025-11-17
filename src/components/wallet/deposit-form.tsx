@@ -67,7 +67,10 @@ export function DepositForm({ assets }: { assets: Asset[] }) {
   const onCopy = async () => {
     if (!depositAddress) return;
     
-    // Check for secure context and clipboard availability
+    if (typeof navigator === "undefined") {
+      toast({ variant: 'destructive', title: 'Copy Failed', description: 'Clipboard not available.' });
+      return;
+    }
     if (!navigator.clipboard || !window.isSecureContext) {
         toast({
             variant: 'destructive',

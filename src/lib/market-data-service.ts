@@ -1,3 +1,4 @@
+
 class MarketDataService {
   static instances: any = {};
   symbol: string;

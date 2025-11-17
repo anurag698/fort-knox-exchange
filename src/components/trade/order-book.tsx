@@ -1,14 +1,17 @@
+
 'use client';
 
 import { useMemo, useState, useEffect, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { AlertCircle } from "lucide-react";
+import { AlertCircle, Lock, Unlock } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useMarkets } from '@/hooks/use-markets';
 import { cn } from '@/lib/utils';
 import type { ProcessedOrder, RawOrder } from '@/lib/types';
+import { Button } from '../ui/button';
+import { Tooltip, TooltipProvider, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
 
 interface OrderBookProps {
@@ -39,9 +42,13 @@ export function OrderBook({ onPriceSelect, marketId, bids, asks, isLoading, erro
   
   const [aggregation, setAggregation] = useState(AGGREGATION_LEVELS[0]);
   const [baseAsset, quoteAsset] = marketId ? marketId.split('-') : ['', ''];
+  const [scrollLocked, setScrollLocked] = useState(false);
 
   const prevBidsRef = useRef<Map<number, number>>(new Map());
   const prevAsksRef = useRef<Map<number, number>>(new Map());
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const spreadRef = useRef<HTMLDivElement>(null);
+
 
   const groupOrders = (orders: RawOrder[], aggLevel: number, side: 'bids' | 'asks'): ProcessedOrder[] => {
     if (!orders) return [];
@@ -69,6 +76,12 @@ export function OrderBook({ onPriceSelect, marketId, bids, asks, isLoading, erro
   const processedBids = useMemo(() => groupOrders(bids, aggregation, 'bids').sort((a,b) => b.price - a.price), [bids, aggregation]);
   const processedAsks = useMemo(() => groupOrders(asks, aggregation, 'asks').sort((a,b) => a.price - b.price), [asks, aggregation]);
   
+  useEffect(() => {
+    if (!scrollLocked && spreadRef.current && scrollContainerRef.current) {
+        spreadRef.current.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    }
+  }, [processedBids, processedAsks, scrollLocked]);
+
   useEffect(() => {
     const bidsMap = new Map(processedBids.map(o => [o.price, o.quantity]));
     const asksMap = new Map(processedAsks.map(o => [o.price, o.quantity]));
@@ -140,17 +153,12 @@ export function OrderBook({ onPriceSelect, marketId, bids, asks, isLoading, erro
     }
     
     return (
-      <div className="space-y-2">
+      <div className="space-y-2 h-[400px] overflow-y-auto" ref={scrollContainerRef}>
         <div>
-          <div className="flex justify-between text-xs text-muted-foreground mb-1 px-1">
-            <span>Price ({quoteAsset})</span>
-            <span className="text-right">Amount ({baseAsset})</span>
-            <span className="text-right">Total</span>
-          </div>
           {renderOrderList(processedAsks, false)}
         </div>
 
-        <div className="py-2 text-center text-lg font-bold">
+        <div className="py-2 text-center text-lg font-bold" ref={spreadRef}>
             {bestBid?.toFixed(pricePrecision) ?? '---'}
              <span className="text-xs text-muted-foreground ml-2">Spread {spread}</span>
         </div>
@@ -166,20 +174,40 @@ export function OrderBook({ onPriceSelect, marketId, bids, asks, isLoading, erro
     <Card>
       <CardHeader className="p-4 flex-row items-center justify-between">
         <CardTitle className="text-lg">Order Book</CardTitle>
-        <Select value={aggregation.toString()} onValueChange={(v) => setAggregation(Number(v))}>
-            <SelectTrigger className="w-[100px] h-8 text-xs">
-                <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-                {AGGREGATION_LEVELS.map(level => (
-                    <SelectItem key={level} value={level.toString()}>{level}</SelectItem>
-                ))}
-            </SelectContent>
-        </Select>
+        <div className='flex items-center gap-2'>
+            <TooltipProvider>
+                <Tooltip>
+                    <TooltipTrigger asChild>
+                         <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setScrollLocked(!scrollLocked)}>
+                            {scrollLocked ? <Lock className="h-4 w-4" /> : <Unlock className="h-4 w-4" />}
+                        </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                        <p>{scrollLocked ? "Unlock Scroll" : "Lock Scroll"}</p>
+                    </TooltipContent>
+                </Tooltip>
+            </TooltipProvider>
+            <Select value={aggregation.toString()} onValueChange={(v) => setAggregation(Number(v))}>
+                <SelectTrigger className="w-[100px] h-8 text-xs">
+                    <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                    {AGGREGATION_LEVELS.map(level => (
+                        <SelectItem key={level} value={level.toString()}>{level}</SelectItem>
+                    ))}
+                </SelectContent>
+            </Select>
+        </div>
       </CardHeader>
       <CardContent className="p-4 pt-0">
+        <div className="flex justify-between text-xs text-muted-foreground mb-1 px-1">
+          <span>Price ({quoteAsset})</span>
+          <span className="text-right">Amount ({baseAsset})</span>
+          <span className="text-right">Total</span>
+        </div>
         {renderContent()}
       </CardContent>
     </Card>
   );
 }
+

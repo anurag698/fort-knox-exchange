@@ -39,37 +39,29 @@ export function PopularCoins() {
     if (marketSymbols.length === 0) {
       setPricesLoading(false);
       return;
-    };
-    
-    const streams = marketSymbols.map(s => `${s.toLowerCase()}@trade`).join('/');
-    if (!streams) {
-        setPricesLoading(false);
-        return;
     }
+    
+    const sockets = marketSymbols.map(symbol => {
+        const ws = new WebSocket(`wss://stream.binance.com:9443/ws/${symbol.toLowerCase()}@trade`);
+        ws.onmessage = (event) => {
+            const data = JSON.parse(event.data);
+            if (data && data.s && data.p) {
+                setPrices(prevPrices => ({
+                    ...prevPrices,
+                    [data.s.replace('USDT', '')]: parseFloat(data.p),
+                }));
+            }
+        };
+        ws.onerror = (err) => {
+            console.error(`PopularCoins WebSocket error for ${symbol}:`, err);
+        }
+        return ws;
+    });
 
-    const ws = new WebSocket(`wss://stream.binance.com:9443/ws/${streams}`);
-    
-    ws.onmessage = (event) => {
-      const data = JSON.parse(event.data);
-      if (data && data.s && data.p) {
-        setPrices(prevPrices => ({
-          ...prevPrices,
-          [data.s.replace('USDT', '')]: parseFloat(data.p),
-        }));
-      }
-    };
-
-    ws.onopen = () => {
-      setPricesLoading(false);
-    }
-    
-    ws.onerror = (err) => {
-        console.error("PopularCoins WebSocket error:", err);
-        setPricesLoading(false);
-    }
+    setPricesLoading(false);
 
     return () => {
-      ws.close();
+      sockets.forEach(ws => ws.close());
     };
   }, [marketSymbols]);
 

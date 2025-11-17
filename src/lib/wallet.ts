@@ -1,4 +1,3 @@
-
 /**
  * BSC HD Wallet Utilities for Fort Knox Exchange
  *
@@ -8,7 +7,8 @@
  * - Use server-side only (never expose to client)
  */
 import * as bip39 from 'bip39';
-import { HDNode, utils } from 'ethers';
+import { HDNodeWallet, Mnemonic, Wallet, getAddress, isAddress } from 'ethers';
+
 
 // BSC uses Ethereum's derivation path
 const BSC_DERIVATION_PATH = "m/44'/60'/0'";
@@ -19,20 +19,15 @@ const BSC_DERIVATION_PATH = "m/44'/60'/0'";
  * @returns Extended public key string
  * @throws Error if mnemonic is invalid
  */
-export async function mnemonicToXpub(mnemonic: string): Promise<string> {
-  if (!bip39.validateMnemonic(mnemonic)) {
+export function mnemonicToXpub(mnemonic: string): string {
+  if (!Mnemonic.isValidMnemonic(mnemonic)) {
     throw new Error('Invalid mnemonic phrase');
   }
-  // Generate seed from mnemonic
-  const seed = await bip39.mnemonicToSeed(mnemonic);
   
-  // Create HD root node
-  const root = HDNode.fromSeed(seed);
+  const node = HDNodeWallet.fromMnemonic(Mnemonic.fromPhrase(mnemonic));
+  const accountNode = node.derivePath(BSC_DERIVATION_PATH);
   
-  // Derive to BSC path and return neutered (public-only) key
-  const node = root.derivePath(BSC_DERIVATION_PATH);
-  
-  return node.neuter().extendedKey;
+  return accountNode.neuter().extendedKey;
 }
 
 /**
@@ -47,16 +42,14 @@ export function deriveAddressFromXpub(xpub: string, index: number): string {
     throw new Error('Index must be non-negative');
   }
   try {
-    // Load the public node
-    const node = HDNode.fromExtendedKey(xpub);
+    const node = HDNodeWallet.fromExtendedKey(xpub);
     
     // Derive child at path 0/{index}
-    const child = node.derivePath(`0/${index}`);
+    const childNode = node.derivePath(`0/${index}`);
     
-    // Return checksummed address
-    return utils.getAddress(child.address);
-  } catch (error) {
-    throw new Error(`Failed to derive address: ${error}`);
+    return getAddress(childNode.address);
+  } catch (error: any) {
+    throw new Error(`Failed to derive address: ${error.message}`);
   }
 }
 
@@ -66,12 +59,7 @@ export function deriveAddressFromXpub(xpub: string, index: number): string {
  * @returns true if valid
  */
 export function isValidBSCAddress(address: string): boolean {
-  try {
-    utils.getAddress(address);
-    return true;
-  } catch {
-    return false;
-  }
+  return isAddress(address);
 }
 
 /**
@@ -79,6 +67,6 @@ export function isValidBSCAddress(address: string): boolean {
  * @param strength - Bit strength (128 = 12 words, 256 = 24 words)
  * @returns New mnemonic phrase
  */
-export function generateMnemonic(strength: number = 256): string {
-  return bip39.generateMnemonic(strength);
+export function generateMnemonic(strength: number = 128): string {
+  return Mnemonic.fromEntropy(Wallet.createRandom().privateKey.slice(2, 34)).phrase;
 }

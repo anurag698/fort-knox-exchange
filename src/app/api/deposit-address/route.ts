@@ -1,4 +1,3 @@
-
 // src/app/api/deposit-address/route.ts
 import { NextResponse } from 'next/server';
 import { getFirebaseAdmin } from '@/lib/firebase-admin';
@@ -41,7 +40,8 @@ export async function POST(request: Request) {
   }
 
   if (!BSC_XPUB) {
-      return NextResponse.json({ error: 'Server misconfigured', detail: 'BSC_XPUB not set' }, { status: 500 });
+      console.error('[CRITICAL] BSC_XPUB environment variable is not set.');
+      return NextResponse.json({ error: 'Server misconfigured', detail: 'The deposit service is not available.' }, { status: 500 });
   }
 
   const { firestore, auth, FieldValue } = admin;
@@ -76,8 +76,8 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Bad Request', message: 'Invalid JSON body' }, { status: 400 });
     }
     const assetId = (body?.assetId || 'BSC').toUpperCase();
-    if (assetId !== 'BSC' && !assetId.startsWith('BSC-')) {
-        return NextResponse.json({ error: 'Unsupported Asset', message: 'Only BSC and BEP-20 assets are supported.' }, { status: 400 });
+    if (assetId !== 'BSC') {
+        return NextResponse.json({ error: 'Unsupported Asset', message: 'Only BSC asset is supported for now.' }, { status: 400 });
     }
     
     const userRef = firestore.collection('users').doc(uid);
@@ -114,6 +114,7 @@ export async function POST(request: Request) {
 
         transaction.set(userRef, { depositIndexes: { bsc: index } }, { merge: true });
 
+        console.log(`[DEPOSIT] Generated address for uid=${uid} index=${index} asset=${assetId}`);
         return { address: derivedAddress, index, assetId };
     });
 

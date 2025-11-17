@@ -1,4 +1,3 @@
-
 import { ethers } from 'ethers';
 import { deriveAddressFromXpub } from '../src/lib/wallet';
 import 'dotenv/config';

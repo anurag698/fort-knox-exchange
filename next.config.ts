@@ -60,7 +60,10 @@ const nextConfig: NextConfig = {
         };
     }
 
-    config.externals.push('bip39');
+    // These packages are server-side only and should be excluded from the client bundle
+    if (!isServer) {
+      config.externals.push('bip39');
+    }
 
     return config;
   }

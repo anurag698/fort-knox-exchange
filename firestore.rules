@@ -1,4 +1,3 @@
-
 rules_version = '2';
 
 service cloud.firestore {
@@ -64,12 +63,14 @@ service cloud.firestore {
         // Writes are handled by the server-side API route, not directly by clients.
         allow write: if false;
       }
-
-      // This rule applies to all other subcollections under a user (balances, orders, etc.)
-      match /{allOtherDocuments=**} {
-        allow read, write: if request.auth.uid == userId || isAdmin();
-      }
     }
+    
+    // This rule applies to all other subcollections under a user (balances, orders, etc.)
+    match /users/{userId}/{allDocuments=**} {
+        // This is a broad rule, tighten if necessary. For now, it allows a user full control over their own subcollections.
+        allow read, write: if request.auth.uid == userId || isAdmin();
+    }
+
 
     // --- ORDERS ---
     // Top-level orders collection group access

@@ -1,4 +1,3 @@
-
 import { generateMnemonic, mnemonicToXpub, deriveAddressFromXpub } from '../src/lib/wallet';
 
 console.log('--- TEST MNEMONIC AND XPUB GENERATOR ---');
@@ -14,7 +13,7 @@ async function generateTestData() {
         console.log('----------------------------------------------------');
 
         // 2. Convert to XPUB
-        const xpub = await mnemonicToXpub(mnemonic);
+        const xpub = mnemonicToXpub(mnemonic);
         console.log('\n✅ Corresponding Account XPUB (for BSC_XPUB env var):');
         console.log('Derivation Path: m/44\'/60\'/0\'');
         console.log('----------------------------------------------------');

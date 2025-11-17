@@ -1,4 +1,3 @@
-
 # Fort Knox Exchange Deployment Guide
 
 This guide outlines the essential steps for securely deploying and managing the Fort Knox Exchange application, focusing on the handling of cryptographic keys and operational procedures.

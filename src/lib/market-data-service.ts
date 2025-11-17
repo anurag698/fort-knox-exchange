@@ -125,12 +125,12 @@ class MarketDataService {
   }
   
   subscribeToTickers(symbols: string[]) {
-    const streams = symbols.map(s => `${s}@ticker`);
+    const streams = symbols.map(s => `${s.toLowerCase()}@ticker`);
     this.subscribe(streams);
   }
 
   unsubscribeFromTickers(symbols: string[]) {
-    const streams = symbols.map(s => `${s}@ticker`);
+    const streams = symbols.map(s => `${s.toLowerCase()}@ticker`);
     this.unsubscribe(streams);
   }
 

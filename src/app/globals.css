@@ -86,3 +86,21 @@ body {
     @apply bg-background text-foreground;
   }
 }
+
+.flash-green {
+  animation: flashGreen 0.4s ease;
+}
+
+.flash-red {
+  animation: flashRed 0.4s ease;
+}
+
+@keyframes flashGreen {
+  0% { background-color: rgba(0, 255, 0, 0.3); }
+  100% { background-color: transparent; }
+}
+
+@keyframes flashRed {
+  0% { background-color: rgba(255, 0, 0, 0.3); }
+  100% { background-color: transparent; }
+}

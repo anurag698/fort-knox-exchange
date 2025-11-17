@@ -16,6 +16,8 @@ import type { MobileTab } from '@/components/trade/mobile-tabs';
 import { cn } from '@/lib/utils';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { X } from 'lucide-react';
+import { AlertsManager } from '@/components/trade/alerts-manager';
+import { usePriceAlerts } from '@/hooks/use-price-alerts';
 
 
 export default function TradePageClient({ marketId }: { marketId: string }) {
@@ -30,6 +32,19 @@ export default function TradePageClient({ marketId }: { marketId: string }) {
   const [mobileTab, setMobileTab] = useState<MobileTab>('Orderbook');
   const [isChartFullscreen, setIsChartFullscreen] = useState(false);
   const isMobile = useIsMobile();
+  
+  const midPrice = useMemo(() => {
+    if (bids.length > 0 && asks.length > 0) {
+      const bestBid = parseFloat(bids[0][0]);
+      const bestAsk = parseFloat(asks[0][0]);
+      return (bestBid + bestAsk) / 2;
+    }
+    return 0;
+  }, [bids, asks]);
+
+  // Hook for handling price alert logic
+  usePriceAlerts(marketId, midPrice);
+
 
   useEffect(() => {
     if (!marketId) {
@@ -64,7 +79,7 @@ export default function TradePageClient({ marketId }: { marketId: string }) {
   const renderMobileContent = () => {
     return (
       <div className="relative overflow-x-hidden">
-          <div className="swipe-slide flex transition-transform duration-300" style={{ transform: `translateX(-${['Orderbook', 'Trades', 'Depth', 'Positions'].indexOf(mobileTab) * 100}%)` }}>
+          <div className="swipe-slide flex transition-transform duration-300" style={{ transform: `translateX(-${['Orderbook', 'Trades', 'Depth', 'Positions', 'Alerts'].indexOf(mobileTab) * 100}%)` }}>
               <div className="w-full flex-shrink-0">
                   <OrderBook 
                       marketId={marketId} 
@@ -83,6 +98,9 @@ export default function TradePageClient({ marketId }: { marketId: string }) {
               </div>
                <div className="w-full flex-shrink-0">
                   <UserTrades marketId={marketId} />
+              </div>
+              <div className="w-full flex-shrink-0">
+                  <AlertsManager marketId={marketId} />
               </div>
           </div>
       </div>
@@ -111,7 +129,10 @@ export default function TradePageClient({ marketId }: { marketId: string }) {
 
           <div className="xl:col-span-6 flex flex-col gap-4">
             <MemoizedTradingViewChart marketId={marketId} setIsChartFullscreen={setIsChartFullscreen} />
-            <OrderForm marketId={marketId} selectedPrice={selectedPrice} bids={bids} asks={asks} />
+            <div className="grid grid-cols-2 gap-4">
+              <OrderForm marketId={marketId} selectedPrice={selectedPrice} bids={bids} asks={asks} />
+              <AlertsManager marketId={marketId} />
+            </div>
           </div>
 
           <div className="xl:col-span-3 flex flex-col gap-4">

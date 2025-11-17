@@ -68,6 +68,11 @@ service cloud.firestore {
         allow read: if request.auth.uid == userId;
         allow write: if false; // Block ALL client writes
       }
+      
+      // Subcollection for price alerts
+      match /alerts/{alertId} {
+        allow read, write: if request.auth.uid == userId;
+      }
     }
     
     // This rule applies to all other subcollections under a user (balances, orders, etc.)

@@ -3,8 +3,8 @@
 import { useState, useRef, type Dispatch, type SetStateAction } from 'react';
 import { cn } from '@/lib/utils';
 
-export type MobileTab = 'Orderbook' | 'Trades' | 'Depth' | 'Positions';
-const TABS: MobileTab[] = ['Orderbook', 'Trades', 'Depth', 'Positions'];
+export type MobileTab = 'Orderbook' | 'Trades' | 'Depth' | 'Positions' | 'Alerts';
+const TABS: MobileTab[] = ['Orderbook', 'Trades', 'Depth', 'Positions', 'Alerts'];
 
 interface MobileTabsProps {
   activeTab: MobileTab;

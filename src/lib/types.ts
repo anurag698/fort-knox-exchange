@@ -127,3 +127,14 @@ export type Balance = {
   createdAt: any;
   updatedAt: any;
 };
+
+export type PriceAlert = {
+    id: string;
+    userId: string;
+    marketId: string;
+    condition: 'above' | 'below';
+    price: number;
+    enabled: boolean;
+    createdAt: any;
+    lastTriggeredAt: any;
+};

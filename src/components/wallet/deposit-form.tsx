@@ -67,11 +67,12 @@ export function DepositForm({ assets }: { assets: Asset[] }) {
   const onCopy = async () => {
     if (!depositAddress) return;
     
-    if (!navigator.clipboard) {
+    // Check for secure context and clipboard availability
+    if (!navigator.clipboard || !window.isSecureContext) {
         toast({
             variant: 'destructive',
             title: 'Copy Failed',
-            description: 'Clipboard API is not available in this browser or context (requires HTTPS).',
+            description: 'Clipboard API is not available in this environment. Please copy manually.',
         });
         return;
     }
@@ -85,7 +86,7 @@ export function DepositForm({ assets }: { assets: Asset[] }) {
         toast({
             variant: 'destructive',
             title: 'Copy Failed',
-            description: 'Could not copy to clipboard. Please select the text and copy it manually.',
+            description: 'Could not copy to clipboard.',
         });
     }
   };

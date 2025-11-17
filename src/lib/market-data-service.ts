@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useMarketDataStore, type Ticker } from '@/hooks/use-market-data-store';
+import { useMarketDataStore, type TickerData } from '@/hooks/use-market-data-store';
 
 const BINANCE_WS_URL = 'wss://stream.binance.com:9443/stream';
 
@@ -11,14 +11,28 @@ class MarketDataService {
   private subscriptions: Set<string> = new Set();
   private reconnectTimeout: NodeJS.Timeout | null = null;
   private reconnectAttempts = 0;
+  private static instance: MarketDataService | null = null;
 
-  constructor() {
-    // This class is a singleton, so we only want to instantiate it once.
-    if (typeof window !== 'undefined' && !(window as any).__marketDataService) {
-        (window as any).__marketDataService = this;
-        this.connect();
+  private constructor() {
+    // The connect logic is now initiated by component mounts, not constructor
+  }
+
+  public static getInstance(): MarketDataService {
+    if (typeof window === 'undefined') {
+      // This is a server-side render, return a mock or null instance
+      // to prevent errors. The actual service will be used on the client.
+      return {
+        connect: () => {},
+        setMarket: () => {},
+        subscribeToTickers: () => {},
+        unsubscribeFromTickers: () => {},
+      } as any;
     }
-    return (window as any).__marketDataService;
+
+    if (!MarketDataService.instance) {
+      MarketDataService.instance = new MarketDataService();
+    }
+    return MarketDataService.instance;
   }
 
   private connect() {
@@ -78,21 +92,15 @@ class MarketDataService {
     if (newStreams.length === 0) return;
 
     newStreams.forEach(s => this.subscriptions.add(s));
-    this.ws?.send(JSON.stringify({
-        method: "SUBSCRIBE",
-        params: newStreams,
-        id: 1
-    }));
     this.reconnectAndResubscribe();
   }
 
   private unsubscribe(streams: string[]) {
+    const streamsToRemove = streams.filter(s => this.subscriptions.has(s));
+    if(streamsToRemove.length === 0) return;
+
     streams.forEach(s => this.subscriptions.delete(s));
-    this.ws?.send(JSON.stringify({
-        method: "UNSUBSCRIBE",
-        params: streams,
-        id: 1
-    }));
+     this.reconnectAndResubscribe();
   }
   
   private reconnectAndResubscribe() {
@@ -108,7 +116,7 @@ class MarketDataService {
 
     if (this.marketId) {
       const oldSymbol = this.marketId.replace('-', '').toLowerCase();
-      this.unsubscribe([`${oldSymbol}@depth`, `${oldSymbol}@trade`]);
+      this.unsubscribe([`${oldSymbol}@depth`, `${oldSymbol}@trade`, `${oldSymbol}@ticker`]);
     }
     
     this.marketId = marketId;
@@ -131,15 +139,13 @@ class MarketDataService {
     
     switch (type) {
         case 'depth':
-            // In a real scenario, you would fetch a snapshot via REST first,
-            // then apply these diffs. For simplicity, we'll just set it.
             useMarketDataStore.getState().setDepth(data.bids, data.asks);
             break;
         case 'trade':
             useMarketDataStore.getState().addTrade(data);
             break;
         case 'ticker':
-            const tickerData = {
+            const tickerData: TickerData = {
                 price: parseFloat(data.c),
                 priceChangePercent: parseFloat(data.P),
                 high: parseFloat(data.h),
@@ -154,5 +160,5 @@ class MarketDataService {
   }
 }
 
-// Ensure singleton instance
-export const marketDataService = new MarketDataService();
+// Ensure singleton instance on the client
+export const marketDataService = MarketDataService.getInstance();

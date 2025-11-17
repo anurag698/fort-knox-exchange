@@ -1,3 +1,4 @@
+
 import { ethers } from "ethers";
 import Safe, { EthersAdapter } from "@safe-global/protocol-kit";
 import { SafeTransactionDataPartial } from "@safe-global/safe-core-sdk-types";
@@ -87,7 +88,10 @@ export const sweepWalletToSafe = async (privateKey: string) => {
 
   if (balance <= 0n) return { status: "empty" };
 
-  const gasPrice = await provider.getGasPrice();
+  const gasPrice = (await provider.getFeeData()).gasPrice;
+  if(!gasPrice) {
+    throw new Error("Could not fetch gas price for sweep");
+  }
   const gasLimit = 21000n;
   const fee = gasPrice * gasLimit;
 

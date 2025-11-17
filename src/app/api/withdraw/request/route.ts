@@ -1,41 +1,34 @@
-import { NextResponse } from "next/server";
-import { proposeErc20Transfer } from "@/lib/wallet-service";
-import { ethers } from "ethers";
-import { hotWalletWithdraw } from "@/services/hot-withdraw";
 
-const DAILY_LIMIT = 200; // in USD or token units depending on your design
+import { NextResponse } from "next/server";
+import { getFirebaseAdmin } from "@/lib/firebase-admin";
 
 export async function POST(req: Request) {
   try {
-    const { userId, amount, tokenAddress, to } = await req.json();
+    const { userId, address, amount, token } = await req.json();
+    const { firestore } = getFirebaseAdmin()!;
 
-    // Basic validation
-    if (!amount || !to || !tokenAddress) {
+    if (!userId || !address || !amount) {
       return NextResponse.json({ error: "Missing fields" }, { status: 400 });
     }
 
-    // 1) SMALL withdrawal → direct from hot wallet
-    if (amount <= DAILY_LIMIT) {
-      const result = await hotWalletWithdraw(tokenAddress, to, amount);
-
-      return NextResponse.json({
-        status: result.status,
-        txHash: result.txHash || null,
-        message: result.status === 'SUCCESS' ? "Withdrawal completed via hot wallet" : result.error,
-      });
-    }
-
-    // 2) LARGE withdrawal → propose Safe TX
-    // Convert amount to BigInt for Safe proposal (assuming 6 decimals for this path)
-    const amountWei = ethers.parseUnits(amount.toString(), 6).toString();
-    const proposal = await proposeErc20Transfer(tokenAddress, to, amountWei);
+    // Create request in queue
+    const ref = await firestore.collection("withdrawals").add({
+      userId,
+      address,
+      amount,
+      token: token ?? "ETH",
+      status: "pending",
+      createdAt: new Date(),
+      approvedAt: null,
+      txHash: null
+    });
 
     return NextResponse.json({
-      status: "AWAITING_SIGNATURES",
-      safeTxHash: proposal.safeTxHash,
-      message: "Withdrawal proposed via Safe multisig. Needs 2 signatures.",
+      status: "success",
+      withdrawalId: ref.id
     });
-  } catch (err: any) {
-    return NextResponse.json({ error: err.message }, { status: 500 });
+
+  } catch (e: any) {
+    return NextResponse.json({ error: e.message }, { status: 500 });
   }
 }

@@ -2,70 +2,11 @@
 import * as functions from "firebase-functions";
 import * as admin from "firebase-admin";
 import { ethers } from "ethers";
+import { safeSendEth, safeSendToken } from "./lib/wallet-service";
 
 // --- Initialize Firebase Admin SDK ---
 admin.initializeApp();
 const db = admin.firestore();
-
-// --- Wallet Service Imports (Simplified and inlined for Cloud Function) ---
-const RPC_URL = process.env.RPC_URL!;
-const PRIVATE_KEY = process.env.PRIVATE_KEY!;
-const SAFE_ADDRESS = process.env.SAFE_ADDRESS!;
-
-if (!RPC_URL || !PRIVATE_KEY || !SAFE_ADDRESS) {
-  console.error("CRITICAL: Missing ENV variables for wallet service.");
-}
-
-const provider = new ethers.JsonRpcProvider(RPC_URL);
-
-// --- Core Wallet Functions for the Webhook ---
-
-/**
- * Sweeps all ETH from a user's deposit wallet to the main SAFE treasury.
- * @param privateKey The private key of the deposit wallet to sweep.
- * @returns A promise that resolves with the transaction receipt or a status object.
- */
-const sweepWalletToSafe = async (privateKey: string) => {
-  if (!PRIVATE_KEY) {
-      console.error("[SWEEP] Hot wallet private key is not configured.");
-      return { status: "error", message: "Hot wallet not configured." };
-  }
-  const userWallet = new ethers.Wallet(privateKey, provider);
-  const balance = await provider.getBalance(userWallet.address);
-
-  if (balance <= 0n) {
-    console.log(`[SWEEP] No balance to sweep for address ${userWallet.address}`);
-    return { status: "empty" };
-  }
-
-  const gasPrice = (await provider.getFeeData()).gasPrice;
-  if(!gasPrice) {
-    console.error("[SWEEP] Could not fetch gas price.");
-    return { status: "error", message: "Could not fetch gas price." };
-  }
-  const gasLimit = 21000n;
-  const fee = gasPrice * gasLimit;
-
-  if (balance <= fee) {
-    console.warn(`[SWEEP] Insufficient balance for gas fee. Address: ${userWallet.address}, Balance: ${balance}, Fee: ${fee}`);
-    return { status: "insufficient_for_gas" };
-  }
-
-  const sweepAmount = balance - fee;
-
-  try {
-    const tx = await userWallet.sendTransaction({
-      to: SAFE_ADDRESS,
-      value: sweepAmount,
-    });
-    console.log(`[SWEEP] Sweeping ${ethers.formatEther(sweepAmount)} ETH from ${userWallet.address} to SAFE. Tx: ${tx.hash}`);
-    return await tx.wait();
-  } catch (error) {
-    console.error(`[SWEEP] Failed to sweep wallet ${userWallet.address}:`, error);
-    return { status: "error", message: "Sweep transaction failed." };
-  }
-};
-
 
 // --- The Firebase Cloud Function for Webhooks ---
 
@@ -146,7 +87,9 @@ export const depositWebhook = functions.https.onRequest(async (req, res) => {
 
       // 3. Auto-sweep funds from the deposit wallet to the Safe treasury
       if (privateKey && isNativeEth) { // Only sweep native ETH for now
-        await sweepWalletToSafe(privateKey);
+        // This is a placeholder for the sweep function
+        // await sweepWalletToSafe(privateKey);
+        console.log(`[SWEEP] Placeholder: Would sweep from wallet of user ${userId}`);
       }
     }
 
@@ -155,3 +98,45 @@ export const depositWebhook = functions.https.onRequest(async (req, res) => {
     // Do not send error response here as we've already sent 200 OK.
   }
 });
+
+
+export const processWithdrawals = functions.pubsub
+  .schedule("every 1 minutes")
+  .onRun(async () => {
+    const pending = await db
+      .collection("withdrawals")
+      .where("status", "==", "approved")
+      .limit(1)
+      .get();
+
+    if (pending.empty) return;
+
+    const doc = pending.docs[0];
+    const data = doc.data();
+
+    const { address, amount, token } = data;
+
+    try {
+      await doc.ref.update({ status: "processing" });
+
+      let tx;
+
+      if (token === "ETH") {
+        tx = await safeSendEth(address, amount.toString());
+      } else {
+        // ERC20
+        tx = await safeSendToken(token, address, amount.toString());
+      }
+
+      await doc.ref.update({
+        status: "completed",
+        txHash: tx.hash
+      });
+
+    } catch (err) {
+      await doc.ref.update({
+        status: "failed",
+        error: String(err)
+      });
+    }
+  });

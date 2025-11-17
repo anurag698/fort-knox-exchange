@@ -29,7 +29,7 @@ service cloud.firestore {
       allow read: if true;
     }
     
-    // --- ADMIN-ONLY DATA ---
+    // --- ADMIN-ONLY & INTERNAL DATA ---
     match /addressIndexes/{coinId} {
       allow read, write: if isAdmin();
     }
@@ -45,6 +45,9 @@ service cloud.firestore {
      match /ledger_entries/{entryId} {
       allow read, write: if isAdmin();
     }
+    match /internal/{docId} {
+      allow read, write: if false; // never exposed to clients
+    }
 
     // --- USER DATA ---
     match /users/{userId} {
@@ -58,10 +61,9 @@ service cloud.firestore {
       allow list: if isAdmin();
 
       // Subcollection for deposit addresses specific to a user.
-      match /deposit_addresses/{addressId} {
+      match /deposit_addresses/{chain} {
         allow read: if request.auth.uid == userId;
-        // Writes are handled by the server-side API route, not directly by clients.
-        allow write: if false;
+        allow write: if false; // Block ALL client writes
       }
     }
     

@@ -11,6 +11,10 @@ import { RecentTrades } from '@/components/trade/recent-trades';
 import { MarketHeader } from '@/components/trade/market-header';
 import { DepthChart } from '@/components/trade/depth-chart';
 import type { RawOrder } from '@/lib/types';
+import MobileTabs from '@/components/trade/mobile-tabs';
+import type { MobileTab } from '@/components/trade/mobile-tabs';
+import { cn } from '@/lib/utils';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 
 export default function TradePageClient({ marketId }: { marketId: string }) {
@@ -22,6 +26,8 @@ export default function TradePageClient({ marketId }: { marketId: string }) {
   const [asks, setAsks] = useState<RawOrder[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
+  const [mobileTab, setMobileTab] = useState<MobileTab>('Orderbook');
+  const isMobile = useIsMobile();
 
   useEffect(() => {
     if (!marketId) {
@@ -53,12 +59,42 @@ export default function TradePageClient({ marketId }: { marketId: string }) {
     return () => ws.close();
   }, [marketId]);
 
+  const renderMobileContent = () => {
+    return (
+      <div className="relative overflow-x-hidden">
+          <div className="swipe-slide flex transition-transform duration-300" style={{ transform: `translateX(-${['Orderbook', 'Trades', 'Depth', 'Positions'].indexOf(mobileTab) * 100}%)` }}>
+              <div className="w-full flex-shrink-0">
+                  <OrderBook 
+                      marketId={marketId} 
+                      onPriceSelect={setSelectedPrice} 
+                      bids={bids}
+                      asks={asks}
+                      isLoading={isLoading}
+                      error={error}
+                    />
+              </div>
+              <div className="w-full flex-shrink-0">
+                  <RecentTrades marketId={marketId} />
+              </div>
+              <div className="w-full flex-shrink-0">
+                  <DepthChart bids={bids} asks={asks} />
+              </div>
+               <div className="w-full flex-shrink-0">
+                  <UserTrades marketId={marketId} />
+              </div>
+          </div>
+      </div>
+    );
+  }
+
 
   return (
     <div className="flex flex-col gap-4">
       <MarketHeader marketId={marketId} />
-      <div className="grid grid-cols-1 xl:grid-cols-12 gap-4">
-        <div className="xl:col-span-3 flex flex-col gap-4 order-2 xl:order-1">
+
+      {/* Desktop Layout */}
+      <div className="hidden xl:grid grid-cols-1 xl:grid-cols-12 gap-4">
+        <div className="xl:col-span-3 flex flex-col gap-4">
           <OrderBook 
             marketId={marketId} 
             onPriceSelect={setSelectedPrice} 
@@ -70,20 +106,29 @@ export default function TradePageClient({ marketId }: { marketId: string }) {
           <DepthChart bids={bids} asks={asks} />
         </div>
 
-        <div className="xl:col-span-6 flex flex-col gap-4 order-1 xl:order-2">
+        <div className="xl:col-span-6 flex flex-col gap-4">
           <MemoizedTradingViewChart marketId={marketId} />
           <OrderForm marketId={marketId} selectedPrice={selectedPrice} bids={bids} asks={asks} />
         </div>
 
-        <div className="xl:col-span-3 flex flex-col gap-4 order-3 xl:order-3">
+        <div className="xl:col-span-3 flex flex-col gap-4">
           <Balances marketId={marketId} />
           <RecentTrades marketId={marketId} />
         </div>
 
-        <div className="xl:col-span-12 order-4">
+        <div className="xl:col-span-12">
           <UserTrades marketId={marketId} />
         </div>
       </div>
+
+       {/* Mobile Layout */}
+        <div className="xl:hidden flex flex-col gap-4">
+            <MemoizedTradingViewChart marketId={marketId} />
+            <OrderForm marketId={marketId} selectedPrice={selectedPrice} bids={bids} asks={asks} />
+            <Balances marketId={marketId} />
+            <MobileTabs activeTab={mobileTab} setActiveTab={setMobileTab} />
+            {renderMobileContent()}
+        </div>
     </div>
   );
 }

@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Balances } from '@/components/trade/balances';
 import { MemoizedTradingViewChart } from '@/components/trade/trading-view-chart';
 import { OrderBook } from '@/components/trade/order-book';
@@ -123,6 +123,8 @@ export default function TradePageClient({ marketId }: { marketId: string }) {
               asks={asks}
               isLoading={isLoading}
               error={error}
+              midPrice={midPrice}
+              height={360}
             />
             <DepthChart bids={bids} asks={asks} />
           </div>

@@ -6,6 +6,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { AlertCircle } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { useMarkets } from '@/hooks/use-markets';
 
 export type ProcessedOrder = {
   price: number;
@@ -18,17 +20,24 @@ interface OrderBookProps {
   marketId: string;
 }
 
+const AGGREGATION_LEVELS = [0.01, 0.05, 0.1, 0.5, 1, 5, 10, 50, 100];
+
 export function OrderBook({ onPriceSelect, marketId }: OrderBookProps) {
   const [bids, setBids] = useState<[string, string][]>([]);
   const [asks, setAsks] = useState<[string, string][]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
+  const { data: markets } = useMarkets();
+  
+  const market = markets?.find(m => m.id === marketId);
+  const pricePrecision = market?.pricePrecision ?? 2;
+  const quantityPrecision = market?.quantityPrecision ?? 4;
+  
+  const [aggregation, setAggregation] = useState(AGGREGATION_LEVELS[0]);
 
-  // Add a check to ensure marketId exists before splitting
   const [baseAsset, quoteAsset] = marketId ? marketId.split('-') : ['', ''];
 
   useEffect(() => {
-    // Do not proceed if marketId is not available
     if (!marketId) {
       setIsLoading(false);
       setError(new Error("Market ID is not specified."));
@@ -42,10 +51,7 @@ export function OrderBook({ onPriceSelect, marketId }: OrderBookProps) {
 
     const ws = new WebSocket(`wss://stream.binance.com:9443/ws/${marketId.replace('-', '').toLowerCase()}@depth20@100ms`);
 
-    ws.onopen = () => {
-      setIsLoading(false);
-    };
-
+    ws.onopen = () => setIsLoading(false);
     ws.onmessage = (event) => {
       const data = JSON.parse(event.data);
       if (data.bids && data.asks) {
@@ -53,35 +59,44 @@ export function OrderBook({ onPriceSelect, marketId }: OrderBookProps) {
         setAsks(data.asks);
       }
     };
-
     ws.onerror = (event) => {
       setError(new Error('Failed to connect to the order book feed.'));
       setIsLoading(false);
     };
 
-    ws.onclose = () => {
-      // You might want to implement a reconnection logic here
-    };
-
-    return () => {
-      ws.close();
-    };
+    return () => ws.close();
   }, [marketId]);
 
-  const processOrders = (orders: [string, string][]): ProcessedOrder[] => {
-    return orders.map(([price, quantity]) => {
-      const priceNum = parseFloat(price);
-      const quantityNum = parseFloat(quantity);
-      return {
-        price: priceNum,
-        quantity: quantityNum,
-        total: priceNum * quantityNum,
-      };
-    });
+  const groupOrders = (orders: [string, string][], aggLevel: number, side: 'bids' | 'asks'): ProcessedOrder[] => {
+    if (!orders) return [];
+    const grouped: { [key: string]: { quantity: number; total: number } } = {};
+
+    for (const [priceStr, quantityStr] of orders) {
+      const price = parseFloat(priceStr);
+      const quantity = parseFloat(quantityStr);
+      const groupKey = (side === 'bids' ? Math.floor(price / aggLevel) : Math.ceil(price / aggLevel)) * aggLevel;
+      
+      if (!grouped[groupKey]) {
+        grouped[groupKey] = { quantity: 0, total: 0 };
+      }
+      grouped[groupKey].quantity += quantity;
+      grouped[groupKey].total += price * quantity;
+    }
+
+    return Object.entries(grouped).map(([priceStr, data]) => ({
+      price: parseFloat(priceStr),
+      quantity: data.quantity,
+      total: data.total,
+    }));
   };
 
-  const processedBids = useMemo(() => processOrders(bids), [bids]);
-  const processedAsks = useMemo(() => processOrders(asks).sort((a, b) => b.price - a.price), [asks]);
+  const processedBids = useMemo(() => groupOrders(bids, aggregation, 'bids').sort((a,b) => b.price - a.price), [bids, aggregation]);
+  const processedAsks = useMemo(() => groupOrders(asks, aggregation, 'asks').sort((a,b) => a.price - b.price), [asks, aggregation]);
+  const maxTotal = Math.max(...processedBids.map(o => o.total), ...processedAsks.map(o => o.total), 0);
+
+  const bestAsk = processedAsks.length > 0 ? processedAsks[0].price : null;
+  const bestBid = processedBids.length > 0 ? processedBids[0].price : null;
+  const spread = bestAsk && bestBid ? (bestAsk - bestBid).toFixed(pricePrecision) : '-';
 
 
   const renderOrderList = (orders: ProcessedOrder[], isBid: boolean) => {
@@ -90,31 +105,32 @@ export function OrderBook({ onPriceSelect, marketId }: OrderBookProps) {
         <div className="text-center text-xs text-muted-foreground py-4">
           No {isBid ? 'bids' : 'asks'}
         </div>
-      )
+      );
     }
-
-    const maxTotal = Math.max(...orders.map(o => o.total), 0);
+    
+    // For asks, we want the lowest price first, but visually displayed from bottom to top
+    const displayOrders = isBid ? orders : [...orders].reverse();
 
     return (
       <div className="space-y-1">
-        {orders.map((order, index) => (
+        {displayOrders.map((order) => (
           <div 
-            key={index} 
+            key={order.price} 
             className="flex justify-between text-xs font-mono relative cursor-pointer hover:bg-muted/50 p-0.5"
             onClick={() => onPriceSelect(order.price)}
           >
             <div 
-              className={`absolute top-0 ${isBid ? 'left-0' : 'right-0'} h-full ${isBid ? 'bg-green-500/10' : 'bg-red-500/10'}`} 
+              className={`absolute top-0 right-0 h-full ${isBid ? 'bg-green-500/10' : 'bg-red-500/10'}`} 
               style={{ width: `${(order.total / maxTotal) * 100}%`}}
             />
-            <span className={`z-10 ${isBid ? "text-green-500" : "text-red-500"}`}>{order.price.toFixed(2)}</span>
-            <span className="z-10">{order.quantity.toFixed(4)}</span>
-            <span className="z-10">{order.total.toFixed(2)}</span>
+            <span className={`z-10 w-1/3 text-left ${isBid ? "text-green-500" : "text-red-500"}`}>{order.price.toFixed(pricePrecision)}</span>
+            <span className="z-10 w-1/3 text-right">{order.quantity.toFixed(quantityPrecision)}</span>
+            <span className="z-10 w-1/3 text-right">{order.total.toFixed(2)}</span>
           </div>
         ))}
       </div>
-    )
-  }
+    );
+  };
 
   const renderContent = () => {
     if (isLoading) {
@@ -138,18 +154,19 @@ export function OrderBook({ onPriceSelect, marketId }: OrderBookProps) {
     }
     
     return (
-      <div className="space-y-3">
+      <div className="space-y-2">
         <div>
           <div className="flex justify-between text-xs text-muted-foreground mb-1 px-1">
             <span>Price ({quoteAsset})</span>
-            <span>Amount ({baseAsset})</span>
-            <span>Total</span>
+            <span className="text-right">Amount ({baseAsset})</span>
+            <span className="text-right">Total</span>
           </div>
           {renderOrderList(processedAsks, false)}
         </div>
 
         <div className="py-2 text-center text-lg font-bold">
-            {processedBids[0]?.price.toFixed(2) ?? '---'}
+            {bestBid?.toFixed(pricePrecision) ?? '---'}
+             <span className="text-xs text-muted-foreground ml-2">Spread {spread}</span>
         </div>
 
         <div>
@@ -161,8 +178,18 @@ export function OrderBook({ onPriceSelect, marketId }: OrderBookProps) {
 
   return (
     <Card>
-      <CardHeader className="p-4">
+      <CardHeader className="p-4 flex-row items-center justify-between">
         <CardTitle className="text-lg">Order Book</CardTitle>
+        <Select value={aggregation.toString()} onValueChange={(v) => setAggregation(Number(v))}>
+            <SelectTrigger className="w-[100px] h-8 text-xs">
+                <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+                {AGGREGATION_LEVELS.map(level => (
+                    <SelectItem key={level} value={level.toString()}>{level}</SelectItem>
+                ))}
+            </SelectContent>
+        </Select>
       </CardHeader>
       <CardContent className="p-4 pt-0">
         {renderContent()}

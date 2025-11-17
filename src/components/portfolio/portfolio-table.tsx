@@ -66,5 +66,3 @@ export function PortfolioTable({ data }: PortfolioTableProps) {
     </Card>
   );
 }
-
-    

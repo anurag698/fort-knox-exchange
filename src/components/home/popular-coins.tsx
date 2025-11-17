@@ -10,7 +10,8 @@ import { useMemo, useState, useEffect } from 'react';
 import Link from 'next/link';
 import { Button } from '../ui/button';
 import { useMarkets } from '@/hooks/use-markets';
-import type { Market } from "@/lib/types";
+import { useMarketDataStore } from '@/hooks/use-market-data-store';
+import { marketDataService } from '@/lib/market-data-service';
 
 // Mock icons for coins
 const coinIcons: { [key: string]: React.ElementType } = {
@@ -25,9 +26,8 @@ const coinIcons: { [key: string]: React.ElementType } = {
 
 export function PopularCoins() {
   const { data: markets, isLoading: marketsLoading, error } = useMarkets();
-  
-  const [prices, setPrices] = useState<Record<string, { price: number, change: number }>>({});
-  const [pricesLoading, setPricesLoading] = useState(true);
+  const tickers = useMarketDataStore(state => state.tickers);
+  const isConnected = useMarketDataStore(state => state.isConnected);
 
   const displayMarkets = useMemo(() => {
     if (!markets) return [];
@@ -35,47 +35,18 @@ export function PopularCoins() {
   }, [markets]);
 
   useEffect(() => {
-    if (displayMarkets.length === 0) {
-      setPricesLoading(false);
-      return;
-    }
+    if (displayMarkets.length === 0) return;
 
-    const streams = displayMarkets.map(m => `${m.baseAssetId.toLowerCase()}usdt@ticker`).join('/');
-    const ws = new WebSocket(`wss://stream.binance.com:9443/stream?streams=${streams}`);
-
-    ws.onopen = () => {
-        setPricesLoading(false);
-    };
-
-    ws.onmessage = (event) => {
-        const message = JSON.parse(event.data);
-        // The combined stream wraps the payload in a `data` object and includes the stream name
-        if (message.data) {
-            const { s: symbol, c: price, P: change } = message.data;
-            if (symbol && price && change) {
-                setPrices(prevPrices => ({
-                    ...prevPrices,
-                    [symbol.replace('USDT', '')]: {
-                        price: parseFloat(price),
-                        change: parseFloat(change),
-                    }
-                }));
-            }
-        }
-    };
-    
-    ws.onerror = (err) => {
-        console.error("PopularCoins WebSocket error:", err);
-        setPricesLoading(false);
-    }
+    const symbols = displayMarkets.map(m => m.id.replace('-', '').toLowerCase());
+    marketDataService.subscribeToTickers(symbols);
 
     return () => {
-      ws.close();
+      marketDataService.unsubscribeFromTickers(symbols);
     };
   }, [displayMarkets]);
 
 
-  const isLoading = marketsLoading || pricesLoading;
+  const isLoading = marketsLoading || (Object.keys(tickers).length === 0 && isConnected);
 
   const renderContent = () => {
     if (isLoading) {
@@ -109,9 +80,9 @@ export function PopularCoins() {
     return (
       <ul className="space-y-1">
         {displayMarkets.map(market => {
-          const priceData = prices[market.baseAssetId];
-          const price = priceData?.price ?? 0;
-          const change = priceData?.change ?? 0;
+          const tickerData = tickers[market.id.replace('-', '').toLowerCase()];
+          const price = tickerData?.price ?? 0;
+          const change = tickerData?.priceChangePercent ?? 0;
           const isPositive = change >= 0;
           const Icon = coinIcons[market.baseAssetId] || coinIcons.DEFAULT;
 

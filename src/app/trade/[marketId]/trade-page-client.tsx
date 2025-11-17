@@ -18,6 +18,8 @@ import { useIsMobile } from '@/hooks/use-mobile';
 import { X } from 'lucide-react';
 import { AlertsManager } from '@/components/trade/alerts-manager';
 import { usePriceAlerts } from '@/hooks/use-price-alerts';
+import { useMarketDataStore } from '@/hooks/use-market-data-store';
+import { marketDataService } from '@/lib/market-data-service';
 
 
 export default function TradePageClient({ marketId }: { marketId: string }) {
@@ -25,13 +27,18 @@ export default function TradePageClient({ marketId }: { marketId: string }) {
     undefined
   );
 
-  const [bids, setBids] = useState<RawOrder[]>([]);
-  const [asks, setAsks] = useState<RawOrder[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<Error | null>(null);
   const [mobileTab, setMobileTab] = useState<MobileTab>('Orderbook');
   const [isChartFullscreen, setIsChartFullscreen] = useState(false);
   const isMobile = useIsMobile();
+  
+  const bids = useMarketDataStore(state => state.bids);
+  const asks = useMarketDataStore(state => state.asks);
+  const isConnected = useMarketDataStore(state => state.isConnected);
+  const isLoading = !isConnected && bids.length === 0;
+
+  useEffect(() => {
+    marketDataService.setMarket(marketId);
+  }, [marketId]);
   
   const midPrice = useMemo(() => {
     if (bids.length > 0 && asks.length > 0) {
@@ -46,36 +53,6 @@ export default function TradePageClient({ marketId }: { marketId: string }) {
   usePriceAlerts(marketId, midPrice);
 
 
-  useEffect(() => {
-    if (!marketId) {
-      setIsLoading(false);
-      setError(new Error("Market ID is not specified."));
-      return;
-    }
-    
-    setIsLoading(true);
-    setError(null);
-    setBids([]);
-    setAsks([]);
-
-    const ws = new WebSocket(`wss://stream.binance.com:9443/ws/${marketId.replace('-', '').toLowerCase()}@depth20@100ms`);
-
-    ws.onopen = () => setIsLoading(false);
-    ws.onmessage = (event) => {
-      const data = JSON.parse(event.data);
-      if (data.bids && data.asks) {
-        setBids(data.bids);
-        setAsks(data.asks);
-      }
-    };
-    ws.onerror = (event) => {
-      setError(new Error('Failed to connect to the order book feed.'));
-      setIsLoading(false);
-    };
-
-    return () => ws.close();
-  }, [marketId]);
-
   const renderMobileContent = () => {
     return (
       <div className="relative overflow-x-hidden">
@@ -84,11 +61,6 @@ export default function TradePageClient({ marketId }: { marketId: string }) {
                   <OrderBook 
                       marketId={marketId} 
                       onPriceSelect={setSelectedPrice} 
-                      bids={bids}
-                      asks={asks}
-                      isLoading={isLoading}
-                      error={error}
-                      midPrice={midPrice}
                     />
               </div>
               <div className="w-full flex-shrink-0">
@@ -120,11 +92,6 @@ export default function TradePageClient({ marketId }: { marketId: string }) {
             <OrderBook 
               marketId={marketId} 
               onPriceSelect={setSelectedPrice} 
-              bids={bids}
-              asks={asks}
-              isLoading={isLoading}
-              error={error}
-              midPrice={midPrice}
               height={360}
             />
             <DepthChart bids={bids} asks={asks} />
@@ -136,7 +103,7 @@ export default function TradePageClient({ marketId }: { marketId: string }) {
               setIsChartFullscreen={setIsChartFullscreen} 
             />
             <div className="grid grid-cols-2 gap-4">
-              <OrderForm marketId={marketId} selectedPrice={selectedPrice} bids={bids} asks={asks} />
+              <OrderForm marketId={marketId} selectedPrice={selectedPrice} />
               <AlertsManager marketId={marketId} />
             </div>
           </div>
@@ -157,7 +124,7 @@ export default function TradePageClient({ marketId }: { marketId: string }) {
                 marketId={marketId}
                 setIsChartFullscreen={setIsChartFullscreen} 
               />
-              <OrderForm marketId={marketId} selectedPrice={selectedPrice} bids={bids} asks={asks} />
+              <OrderForm marketId={marketId} selectedPrice={selectedPrice} />
               <Balances marketId={marketId} />
               <MobileTabs activeTab={mobileTab} setActiveTab={setMobileTab} />
               {renderMobileContent()}

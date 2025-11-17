@@ -17,6 +17,8 @@ import type { Asset } from '@/lib/types';
 import { useAssets } from '@/hooks/use-assets';
 import { useBalances } from '@/hooks/use-balances';
 import { useUser } from "@/firebase";
+import { useMarketDataStore } from '@/hooks/use-market-data-store';
+import { marketDataService } from '@/lib/market-data-service';
 
 
 export default function WalletPage() {
@@ -24,58 +26,28 @@ export default function WalletPage() {
   const { data: balances, isLoading: balancesLoading, error: balancesError } = useBalances();
   const { data: assets, isLoading: assetsLoading, error: assetsError } = useAssets();
   
-  const [prices, setPrices] = useState<Record<string, number>>({});
-  const [pricesLoading, setPricesLoading] = useState(true);
+  const prices = useMarketDataStore((state) => state.tickers);
+  const isConnected = useMarketDataStore((state) => state.isConnected);
   
   const error = balancesError || assetsError;
   
   useEffect(() => {
-    if (!assets || assets.length === 0) {
-      setPricesLoading(false);
-      return;
-    }
+    if (!assets || assets.length === 0) return;
 
-    const streams = assets
-      .filter(a => a.symbol !== 'USDT') // Exclude USDT from price feed
-      .map(a => `${a.symbol.toLowerCase()}usdt@trade`)
-      .join('/');
+    const symbols = assets
+      .filter(a => a.symbol !== 'USDT')
+      .map(a => a.symbol.toLowerCase() + 'usdt');
       
-    if (!streams) {
-        setPricesLoading(false);
-        return;
-    }
+    if (!symbols.length) return;
 
-    const ws = new WebSocket(`wss://stream.binance.com:9443/ws/${streams}`);
-    
-    ws.onmessage = (event) => {
-      const data = JSON.parse(event.data);
-      if (data && data.s && data.p) {
-        setPrices(prevPrices => ({
-          ...prevPrices,
-          [data.s.replace('USDT', '')]: parseFloat(data.p),
-        }));
-      }
-    };
-
-    ws.onopen = () => {
-        setPricesLoading(false);
-    }
-
-    ws.onclose = () => {
-      console.log('Price stream closed.');
-    }
-
-    ws.onerror = (event) => {
-        console.error('Price stream error:', event);
-        setPricesLoading(false);
-    }
+    marketDataService.subscribeToTickers(symbols);
 
     return () => {
-      ws.close();
+      marketDataService.unsubscribeFromTickers(symbols);
     };
   }, [assets]);
 
-  const isLoading = balancesLoading || assetsLoading || pricesLoading;
+  const isLoading = balancesLoading || assetsLoading || (Object.keys(prices).length === 0 && isConnected);
 
   const portfolioData = useMemo(() => {
     if (isLoading || !balances || !assets) {
@@ -86,7 +58,7 @@ export default function WalletPage() {
     
     return balances.map(balance => {
       const asset = assetsMap.get(balance.assetId);
-      const price = asset?.symbol === 'USDT' ? 1 : (prices[asset?.symbol || ''] || 0);
+      const price = asset?.symbol === 'USDT' ? 1 : (prices[asset?.symbol.toLowerCase() + 'usdt']?.price || 0);
       const value = balance.available * price;
       return {
         ...balance,

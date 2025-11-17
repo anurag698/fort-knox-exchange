@@ -18,15 +18,12 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { AlertCircle, Lock, Unlock } from "lucide-react";
 import { Tooltip, TooltipProvider, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { useMarketDataStore } from "@/hooks/use-market-data-store";
 
 
 // types
 type Order = { price: number; quantity: number; total: number };
 type Props = {
-  bids: RawOrder[];
-  asks: RawOrder[];
-  isLoading: boolean;
-  error: Error | null;
   onPriceSelect: (p: number) => void;
   marketId: string;
   aggregationLevels?: number[];
@@ -57,10 +54,6 @@ function groupOrders(orders: RawOrder[], agg: number): Order[] {
 
 
 export function OrderBook({
-  bids,
-  asks,
-  isLoading,
-  error,
   onPriceSelect,
   marketId,
   aggregationLevels = [0.01, 0.05, 0.1, 0.5, 1, 5, 10, 50, 100],
@@ -71,6 +64,11 @@ export function OrderBook({
   const [aggregation, setAggregation] = useState<number>(defaultAggregation);
   const [scrollLocked, setScrollLocked] = useState(false);
   const [baseAsset, quoteAsset] = marketId.split('-');
+
+  const bids = useMarketDataStore(state => state.bids);
+  const asks = useMarketDataStore(state => state.asks);
+  const isLoading = useMarketDataStore(state => !state.isConnected && state.bids.length === 0);
+  const error = useMarketDataStore(state => state.error);
 
   // group & prepare lists (memoized)
   const groupedAsks = useMemo(() => {
@@ -159,7 +157,7 @@ export function OrderBook({
                 <AlertCircle className="h-4 w-4" />
                 <AlertTitle>Error</AlertTitle>
                 <AlertDescription>
-                    {error.message}
+                    {error}
                 </AlertDescription>
                 </Alert>
             </CardContent>
@@ -234,4 +232,3 @@ export function OrderBook({
     </Card>
   );
 }
-

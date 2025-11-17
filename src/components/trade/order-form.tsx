@@ -24,7 +24,7 @@ import { useBalances } from '@/hooks/use-balances';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { calculatePriceImpact, getImpactColor, getImpactLabel } from '@/lib/price-impact';
 import { Loader2 } from 'lucide-react';
-import axios from 'axios';
+import { useMarketDataStore } from '@/hooks/use-market-data-store';
 import { parseUnits, formatUnits } from 'ethers';
 
 const orderSchema = z.object({
@@ -41,11 +41,9 @@ type OrderFormValues = z.infer<typeof orderSchema>;
 interface OrderFormProps {
   selectedPrice?: number;
   marketId: string;
-  bids: RawOrder[];
-  asks: RawOrder[];
 }
 
-export function OrderForm({ selectedPrice, marketId, bids, asks }: OrderFormProps) {
+export function OrderForm({ selectedPrice, marketId }: OrderFormProps) {
   const { user } = useUser();
   const firestore = useFirestore();
   const { toast } = useToast();
@@ -59,6 +57,8 @@ export function OrderForm({ selectedPrice, marketId, bids, asks }: OrderFormProp
   const baseBalance = balances?.find(b => b.assetId === baseAsset)?.available ?? 0;
   const quoteBalance = balances?.find(b => b.assetId === quoteAsset)?.available ?? 0;
 
+  const bids = useMarketDataStore(state => state.bids);
+  const asks = useMarketDataStore(state => state.asks);
 
   const defaultValues: Partial<OrderFormValues> = {
       price: undefined,

@@ -1,6 +1,7 @@
+
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { ChevronsUpDown, Check } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -24,6 +25,7 @@ import { useRouter } from 'next/navigation';
 import { useAssets } from '@/hooks/use-assets';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { coinIcons } from '@/components/markets/markets-table';
+import { useMarketDataStore } from '@/hooks/use-market-data-store';
 
 interface MarketHeaderProps {
   marketId: string;
@@ -33,67 +35,14 @@ export function MarketHeader({ marketId }: MarketHeaderProps) {
   const router = useRouter();
   const { data: markets, isLoading: marketsLoading } = useMarkets();
   const { data: assets, isLoading: assetsLoading } = useAssets();
-  const [marketData, setMarketData] = useState<MarketData | null>(null);
   const [open, setOpen] = useState(false);
-  const lastUpdateTime = useRef(0);
-  const updateTimeout = useRef<NodeJS.Timeout | null>(null);
-  const latestData = useRef<MarketData | null>(null);
+  const ticker = useMarketDataStore(state => state.tickers[marketId.replace('-', '').toLowerCase()]);
 
   const assetsMap = new Map(assets?.map(a => [a.id, a]));
   const currentMarket = markets?.find(m => m.id === marketId);
   const baseAsset = currentMarket ? assetsMap.get(currentMarket.baseAssetId) : null;
   const quoteAsset = currentMarket ? assetsMap.get(currentMarket.quoteAssetId) : null;
   const BaseIcon = baseAsset ? coinIcons[baseAsset.symbol] || coinIcons.DEFAULT : coinIcons.DEFAULT;
-
-  useEffect(() => {
-    if (!marketId) return;
-
-    setMarketData(null); // Reset data when market changes
-    latestData.current = null;
-    lastUpdateTime.current = 0;
-
-    const ws = new WebSocket(
-      `wss://stream.binance.com:9443/ws/${marketId
-        .replace('-', '')
-        .toLowerCase()}@ticker`
-    );
-
-    ws.onmessage = event => {
-      const data = JSON.parse(event.data);
-      if (data) {
-        latestData.current = {
-          price: parseFloat(data.c),
-          priceChangePercent: parseFloat(data.P),
-          high: parseFloat(data.h),
-          low: parseFloat(data.l),
-          volume: parseFloat(data.v),
-        } as MarketData;
-
-        const now = Date.now();
-        if (now - lastUpdateTime.current > 500) { // Throttle updates to every 500ms
-            setMarketData(latestData.current);
-            lastUpdateTime.current = now;
-            if (updateTimeout.current) {
-                clearTimeout(updateTimeout.current);
-                updateTimeout.current = null;
-            }
-        } else if (!updateTimeout.current) {
-            updateTimeout.current = setTimeout(() => {
-                setMarketData(latestData.current);
-                lastUpdateTime.current = Date.now();
-                updateTimeout.current = null;
-            }, 500);
-        }
-      }
-    };
-
-    return () => {
-      ws.close();
-      if (updateTimeout.current) {
-        clearTimeout(updateTimeout.current);
-      }
-    };
-  }, [marketId]);
 
   const handleMarketSelect = (newMarketId: string) => {
     router.push(`/trade/${newMarketId}`);
@@ -103,6 +52,17 @@ export function MarketHeader({ marketId }: MarketHeaderProps) {
   if (marketsLoading || assetsLoading) {
     return <Skeleton className="h-12 w-full" />;
   }
+
+  const marketData: MarketData | null = ticker ? {
+    id: marketId,
+    price: ticker.price,
+    priceChangePercent: ticker.priceChangePercent,
+    high: ticker.high,
+    low: ticker.low,
+    volume: ticker.volume,
+    marketCap: 0, // Not available from this stream
+    lastUpdated: new Date(ticker.eventTime),
+  } : null;
 
   return (
     <div className="flex items-center gap-4 border-b pb-4">

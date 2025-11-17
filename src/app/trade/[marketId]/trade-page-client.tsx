@@ -3,7 +3,7 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import { Balances } from '@/components/trade/balances';
-import { MemoizedTradingViewChart } from '@/components/trade/trading-view-chart';
+import { MemoizedLightweightChart } from '@/components/trade/lightweight-chart';
 import { OrderBook } from '@/components/trade/order-book';
 import { OrderForm } from '@/components/trade/order-form';
 import { UserTrades } from '@/components/trade/user-trades';
@@ -130,7 +130,7 @@ export default function TradePageClient({ marketId }: { marketId: string }) {
           </div>
 
           <div className="xl:col-span-6 flex flex-col gap-4">
-            <MemoizedTradingViewChart marketId={marketId} setIsChartFullscreen={setIsChartFullscreen} />
+            <MemoizedLightweightChart marketId={marketId} setIsChartFullscreen={setIsChartFullscreen} />
             <div className="grid grid-cols-2 gap-4">
               <OrderForm marketId={marketId} selectedPrice={selectedPrice} bids={bids} asks={asks} />
               <AlertsManager marketId={marketId} />
@@ -149,7 +149,7 @@ export default function TradePageClient({ marketId }: { marketId: string }) {
 
         {/* Mobile Layout */}
           <div className="xl:hidden flex flex-col gap-4">
-              <MemoizedTradingViewChart marketId={marketId} setIsChartFullscreen={setIsChartFullscreen} />
+              <MemoizedLightweightChart marketId={marketId} setIsChartFullscreen={setIsChartFullscreen} />
               <OrderForm marketId={marketId} selectedPrice={selectedPrice} bids={bids} asks={asks} />
               <Balances marketId={marketId} />
               <MobileTabs activeTab={mobileTab} setActiveTab={setMobileTab} />
@@ -169,7 +169,7 @@ export default function TradePageClient({ marketId }: { marketId: string }) {
           </div>
       
           <div className="flex-1 w-full h-full">
-            <MemoizedTradingViewChart marketId={marketId} setIsChartFullscreen={setIsChartFullscreen} />
+            <MemoizedLightweightChart marketId={marketId} setIsChartFullscreen={setIsChartFullscreen} />
           </div>
         </div>
       )}

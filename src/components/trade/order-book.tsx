@@ -8,14 +8,14 @@ import { AlertCircle } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useMarkets } from '@/hooks/use-markets';
 import { cn } from '@/lib/utils';
+import type { ProcessedOrder, RawOrder } from '@/lib/types';
 
-export type ProcessedOrder = {
-  price: number;
-  quantity: number;
-  total: number;
-};
 
 interface OrderBookProps {
+  bids: RawOrder[];
+  asks: RawOrder[];
+  isLoading: boolean;
+  error: Error | null;
   onPriceSelect: (price: number) => void;
   marketId: string;
 }
@@ -30,11 +30,7 @@ const getFlashClass = (prev: number | undefined, current: number) => {
   return "";
 };
 
-export function OrderBook({ onPriceSelect, marketId }: OrderBookProps) {
-  const [bids, setBids] = useState<[string, string][]>([]);
-  const [asks, setAsks] = useState<[string, string][]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<Error | null>(null);
+export function OrderBook({ onPriceSelect, marketId, bids, asks, isLoading, error }: OrderBookProps) {
   const { data: markets } = useMarkets();
   
   const market = markets?.find(m => m.id === marketId);
@@ -47,39 +43,7 @@ export function OrderBook({ onPriceSelect, marketId }: OrderBookProps) {
   const prevBidsRef = useRef<Map<number, number>>(new Map());
   const prevAsksRef = useRef<Map<number, number>>(new Map());
 
-  useEffect(() => {
-    if (!marketId) {
-      setIsLoading(false);
-      setError(new Error("Market ID is not specified."));
-      return;
-    }
-    
-    setIsLoading(true);
-    setError(null);
-    setBids([]);
-    setAsks([]);
-    prevBidsRef.current.clear();
-    prevAsksRef.current.clear();
-
-    const ws = new WebSocket(`wss://stream.binance.com:9443/ws/${marketId.replace('-', '').toLowerCase()}@depth20@100ms`);
-
-    ws.onopen = () => setIsLoading(false);
-    ws.onmessage = (event) => {
-      const data = JSON.parse(event.data);
-      if (data.bids && data.asks) {
-        setBids(data.bids);
-        setAsks(data.asks);
-      }
-    };
-    ws.onerror = (event) => {
-      setError(new Error('Failed to connect to the order book feed.'));
-      setIsLoading(false);
-    };
-
-    return () => ws.close();
-  }, [marketId]);
-
-  const groupOrders = (orders: [string, string][], aggLevel: number, side: 'bids' | 'asks'): ProcessedOrder[] => {
+  const groupOrders = (orders: RawOrder[], aggLevel: number, side: 'bids' | 'asks'): ProcessedOrder[] => {
     if (!orders) return [];
     const grouped: { [key: string]: { quantity: number; total: number } } = {};
 

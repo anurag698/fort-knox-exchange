@@ -1,8 +1,12 @@
 
 
+export type RawOrder = [string, string]; // [price, quantity]
 
-
-
+export type ProcessedOrder = {
+  price: number;
+  quantity: number;
+  total: number;
+};
 
 export type Market = {
   id: string;

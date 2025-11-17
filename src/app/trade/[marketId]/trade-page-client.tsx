@@ -131,7 +131,10 @@ export default function TradePageClient({ marketId }: { marketId: string }) {
           </div>
 
           <div className="xl:col-span-6 flex flex-col gap-4">
-            <MemoizedLightweightChart marketId={marketId} setIsChartFullscreen={setIsChartFullscreen} />
+            <MemoizedLightweightChart
+              marketId={marketId}
+              setIsChartFullscreen={setIsChartFullscreen} 
+            />
             <div className="grid grid-cols-2 gap-4">
               <OrderForm marketId={marketId} selectedPrice={selectedPrice} bids={bids} asks={asks} />
               <AlertsManager marketId={marketId} />
@@ -150,7 +153,10 @@ export default function TradePageClient({ marketId }: { marketId: string }) {
 
         {/* Mobile Layout */}
           <div className="xl:hidden flex flex-col gap-4">
-              <MemoizedLightweightChart marketId={marketId} setIsChartFullscreen={setIsChartFullscreen} />
+              <MemoizedLightweightChart
+                marketId={marketId}
+                setIsChartFullscreen={setIsChartFullscreen} 
+              />
               <OrderForm marketId={marketId} selectedPrice={selectedPrice} bids={bids} asks={asks} />
               <Balances marketId={marketId} />
               <MobileTabs activeTab={mobileTab} setActiveTab={setMobileTab} />
@@ -170,7 +176,10 @@ export default function TradePageClient({ marketId }: { marketId: string }) {
           </div>
       
           <div className="flex-1 w-full h-full">
-            <MemoizedLightweightChart marketId={marketId} setIsChartFullscreen={setIsChartFullscreen} />
+            <MemoizedLightweightChart
+              marketId={marketId}
+              setIsChartFullscreen={setIsChartFullscreen} 
+            />
           </div>
         </div>
       )}

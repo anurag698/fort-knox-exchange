@@ -28,6 +28,9 @@ service cloud.firestore {
     match /market_data/{marketId} {
       allow read: if true;
     }
+    match /trades/{tradeId} {
+      allow read: if true;
+    }
     
     // --- ADMIN-ONLY & INTERNAL DATA ---
     match /addressIndexes/{coinId} {
@@ -81,6 +84,11 @@ service cloud.firestore {
       allow list: if isAdmin(); // Only admins can list all orders from the top-level.
       allow create: if request.auth.uid == request.resource.data.userId;
       allow update: if (request.auth.uid == resource.data.userId && request.resource.data.status == 'CANCELED') || isAdmin();
+    }
+
+    // Allow the admin/backend worker to perform collectionGroup queries on 'orders'
+    match /{path=**}/orders/{orderId} {
+      allow read, write: if isAdmin();
     }
     
   }

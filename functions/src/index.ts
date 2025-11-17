@@ -3,6 +3,7 @@ import * as functions from "firebase-functions";
 import * as admin from "firebase-admin";
 import { ethers } from "ethers";
 import { safeSendEth, safeSendToken } from "./lib/wallet-service";
+import { matchOrders } from './lib/orderbook-engine';
 
 // --- Initialize Firebase Admin SDK ---
 admin.initializeApp();
@@ -139,4 +140,19 @@ export const processWithdrawals = functions.pubsub
         error: String(err)
       });
     }
+  });
+
+
+export const orderMatcher = functions.pubsub
+  .schedule("every 1 seconds")
+  .onRun(async () => {
+      // In a real system, you would fetch all active market pairs
+      const activeMarkets = ["ETH-USDT"]; 
+      for (const marketId of activeMarkets) {
+          try {
+              await matchOrders(marketId);
+          } catch (error) {
+              console.error(`[Matcher] Error matching orders for ${marketId}:`, error);
+          }
+      }
   });

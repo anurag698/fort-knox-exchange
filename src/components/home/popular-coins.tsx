@@ -26,51 +26,51 @@ const coinIcons: { [key: string]: React.ElementType } = {
 export function PopularCoins() {
   const { data: markets, isLoading: marketsLoading, error } = useMarkets();
   
-  const [prices, setPrices] = useState<Record<string, number>>({});
+  const [prices, setPrices] = useState<Record<string, { price: number, change: number }>>({});
   const [pricesLoading, setPricesLoading] = useState(true);
-
-  const marketSymbols = useMemo(() => {
-    if (!markets) return [];
-    return markets.filter(m => m.quoteAssetId === 'USDT').map(m => `${m.baseAssetId}USDT`);
-  }, [markets]);
-
-  useEffect(() => {
-    if (marketSymbols.length === 0) {
-      setPricesLoading(false);
-      return;
-    }
-    
-    const sockets = marketSymbols.map(symbol => {
-        const ws = new WebSocket(`wss://stream.binance.com:9443/ws/${symbol.toLowerCase()}@trade`);
-        ws.onmessage = (event) => {
-            const data = JSON.parse(event.data);
-            if (data && data.s && data.p) {
-                setPrices(prevPrices => ({
-                    ...prevPrices,
-                    [data.s.replace('USDT', '')]: parseFloat(data.p),
-                }));
-            }
-        };
-        ws.onerror = (err) => {
-            console.error(`PopularCoins WebSocket error for ${symbol}:`, err);
-        }
-        return ws;
-    });
-
-    setPricesLoading(false);
-
-    return () => {
-      sockets.forEach(ws => ws.close());
-    };
-  }, [marketSymbols]);
 
   const displayMarkets = useMemo(() => {
     if (!markets) return [];
-    return markets.map(market => ({
-      ...market,
-      change: (market.id.charCodeAt(0) % 11) - 5 + Math.random() * 2 - 1, 
-    })).filter(m => m.quoteAssetId === 'USDT').slice(0, 5); 
+    return markets.filter(m => m.quoteAssetId === 'USDT').slice(0, 5); 
   }, [markets]);
+
+  useEffect(() => {
+    if (displayMarkets.length === 0) {
+      setPricesLoading(false);
+      return;
+    }
+
+    const streams = displayMarkets.map(m => `${m.baseAssetId.toLowerCase()}usdt@ticker`).join('/');
+    const ws = new WebSocket(`wss://stream.binance.com:9443/stream?streams=${streams}`);
+
+    ws.onopen = () => {
+        setPricesLoading(false);
+    };
+
+    ws.onmessage = (event) => {
+        const message = JSON.parse(event.data);
+        const { s: symbol, c: price, P: change } = message.data;
+        if (symbol && price && change) {
+            setPrices(prevPrices => ({
+                ...prevPrices,
+                [symbol.replace('USDT', '')]: {
+                    price: parseFloat(price),
+                    change: parseFloat(change),
+                }
+            }));
+        }
+    };
+    
+    ws.onerror = (err) => {
+        console.error("PopularCoins WebSocket error:", err);
+        setPricesLoading(false);
+    }
+
+    return () => {
+      ws.close();
+    };
+  }, [displayMarkets]);
+
 
   const isLoading = marketsLoading || pricesLoading;
 
@@ -106,8 +106,10 @@ export function PopularCoins() {
     return (
       <ul className="space-y-1">
         {displayMarkets.map(market => {
-          const price = prices[market.baseAssetId] ?? 0;
-          const isPositive = market.change >= 0;
+          const priceData = prices[market.baseAssetId];
+          const price = priceData?.price ?? 0;
+          const change = priceData?.change ?? 0;
+          const isPositive = change >= 0;
           const Icon = coinIcons[market.baseAssetId] || coinIcons.DEFAULT;
 
           return (
@@ -120,7 +122,7 @@ export function PopularCoins() {
               <div className="text-right">
                 <div className="font-mono font-medium">${price.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
                 <div className={cn("text-sm", isPositive ? 'text-green-500' : 'text-red-500')}>
-                  {isPositive ? '+' : ''}{market.change.toFixed(2)}%
+                  {isPositive ? '+' : ''}{change.toFixed(2)}%
                 </div>
               </div>
             </li>

@@ -15,6 +15,7 @@ import MobileTabs from '@/components/trade/mobile-tabs';
 import type { MobileTab } from '@/components/trade/mobile-tabs';
 import { cn } from '@/lib/utils';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { X } from 'lucide-react';
 
 
 export default function TradePageClient({ marketId }: { marketId: string }) {
@@ -27,6 +28,7 @@ export default function TradePageClient({ marketId }: { marketId: string }) {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
   const [mobileTab, setMobileTab] = useState<MobileTab>('Orderbook');
+  const [isChartFullscreen, setIsChartFullscreen] = useState(false);
   const isMobile = useIsMobile();
 
   useEffect(() => {
@@ -89,46 +91,65 @@ export default function TradePageClient({ marketId }: { marketId: string }) {
 
 
   return (
-    <div className="flex flex-col gap-4">
-      <MarketHeader marketId={marketId} />
+    <>
+      <div className="flex flex-col gap-4">
+        <MarketHeader marketId={marketId} />
 
-      {/* Desktop Layout */}
-      <div className="hidden xl:grid grid-cols-1 xl:grid-cols-12 gap-4">
-        <div className="xl:col-span-3 flex flex-col gap-4">
-          <OrderBook 
-            marketId={marketId} 
-            onPriceSelect={setSelectedPrice} 
-            bids={bids}
-            asks={asks}
-            isLoading={isLoading}
-            error={error}
-          />
-          <DepthChart bids={bids} asks={asks} />
-        </div>
+        {/* Desktop Layout */}
+        <div className="hidden xl:grid grid-cols-1 xl:grid-cols-12 gap-4">
+          <div className="xl:col-span-3 flex flex-col gap-4">
+            <OrderBook 
+              marketId={marketId} 
+              onPriceSelect={setSelectedPrice} 
+              bids={bids}
+              asks={asks}
+              isLoading={isLoading}
+              error={error}
+            />
+            <DepthChart bids={bids} asks={asks} />
+          </div>
 
-        <div className="xl:col-span-6 flex flex-col gap-4">
-          <MemoizedTradingViewChart marketId={marketId} />
-          <OrderForm marketId={marketId} selectedPrice={selectedPrice} bids={bids} asks={asks} />
-        </div>
-
-        <div className="xl:col-span-3 flex flex-col gap-4">
-          <Balances marketId={marketId} />
-          <RecentTrades marketId={marketId} />
-        </div>
-
-        <div className="xl:col-span-12">
-          <UserTrades marketId={marketId} />
-        </div>
-      </div>
-
-       {/* Mobile Layout */}
-        <div className="xl:hidden flex flex-col gap-4">
-            <MemoizedTradingViewChart marketId={marketId} />
+          <div className="xl:col-span-6 flex flex-col gap-4">
+            <MemoizedTradingViewChart marketId={marketId} setIsChartFullscreen={setIsChartFullscreen} />
             <OrderForm marketId={marketId} selectedPrice={selectedPrice} bids={bids} asks={asks} />
+          </div>
+
+          <div className="xl:col-span-3 flex flex-col gap-4">
             <Balances marketId={marketId} />
-            <MobileTabs activeTab={mobileTab} setActiveTab={setMobileTab} />
-            {renderMobileContent()}
+            <RecentTrades marketId={marketId} />
+          </div>
+
+          <div className="xl:col-span-12">
+            <UserTrades marketId={marketId} />
+          </div>
         </div>
-    </div>
+
+        {/* Mobile Layout */}
+          <div className="xl:hidden flex flex-col gap-4">
+              <MemoizedTradingViewChart marketId={marketId} setIsChartFullscreen={setIsChartFullscreen} />
+              <OrderForm marketId={marketId} selectedPrice={selectedPrice} bids={bids} asks={asks} />
+              <Balances marketId={marketId} />
+              <MobileTabs activeTab={mobileTab} setActiveTab={setMobileTab} />
+              {renderMobileContent()}
+          </div>
+      </div>
+      {isChartFullscreen && (
+        <div
+          className="fixed inset-0 z-50 bg-background flex flex-col fullscreen-enter"
+          onClick={() => setIsChartFullscreen(false)}
+        >
+          <div className="flex justify-end p-2">
+            <button className="text-white p-2">
+              <X className="h-6 w-6" />
+              <span className="sr-only">Close fullscreen chart</span>
+            </button>
+          </div>
+      
+          <div className="flex-1 w-full h-full">
+            <MemoizedTradingViewChart marketId={marketId} setIsChartFullscreen={setIsChartFullscreen} />
+          </div>
+        </div>
+      )}
+    </>
   );
 }

@@ -1,23 +1,22 @@
 'use client';
 
 import React, { useEffect, useRef, memo } from 'react';
+import { Button } from '../ui/button';
+import { Maximize } from 'lucide-react';
 
-function TradingViewChart({ marketId }: { marketId: string }) {
+interface TradingViewChartProps {
+  marketId: string;
+  setIsChartFullscreen: React.Dispatch<React.SetStateAction<boolean>>;
+}
+
+function TradingViewChart({ marketId, setIsChartFullscreen }: TradingViewChartProps) {
   const container = useRef<HTMLDivElement>(null);
   
-  // Use a key on the outer div to force re-mounting when marketId changes
-  // This is the simplest and most reliable way to handle the TradingView library.
-  
   useEffect(() => {
-    // This effect now only runs when the component mounts.
-    // The key change will handle re-initialization.
-    
-    // Add a guard clause to ensure marketId is defined.
     if (!container.current || !marketId) {
       return;
     }
-
-    // Clear any previous widget
+    
     container.current.innerHTML = '';
     
     const script = document.createElement("script");
@@ -50,8 +49,17 @@ function TradingViewChart({ marketId }: { marketId: string }) {
   }, [marketId]);
 
   return (
-    <div className="tradingview-widget-container" style={{ height: "550px", width: "100%" }}>
+    <div className="tradingview-widget-container relative" style={{ height: "550px", width: "100%" }}>
       <div id={`tradingview_chart_container_${marketId}`} ref={container} style={{ height: "100%", width: "100%" }}></div>
+      <Button
+          onClick={() => setIsChartFullscreen(true)}
+          variant="ghost"
+          size="icon"
+          className="absolute top-2 right-2 h-8 w-8 xl:hidden"
+          aria-label="Enter fullscreen chart"
+      >
+        <Maximize className="h-4 w-4" />
+      </Button>
       <div className="tradingview-widget-copyright">
         <a href="https://www.tradingview.com/" rel="noopener nofollow" target="_blank">
             <span className="blue-text">Track all markets on TradingView</span>
@@ -61,6 +69,5 @@ function TradingViewChart({ marketId }: { marketId: string }) {
   );
 }
 
-// Memoize the component to prevent re-renders when parent state changes, unless marketId changes.
 export const MemoizedTradingViewChart = memo(TradingViewChart);
 export { TradingViewChart };

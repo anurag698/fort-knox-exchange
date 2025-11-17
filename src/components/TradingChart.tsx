@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useEffect, useRef } from "react";
@@ -45,7 +46,7 @@ export default function TradingChart({ symbol }: { symbol: string }) {
 
     const unsub = service.subscribeKline((kline: any) => {
       series.update({
-        time: Math.floor(kline.time / 1000),
+        time: Math.floor(kline.time / 1000) as any,
         open: kline.open,
         high: kline.high,
         low: kline.low,

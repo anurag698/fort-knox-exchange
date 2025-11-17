@@ -1,16 +1,17 @@
-
 "use client";
 
-import MarketHeader from "@/components/MarketHeader";
-import TradingChart from "@/components/TradingChart";
-import OrderBook from "@/components/OrderBook";
-import TradesFeed from "@/components/TradesFeed";
-import BuySellForm from "@/components/BuySellForm";
-import MarketDataService from "../../../lib/market-data-service";
 import { useEffect, useState } from "react";
+import MarketHeader from "../../../components/MarketHeader";
+import TradingChart from "../../../components/TradingChart";
+import OrderBook from "../../../components/OrderBook";
+import TradesFeed from "../../../components/TradesFeed";
+import BuySellForm from "../../../components/BuySellForm";
+import MarketDataService from "../../../lib/market-data-service";
 
 export default function TradePageClient({ marketId }: { marketId: string }) {
-  const symbol = marketId.toLowerCase(); // BTC-USDT → btcusdt
+  // Convert BTCUSDT → btcusdt for Binance websockets
+  const symbol = marketId.toLowerCase();
+
   const [ticker, setTicker] = useState<any>(null);
 
   useEffect(() => {
@@ -20,7 +21,7 @@ export default function TradePageClient({ marketId }: { marketId: string }) {
       setTicker(data);
     });
 
-    return () => unsub();
+    return () => unsub && unsub();
   }, [symbol]);
 
   return (
@@ -32,21 +33,19 @@ export default function TradePageClient({ marketId }: { marketId: string }) {
       {/* MAIN GRID */}
       <div className="grid grid-cols-[3fr_2fr_1.5fr] gap-3 min-h-0">
 
-        {/* CHART */}
-        <div className="bg-[#111418] rounded-xl p-2">
+        {/* CHART + BUY/SELL FORM */}
+        <div className="bg-[#111418] rounded-xl p-2 flex flex-col gap-3 overflow-hidden">
           <TradingChart symbol={symbol} />
-          <div className="mt-3">
-            <BuySellForm symbol={symbol} />
-          </div>
+          <BuySellForm symbol={symbol} />
         </div>
 
         {/* ORDERBOOK */}
-        <div className="bg-[#111418] rounded-xl p-2">
+        <div className="bg-[#111418] rounded-xl p-2 overflow-y-auto">
           <OrderBook symbol={symbol} />
         </div>
 
-        {/* TRADES FEED */}
-        <div className="bg-[#111418] rounded-xl p-2">
+        {/* TRADES */}
+        <div className="bg-[#111418] rounded-xl p-2 overflow-y-auto">
           <TradesFeed symbol={symbol} />
         </div>
 

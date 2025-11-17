@@ -49,15 +49,18 @@ export function PopularCoins() {
 
     ws.onmessage = (event) => {
         const message = JSON.parse(event.data);
-        const { s: symbol, c: price, P: change } = message.data;
-        if (symbol && price && change) {
-            setPrices(prevPrices => ({
-                ...prevPrices,
-                [symbol.replace('USDT', '')]: {
-                    price: parseFloat(price),
-                    change: parseFloat(change),
-                }
-            }));
+        // The combined stream wraps the payload in a `data` object and includes the stream name
+        if (message.data) {
+            const { s: symbol, c: price, P: change } = message.data;
+            if (symbol && price && change) {
+                setPrices(prevPrices => ({
+                    ...prevPrices,
+                    [symbol.replace('USDT', '')]: {
+                        price: parseFloat(price),
+                        change: parseFloat(change),
+                    }
+                }));
+            }
         }
     };
     

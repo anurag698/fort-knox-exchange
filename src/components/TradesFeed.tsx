@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import MarketDataService from "@/lib/market-data-service";
+import MarketDataService from "../lib/market-data-service";
 
 export default function TradesFeed({ symbol }: any) {
   const [trades, setTrades] = useState<any[]>([]);

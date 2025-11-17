@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import MarketDataService from "@/lib/market-data-service";
+import MarketDataService from "../lib/market-data-service";
 import { createChart } from "lightweight-charts";
 
 export default function TradingChart({ symbol }: any) {

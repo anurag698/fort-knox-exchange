@@ -1,6 +1,6 @@
 "use client";
 
-import MarketDataService from "@/lib/market-data-service";
+import MarketDataService from "../lib/market-data-service";
 import { useEffect, useState } from "react";
 
 export default function OrderBook({ symbol }: any) {

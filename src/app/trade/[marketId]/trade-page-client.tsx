@@ -5,7 +5,7 @@ import TradingChart from "@/components/TradingChart";
 import OrderBook from "@/components/OrderBook";
 import TradesFeed from "@/components/TradesFeed";
 import BuySellForm from "@/components/BuySellForm";
-import MarketDataService from "@/lib/market-data-service";
+import MarketDataService from "../../../lib/market-data-service";
 import { useEffect, useState } from "react";
 
 export default function TradePageClient({ marketId }: { marketId: string }) {

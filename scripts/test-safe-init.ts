@@ -14,11 +14,12 @@ dotenv.config({ path: '.env' });
     console.log("✅ Safe deployed on chain?", deployed);
 
     const pending = await getPendingTransactions(5, 0);
-    console.log("✅ Pending txs (sample):", pending?.results?.length ?? 0);
+    console.log("✅ Pending txs (sample):", (pending && (pending.count ?? pending?.results?.length)) ?? 0);
     console.log("\n🚀 Init OK!");
+    process.exit(0);
 
-  } catch (e) {
-    console.error("\n❌ Init failed:", e);
+  } catch (e:any) {
+    console.error("\n❌ Init failed:", e.message ?? e);
     process.exit(1);
   }
 })();

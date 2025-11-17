@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect } from 'react';
@@ -93,7 +94,7 @@ export function RecentTrades({ marketId }: { marketId: string }) {
         {trades.map((trade, index) => (
           <div 
             key={trade.T + '-' + index} 
-            className="flex justify-between text-xs font-mono p-0.5"
+            className={cn("flex justify-between text-xs font-mono p-0.5", trade.m ? 'flash-green' : 'flash-red')}
           >
             <span className={cn(trade.m ? "text-green-500" : "text-red-500")}>
               {parseFloat(trade.p).toFixed(pricePrecision)}

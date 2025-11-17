@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -71,7 +72,7 @@ export default function TradePageClient({ marketId }: { marketId: string }) {
 
         <div className="xl:col-span-6 flex flex-col gap-4 order-1 xl:order-2">
           <MemoizedTradingViewChart marketId={marketId} />
-          <OrderForm marketId={marketId} selectedPrice={selectedPrice} />
+          <OrderForm marketId={marketId} selectedPrice={selectedPrice} bids={bids} asks={asks} />
         </div>
 
         <div className="xl:col-span-3 flex flex-col gap-4 order-3 xl:order-3">

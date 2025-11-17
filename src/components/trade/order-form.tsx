@@ -1,6 +1,7 @@
+
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -16,10 +17,15 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { cn } from '@/lib/utils';
 import { doc, runTransaction, serverTimestamp, type Timestamp, collection } from 'firebase/firestore';
-import type { Order, Balance } from '@/lib/types';
+import type { Order, Balance, RawOrder } from '@/lib/types';
 import { useActionState } from 'react';
 import type { SecurityRuleContext } from '@/firebase/errors';
 import { useBalances } from '@/hooks/use-balances';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { calculatePriceImpact, getImpactColor, getImpactLabel } from '@/lib/price-impact';
+import { Loader2 } from 'lucide-react';
+import axios from 'axios';
+import { parseUnits, formatUnits } from 'ethers';
 
 const orderSchema = z.object({
   price: z.coerce.number().optional(),
@@ -35,9 +41,11 @@ type OrderFormValues = z.infer<typeof orderSchema>;
 interface OrderFormProps {
   selectedPrice?: number;
   marketId: string;
+  bids: RawOrder[];
+  asks: RawOrder[];
 }
 
-export function OrderForm({ selectedPrice, marketId }: OrderFormProps) {
+export function OrderForm({ selectedPrice, marketId, bids, asks }: OrderFormProps) {
   const { user } = useUser();
   const firestore = useFirestore();
   const { toast } = useToast();
@@ -206,16 +214,60 @@ export function OrderForm({ selectedPrice, marketId }: OrderFormProps) {
     const total = price && quantity ? price * quantity : 0;
     const balance = side === 'BUY' ? quoteBalance : baseBalance;
 
+    const [isFetchingQuote, setIsFetchingQuote] = useState(false);
+    const [executionPrice, setExecutionPrice] = useState<number | null>(null);
+
+    const bestBid = bids.length > 0 ? parseFloat(bids[0][0]) : 0;
+    const bestAsk = asks.length > 0 ? parseFloat(asks[0][0]) : 0;
+    const midPrice = bestBid > 0 && bestAsk > 0 ? (bestBid + bestAsk) / 2 : 0;
+
+    const impact = calculatePriceImpact(midPrice, executionPrice ?? midPrice);
+    const impactColor = getImpactColor(impact);
+    const impactLabel = getImpactLabel(impact);
+
+    const getQuote = useCallback(async () => {
+        if (orderType !== 'MARKET' || !quantity || quantity <= 0) {
+            setExecutionPrice(null);
+            return;
+        }
+
+        setIsFetchingQuote(true);
+        try {
+            // Simplified: Assuming 18 decimals for all. In a real app, fetch from asset data.
+            const amountInWei = parseUnits(quantity.toString(), side === 'BUY' ? 18 : 8).toString();
+            const fromAsset = side === 'BUY' ? quoteAsset : baseAsset;
+            const toAsset = side === 'BUY' ? baseAsset : quoteAsset;
+            
+            // This is a mock API call for estimation. Replace with your actual quote API.
+            // For now, we simulate a 0.1% slippage for estimation.
+            const estimatedPrice = side === 'BUY' ? bestAsk * 1.001 : bestBid * 0.999;
+            setExecutionPrice(estimatedPrice);
+        } catch (error) {
+            console.error("Quote error", error);
+            setExecutionPrice(null);
+        } finally {
+            setIsFetchingQuote(false);
+        }
+    }, [quantity, side, orderType, baseAsset, quoteAsset, bestAsk, bestBid]);
+
+    useEffect(() => {
+        const debounceTimer = setTimeout(() => {
+            getQuote();
+        }, 300);
+        return () => clearTimeout(debounceTimer);
+    }, [quantity, getQuote]);
+
+
     const setAmountByPercentage = (percentage: number) => {
         const currentPrice = price || 0;
         let newAmount = 0;
         if (side === 'BUY') {
-            // For BUY, percentage is of quote asset. Amount to buy is total value / price
-            if (currentPrice > 0) {
-              newAmount = (quoteBalance * percentage) / currentPrice;
+            if (orderType === 'LIMIT' && currentPrice > 0) {
+                newAmount = (quoteBalance * percentage) / currentPrice;
+            } else { // Market order
+                 newAmount = quoteBalance * percentage;
             }
         } else { // For SELL
-            // For SELL, percentage is of base asset.
             newAmount = baseBalance * percentage;
         }
         setValue('quantity', newAmount, { shouldValidate: true });
@@ -279,6 +331,21 @@ export function OrderForm({ selectedPrice, marketId }: OrderFormProps) {
             <div className="space-y-2">
                 <Label>Total</Label>
                 <Input placeholder="0.00" type="number" readOnly value={total.toFixed(2)} className="bg-muted" />
+            </div>
+          )}
+          {orderType === 'MARKET' && executionPrice !== null && (
+            <div className="text-xs space-y-2">
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Price Impact</span>
+                <span className={cn("font-semibold", impactColor)}>
+                    {impact.toFixed(2)}% ({impactLabel})
+                </span>
+              </div>
+               {impact > 2 && (
+                    <Alert variant="destructive" className="p-2 text-xs">
+                        High Price Impact! The market has low liquidity or your order size is large.
+                    </Alert>
+                )}
             </div>
           )}
           <Button

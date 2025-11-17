@@ -1,7 +1,9 @@
+"use client";
 
 class MarketDataService {
-  static instances: any = {};
+  static instances: Record<string, MarketDataService> = {};
   symbol: string;
+
   depthCallbacks: any[] = [];
   tickerCallbacks: any[] = [];
   tradeCallbacks: any[] = [];
@@ -23,50 +25,52 @@ class MarketDataService {
     return this.instances[symbol];
   }
 
-  subscribeDepth(cb: any) { this.depthCallbacks.push(cb); }
-  subscribeTicker(cb: any) { this.tickerCallbacks.push(cb); }
-  subscribeTrades(cb: any) { this.tradeCallbacks.push(cb); }
-  subscribeKline(cb: any) { this.klineCallbacks.push(cb); }
+  subscribeDepth(cb: any) { this.depthCallbacks.push(cb); return () => {}; }
+  subscribeTicker(cb: any) { this.tickerCallbacks.push(cb); return () => {}; }
+  subscribeTrades(cb: any) { this.tradeCallbacks.push(cb); return () => {}; }
+  subscribeKline(cb: any) { this.klineCallbacks.push(cb); return () => {}; }
 
-  // DEPTH
+  // ORDERBOOK DEPTH
   initDepth() {
     const ws = new WebSocket(`wss://stream.binance.com/ws/${this.symbol}@depth20@100ms`);
-    ws.onmessage = msg => {
-      const d = JSON.parse(msg.data);
-      this.depthCallbacks.forEach(cb => cb({ bids: d.b, asks: d.a }));
+    ws.onmessage = (msg) => {
+      const data = JSON.parse(msg.data);
+      this.depthCallbacks.forEach(cb => cb({ bids: data.b, asks: data.a }));
     };
   }
 
-  // MINI TICKER
+  // TICKER
   initTicker() {
     const ws = new WebSocket(`wss://stream.binance.com/ws/${this.symbol}@ticker`);
-    ws.onmessage = msg => {
-      const t = JSON.parse(msg.data);
-      this.tickerCallbacks.forEach(cb => cb(t));
+    ws.onmessage = (msg) => {
+      const data = JSON.parse(msg.data);
+      this.tickerCallbacks.forEach(cb => cb(data));
     };
   }
 
   // TRADES
   initTrades() {
     const ws = new WebSocket(`wss://stream.binance.com/ws/${this.symbol}@trade`);
-    ws.onmessage = msg => {
-      const t = JSON.parse(msg.data);
-      this.tradeCallbacks.forEach(cb => cb(t));
+    ws.onmessage = (msg) => {
+      const data = JSON.parse(msg.data);
+      this.tradeCallbacks.forEach(cb => cb(data));
     };
   }
 
   // KLINE (1m)
   initKline() {
     const ws = new WebSocket(`wss://stream.binance.com/ws/${this.symbol}@kline_1m`);
-    ws.onmessage = msg => {
+    ws.onmessage = (msg) => {
       const k = JSON.parse(msg.data).k;
-      this.klineCallbacks.forEach(cb => cb({
-        time: k.t,
-        open: parseFloat(k.o),
-        high: parseFloat(k.h),
-        low: parseFloat(k.l),
-        close: parseFloat(k.c)
-      }));
+      this.klineCallbacks.forEach(cb =>
+        cb({
+          time: k.t,
+          open: parseFloat(k.o),
+          high: parseFloat(k.h),
+          low: parseFloat(k.l),
+          close: parseFloat(k.c),
+        })
+      );
     };
   }
 }

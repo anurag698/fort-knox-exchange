@@ -1,6 +1,8 @@
 import { ethers } from "ethers";
 import Safe, { EthersAdapter } from "@safe-global/protocol-kit";
 import { SafeTransactionDataPartial } from "@safe-global/safe-core-sdk-types";
+import { getFirebaseAdmin } from "@/lib/firebase-admin";
+
 
 // ENV
 const RPC_URL = process.env.RPC_URL!;
@@ -37,6 +39,17 @@ export const createDepositWallet = () => {
     privateKey: wallet.privateKey, // store encrypted (NOT raw)
   };
 };
+
+export const saveUserWallet = async (userId: string, wallet: any) => {
+  const { firestore } = getFirebaseAdmin()!;
+  await firestore.collection("users").doc(userId).collection("wallet").doc("eth").set({
+    address: wallet.address,
+    encryptedKey: wallet.privateKey, // later use encryption/KMS
+    createdAt: new Date(),
+    chain: "ethereum",
+  });
+};
+
 
 // Get ETH balance for any address
 export const getEthBalance = async (address: string) => {

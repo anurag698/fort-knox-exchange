@@ -7,18 +7,18 @@ import Safe, { EthersAdapter, SafeFactory } from '@safe-global/protocol-kit';
 import SafeApiKit from '@safe-global/api-kit';
 import type { SafeTransactionDataPartial } from '@safe-global/safe-core-sdk-types';
 
-const POLYGON_RPC_URL = process.env.BSC_RPC_URL || 'https://polygon-rpc.com';
+const POLYGON_RPC_URL = process.env.POLYGON_RPC_URL || 'https://polygon-rpc.com';
 const SAFE_TX_SERVICE_URL = 'https://safe-transaction-polygon.safe.global';
 
 // The address of the Gnosis Safe Multisig treasury on Polygon
-export const SAFE_TREASURY_ADDRESS = '0xAfD446a25f06D306656CAc1A857dEA397886Bd7c';
+export const SAFE_TREASURY_ADDRESS = process.env.SAFE_ADDRESS!;
 
 /**
  * Initializes the required SDKs for interacting with the Gnosis Safe.
  * This is a server-side function and requires a hot wallet private key.
- * @returns An object containing the initialized SDKs and the signer address.
+ * @returns An object containing the initialized SDKs and the signer.
  */
-async function getSafeSDK() {
+export async function initSafeClient() {
   const provider = new JsonRpcProvider(POLYGON_RPC_URL);
   const privateKey = process.env.HOT_WALLET_PRIVATE_KEY;
 
@@ -42,66 +42,96 @@ async function getSafeSDK() {
     safeAddress: SAFE_TREASURY_ADDRESS,
   });
 
-  return { protocolKit, safeService, signerAddress: signer.address };
+  return { protocolKit, safeService, signer };
 }
 
 /**
- * Creates a Safe transaction proposal for a given set of transactions.
- * @param safeTransactionData - An array of transactions to be included in the proposal.
+ * Creates a Safe transaction (but do not sign or propose)
+ * @param to - The destination address.
+ * @param value - The value to send (in wei).
+ * @param data - The transaction data.
+ * @returns The created Safe transaction object.
+ */
+export const createSafeTx = async (
+  to: string,
+  value: string = "0",
+  data: string = "0x"
+) => {
+  const { protocolKit } = await initSafeClient();
+
+  const safeTransactionData = { to, value, data };
+  const safeTx = await protocolKit.createTransaction({ safeTransactionData });
+
+  return safeTx;
+};
+
+
+/**
+ * Proposes a Safe transaction to the Gnosis Safe service.
+ * The backend's hot wallet will sign as the first owner.
+ * @param to - The destination address.
+ * @param value - The value to send (in wei).
+ * @param data - The transaction data.
  * @returns The Safe transaction hash of the created proposal.
  */
-export async function createSafeTransaction(
-  safeTransactionData: SafeTransactionDataPartial[]
-) {
-  const { protocolKit, safeService, signerAddress } = await getSafeSDK();
+export const proposeSafeTx = async (
+  to: string,
+  value: string = "0",
+  data: string = "0x"
+) => {
+  const { protocolKit, safeService, signer } = await initSafeClient();
 
-  const safeTransaction = await protocolKit.createTransaction({
-    safeTransactionData,
+  const safeTx = await protocolKit.createTransaction({
+    safeTransactionData: { to, value, data }
   });
-  const safeTxHash = await protocolKit.getTransactionHash(safeTransaction);
-  const senderSignature = await protocolKit.signHash(safeTxHash);
+
+  const safeTxHash = await protocolKit.getTransactionHash(safeTx);
+  const signature = await protocolKit.signTransactionHash(safeTxHash);
 
   await safeService.proposeTransaction({
     safeAddress: SAFE_TREASURY_ADDRESS,
-    safeTransactionData: safeTransaction.data,
+    safeTransactionData: safeTx.data,
     safeTxHash,
-    senderAddress: signerAddress,
-    senderSignature: senderSignature.data,
+    senderAddress: await signer.getAddress(),
+    signature: signature.data,
   });
 
   return safeTxHash;
-}
+};
+
+/**
+ * Executes a confirmed Gnosis Safe transaction.
+ * @param safeTxHash - The hash of the transaction to execute.
+ * @returns The transaction receipt hash.
+ */
+export const executeSafeTx = async (safeTxHash: string) => {
+  const { safeService, protocolKit } = await initSafeClient();
+
+  const txDetails = await safeService.getTransaction(safeTxHash);
+  const isReady = await protocolKit.isTransactionReady(txDetails);
+
+  if (isReady) {
+    const exec = await protocolKit.executeTransaction(txDetails);
+    const receipt = await exec.transactionResponse?.wait();
+    return receipt?.hash;
+  } else {
+    throw new Error('Transaction is not ready to be executed. More signatures are required.');
+  }
+};
+
 
 /**
  * Fetches pending transactions from the Gnosis Safe transaction service.
  * @returns A list of pending transactions.
  */
 export async function getPendingSafeTransactions() {
-  const { safeService } = await getSafeSDK();
+  const { safeService } = await initSafeClient();
   const pendingTxs = await safeService.getPendingTransactions(
     SAFE_TREASURY_ADDRESS
   );
   return pendingTxs.results;
 }
 
-/**
- * Executes a confirmed Gnosis Safe transaction.
- * @param safeTxHash - The hash of the transaction to execute.
- * @returns The transaction receipt.
- */
-export async function executeSafeTransaction(safeTxHash: string) {
-  const { protocolKit, safeService } = await getSafeSDK();
-  const safeTransaction = await safeService.getTransaction(safeTxHash);
-  const isReady = await protocolKit.isTransactionReady(safeTransaction);
-
-  if (isReady) {
-    const txResponse = await protocolKit.executeTransaction(safeTransaction);
-    const receipt = await txResponse.transactionResponse?.wait();
-    return receipt;
-  } else {
-    throw new Error('Transaction is not ready to be executed.');
-  }
-}
 
 /**
  * Sweeps funds from a hot wallet to the Safe treasury if the balance exceeds a threshold.
@@ -109,17 +139,48 @@ export async function executeSafeTransaction(safeTxHash: string) {
  */
 export async function sweeperBot() {
   console.log('Running sweeper bot logic...');
-  // In a real implementation:
-  // 1. Get hot wallet balance for various tokens.
-  // 2. If balance > threshold, create a transfer transaction.
-  // 3. Call createSafeTransaction() to propose the sweep.
-  const { firestore } = getFirebaseAdmin();
-  // Example: sweep 10 USDT if hot wallet has > 100
-  // const usdtAddress = '0xc2132D05D31c914a87C6611C10748AEb04B58e8F';
-  // const sweepTx = { to: usdtAddress, value: '0', data: '...transferData' };
-  // await createSafeTransaction([sweepTx]);
+  const { signer } = await initSafeClient();
+  const hotWalletAddress = await signer.getAddress();
+  
+  // In a real implementation, you would check balances of various ERC20 tokens.
+  // For this example, we'll just check the native token (MATIC) balance.
+  const balance = await signer.provider.getBalance(hotWalletAddress);
+  
+  // Set a threshold (e.g., 100 MATIC).
+  const threshold = ethers.parseUnits("100", "ether");
+  
+  if (balance > threshold) {
+    // If balance exceeds threshold, sweep the excess amount.
+    const amountToSweep = balance - threshold;
+    console.log(`Hot wallet balance ${ethers.formatEther(balance)} MATIC exceeds threshold. Sweeping ${ethers.formatEther(amountToSweep)} MATIC to treasury.`);
+    
+    try {
+      const safeTxHash = await proposeSafeTx(
+        SAFE_TREASURY_ADDRESS,
+        amountToSweep.toString()
+      );
+      console.log(`Proposed sweep transaction to Safe. Tx Hash: ${safeTxHash}`);
+      
+      // You could store this hash in Firestore to track its status.
+      const { firestore } = getFirebaseAdmin();
+      await firestore.collection('sweeper_log').add({
+        proposedAt: new Date(),
+        amount: ethers.formatEther(amountToSweep),
+        asset: 'MATIC',
+        safeTxHash,
+        status: 'PROPOSED'
+      });
+
+    } catch (error) {
+      console.error("Failed to propose sweep transaction:", error);
+    }
+  } else {
+    console.log(`Hot wallet balance ${ethers.formatEther(balance)} MATIC is below sweep threshold.`);
+  }
+
   console.log('Sweeper bot finished.');
 }
+
 
 /**
  * This function is responsible for finalizing a trade on-chain by broadcasting the transaction
@@ -131,14 +192,7 @@ export async function broadcastAndReconcileTransaction(
   dexTxId: string
 ): Promise<string> {
   const { firestore } = getFirebaseAdmin();
-  const privateKey = process.env.HOT_WALLET_PRIVATE_KEY;
-
-  if (!privateKey) {
-    throw new Error('HOT_WALLET_PRIVATE_KEY is not set on the server.');
-  }
-
-  const provider = new ethers.JsonRpcProvider(POLYGON_RPC_URL);
-  const wallet = new ethers.Wallet(privateKey, provider);
+  const { signer } = await initSafeClient();
 
   const txDocRef = firestore.collection('dex_transactions').doc(dexTxId);
 
@@ -156,7 +210,7 @@ export async function broadcastAndReconcileTransaction(
 
     const { oneinchPayload: tx, orderId } = txData;
 
-    const txResponse = await wallet.sendTransaction({
+    const txResponse = await signer.sendTransaction({
       to: tx.to,
       data: tx.data,
       value: tx.value,
@@ -195,5 +249,3 @@ export async function broadcastAndReconcileTransaction(
     throw error;
   }
 }
-
-    

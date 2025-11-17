@@ -31,7 +31,8 @@ export function PopularCoins() {
 
   const marketSymbols = useMemo(() => {
     if (!markets) return [];
-    return markets.map(m => `${m.baseAssetId}${m.quoteAssetId}`);
+    // We only care about USDT pairs for this component
+    return markets.filter(m => m.quoteAssetId === 'USDT').map(m => `${m.baseAssetId}${m.quoteAssetId}`);
   }, [markets]);
 
   useEffect(() => {

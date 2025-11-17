@@ -22,7 +22,7 @@ let adminServices: FirebaseAdminServices | null = null;
  * 2. Use GOOGLE_APPLICATION_CREDENTIALS/applicationDefault if present
  * 3. Otherwise log a clear warning and return null.
  */
-export function getFirebaseAdmin(): FirebaseAdminServices | null {
+export function getFirebaseAdmin(): FirebaseAdminServices {
   if (adminServices) return adminServices;
   
   const appName = 'firebase-admin-app-singleton';
@@ -40,42 +40,39 @@ export function getFirebaseAdmin(): FirebaseAdminServices | null {
   
   const svcJson = process.env.FIREBASE_SERVICE_ACCOUNT_JSON;
 
-  if (svcJson) {
-    try {
-      const creds = JSON.parse(svcJson);
-      const newApp = initializeApp({ credential: cert(creds) }, appName);
-      console.info('[firebase-admin] Initialized successfully from FIREBASE_SERVICE_ACCOUNT_JSON.');
+  try {
+    if (svcJson) {
+        const creds = JSON.parse(svcJson);
+        const newApp = initializeApp({ credential: cert(creds) }, appName);
+        console.info('[firebase-admin] Initialized successfully from FIREBASE_SERVICE_ACCOUNT_JSON.');
+        adminServices = {
+            app: newApp,
+            firestore: getAdminFirestore(newApp),
+            auth: getAdminAuth(newApp),
+            FieldValue
+        };
+    } else if (process.env.GOOGLE_APPLICATION_CREDENTIALS) {
+        const newApp = initializeApp({ credential: cert(process.env.GOOGLE_APPLICATION_CREDENTIALS) }, appName);
+        console.info('[firebase-admin] Initialized successfully using GOOGLE_APPLICATION_CREDENTIALS.');
+        adminServices = {
+            app: newApp,
+            firestore: getAdminFirestore(newApp),
+            auth: getAdminAuth(newApp),
+            FieldValue
+        };
+    } else {
+      console.warn(`[firebase-admin] WARNING: No Firebase admin credentials provided. Attempting to initialize with Application Default Credentials.`);
+      const newApp = initializeApp({}, appName);
       adminServices = {
           app: newApp,
           firestore: getAdminFirestore(newApp),
           auth: getAdminAuth(newApp),
           FieldValue
       };
-    } catch (err) {
-      console.error('[firebase-admin] Failed to parse FIREBASE_SERVICE_ACCOUNT_JSON. Ensure it is a valid, single-line JSON string.');
-      // Return null instead of throwing
-      return null;
     }
-  } else if (process.env.GOOGLE_APPLICATION_CREDENTIALS) {
-    try {
-      const newApp = initializeApp({ credential: cert(process.env.GOOGLE_APPLICATION_CREDENTIALS) }, appName);
-      console.info('[firebase-admin] Initialized successfully using GOOGLE_APPLICATION_CREDENTIALS.');
-      adminServices = {
-          app: newApp,
-          firestore: getAdminFirestore(newApp),
-          auth: getAdminAuth(newApp),
-          FieldValue
-      };
-    } catch (err) {
-      console.error('[firebase-admin] Failed to initialize with GOOGLE_APPLICATION_CREDENTIALS path.', err);
-      // Return null instead of throwing
-      return null;
-    }
-  } else {
-    const errMsg = 'Firebase Admin initialization failed. Set FIREBASE_SERVICE_ACCOUNT_JSON for this environment.';
-    console.warn(`[firebase-admin] WARNING: ${errMsg}`);
-    // Return null instead of throwing
-    return null;
+  } catch(err: any) {
+    console.error('[firebase-admin] initialization failed:', err?.stack || err?.message || err);
+    throw new Error(`Firebase Admin SDK initialization failed: ${err.message}`);
   }
   
   return adminServices;

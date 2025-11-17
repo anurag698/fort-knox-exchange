@@ -1,25 +1,25 @@
-
 import { ethers } from "ethers";
 import Safe, { EthersAdapter } from "@safe-global/protocol-kit";
-import { SafeAccountConfig } from "@safe-global/protocol-kit";
+import { SafeTransactionDataPartial } from "@safe-global/safe-core-sdk-types";
 
+// ENV
 const RPC_URL = process.env.RPC_URL!;
-const SAFE_ADDRESS = process.env.SAFE_ADDRESS!;
 const PRIVATE_KEY = process.env.PRIVATE_KEY!;
+const SAFE_ADDRESS = process.env.SAFE_ADDRESS!;
 
-if (!RPC_URL || !SAFE_ADDRESS || !PRIVATE_KEY) {
-  throw new Error("Missing env variables in wallet.ts");
+if (!RPC_URL || !PRIVATE_KEY || !SAFE_ADDRESS) {
+  throw new Error("Missing ENV variables in wallet-service.ts");
 }
 
-// Provider + Signer (your hot wallet)
+// Provider + Hot Wallet Signer
 export const provider = new ethers.JsonRpcProvider(RPC_URL);
-export const signer = new ethers.Wallet(PRIVATE_KEY, provider);
+export const hotWallet = new ethers.Wallet(PRIVATE_KEY, provider);
 
-// Safe SDK instance
-export const getSafe = async () => {
+// Init SAFE
+export const getSafeSdk = async () => {
   const ethAdapter = new EthersAdapter({
     ethers,
-    signerOrProvider: signer,
+    signerOrProvider: hotWallet,
   });
 
   return await Safe.create({
@@ -28,25 +28,25 @@ export const getSafe = async () => {
   });
 };
 
-// Generate deposit wallet for user
-export const createUserWallet = async (userId: string) => {
+// Create a new deposit wallet for a user
+export const createDepositWallet = () => {
   const wallet = ethers.Wallet.createRandom();
 
   return {
-    userId,
     address: wallet.address,
-    privateKey: wallet.privateKey, // store encrypted in Firestore/KMS
+    privateKey: wallet.privateKey, // store encrypted (NOT raw)
   };
 };
 
-// Get deposit address (retrieved from DB in production)
-export const getUserAddress = async (userWallet: any) => {
-  return userWallet.address;
+// Get ETH balance for any address
+export const getEthBalance = async (address: string) => {
+  const bal = await provider.getBalance(address);
+  return Number(ethers.formatEther(bal));
 };
 
-// Transfer ETH
-export const sendETH = async (to: string, amountEth: string) => {
-  const tx = await signer.sendTransaction({
+// Send ETH using the hot wallet
+export const transferEth = async (to: string, amountEth: string) => {
+  const tx = await hotWallet.sendTransaction({
     to,
     value: ethers.parseEther(amountEth),
   });
@@ -54,65 +54,86 @@ export const sendETH = async (to: string, amountEth: string) => {
   return await tx.wait();
 };
 
-// Transfer ERC20 tokens
-export const sendERC20 = async (tokenAddress: string, to: string, amount: string) => {
-  const abi = [
-    "function transfer(address to, uint256 amount) public returns (bool)",
-  ];
-  const contract = new ethers.Contract(tokenAddress, abi, signer);
+// Send ERC20 tokens
+export const transferToken = async (
+  tokenAddress: string,
+  to: string,
+  amount: string
+) => {
+  const abi = ["function transfer(address to, uint256 value)"];
+  const contract = new ethers.Contract(tokenAddress, abi, hotWallet);
 
   const tx = await contract.transfer(to, amount);
   return await tx.wait();
 };
 
-// Sweep funds from user wallet → SAFE
-export const sweepToSafe = async (privateKey: string) => {
+// Sweep all ETH from user wallet → SAFE (minus gas fee)
+export const sweepWalletToSafe = async (privateKey: string) => {
   const userWallet = new ethers.Wallet(privateKey, provider);
   const balance = await provider.getBalance(userWallet.address);
 
-  if (balance === 0n) {
-    return { status: "no_funds" };
-  }
+  if (balance <= 0n) return { status: "empty" };
 
-  // leave small gas buffer
   const gasPrice = await provider.getGasPrice();
-  const txCost = gasPrice * BigInt(21000);
-  const sweepAmount = balance - txCost;
+  const gasLimit = 21000n;
+  const fee = gasPrice * gasLimit;
 
-  if (sweepAmount <= 0n) {
-    return { status: "not_enough_for_gas" };
+  if (balance <= fee) {
+    return { status: "insufficient_for_gas" };
   }
+
+  const sendAmount = balance - fee;
 
   const tx = await userWallet.sendTransaction({
     to: SAFE_ADDRESS,
-    value: sweepAmount,
+    value: sendAmount,
   });
 
   return await tx.wait();
 };
 
-// Execute transaction FROM the safe
-export const safeTransferETH = async (to: string, amountEth: string) => {
-  const safe = await getSafe();
+// Execute Safe transaction (ETH transfer)
+export const safeSendEth = async (to: string, amountEth: string) => {
+  const safeSdk = await getSafeSdk();
 
-  const safeTx = await safe.createTransaction({
-    transactions: [
-      {
-        to,
-        value: ethers.parseEther(amountEth).toString(),
-        data: "0x",
-      },
-    ],
-  });
+  const safeTxData: SafeTransactionDataPartial = {
+    to,
+    data: "0x",
+    value: ethers.parseEther(amountEth).toString(),
+  };
 
-  const txResponse = await safe.executeTransaction(safeTx);
-  return txResponse;
+  const safeTx = await safeSdk.createTransaction({ transactions: [safeTxData] });
+  const result = await safeSdk.executeTransaction(safeTx);
+
+  return result;
 };
 
-// Auto-repair (nonce reset)
-export const repairSafe = async () => {
-  const safe = await getSafe();
-  const nonce = await safe.getNonce();
+// Execute Safe ERC20 transfer
+export const safeSendToken = async (
+  tokenAddress: string,
+  to: string,
+  amountWei: string
+) => {
+  const safeSdk = await getSafeSdk();
 
-  return { nonce };
+  const abiInterface = new ethers.Interface([
+    "function transfer(address to, uint256 value) public returns (bool)",
+  ]);
+
+  const data = abiInterface.encodeFunctionData("transfer", [to, amountWei]);
+
+  const txData: SafeTransactionDataPartial = {
+    to: tokenAddress,
+    value: "0",
+    data,
+  };
+
+  const safeTx = await safeSdk.createTransaction({ transactions: [txData] });
+  return await safeSdk.executeTransaction(safeTx);
+};
+
+// Fix SAFE stuck nonce
+export const getSafeNonce = async () => {
+  const safeSdk = await getSafeSdk();
+  return await safeSdk.getNonce();
 };

@@ -1,3 +1,4 @@
+
 // This component defines the grid layout for the "Advanced" trading mode.
 'use client';
 
@@ -7,11 +8,11 @@ import { OrderFormAdvanced } from '@/components/trade/order-form-advanced';
 import { RecentTrades } from '@/components/trade/recent-trades';
 import { Balances } from '@/components/trade/balances';
 import { useMarketDataStore } from '@/lib/market-data-service';
-import { OrderHistoryPanel } from '@/components/trade/order-history-panel';
-import { TradeHistoryPanel } from '@/components/trade/trade-history-panel';
-import { PositionsPanel } from '@/components/trade/positions-panel';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { OpenOrdersPanel } from '@/components/trade/open-orders-panel';
+import { TradeHistoryPanel } from '@/components/trade/trade-history-panel';
+import { OrderHistoryPanel } from '@/components/trade/order-history-panel';
+import { PositionsPanel } from '@/components/trade/positions-panel';
 
 
 export function AdvancedLayout({ marketId }: { marketId: string }) {
@@ -61,3 +62,4 @@ export function AdvancedLayout({ marketId }: { marketId: string }) {
     </div>
   );
 }
+

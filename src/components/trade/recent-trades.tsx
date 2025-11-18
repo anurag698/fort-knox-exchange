@@ -6,7 +6,7 @@ import { AlertCircle } from "lucide-react";
 import { cn } from '@/lib/utils';
 import { useMarkets } from '@/hooks/use-markets';
 import { useMarketDataStore } from '@/lib/market-data-service';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef } from 'react';
 
 export function RecentTrades({ marketId }: { marketId: string }) {
   const { data: markets } = useMarkets();
@@ -14,26 +14,25 @@ export function RecentTrades({ marketId }: { marketId: string }) {
   const isLoading = useMarketDataStore(state => !state.isConnected && state.trades.length === 0);
   const error = useMarketDataStore(state => state.error);
 
-  const tradesEndRef = useRef<HTMLDivElement>(null);
-  const [autoScroll, setAutoScroll] = useState(true);
+  const listRef = useRef<HTMLDivElement>(null);
 
   const market = markets?.find(m => m.id === marketId);
   const pricePrecision = market?.pricePrecision ?? 2;
   const quantityPrecision = market?.quantityPrecision ?? 4;
 
-  const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
-    const { scrollTop, scrollHeight, clientHeight } = e.currentTarget;
-    const atBottom = scrollTop + clientHeight >= scrollHeight - 20;
-    if (atBottom !== autoScroll) {
-      setAutoScroll(atBottom);
-    }
-  };
-
   useEffect(() => {
-    if (autoScroll) {
-      tradesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    if (!listRef.current) return;
+
+    const node = listRef.current;
+    // Check if user is near the bottom before auto-scrolling
+    const isAtBottom = Math.abs(node.scrollHeight - node.clientHeight - node.scrollTop) < 20;
+
+    if (isAtBottom) {
+      // Use scrollIntoView on a dummy element for smooth scrolling
+      node.lastElementChild?.scrollIntoView({ behavior: "smooth", block: "end" });
     }
-  }, [trades, autoScroll]);
+  }, [trades]);
+
 
   const renderContent = () => {
     if (isLoading) {
@@ -51,7 +50,7 @@ export function RecentTrades({ marketId }: { marketId: string }) {
             <span>Amount</span>
             <span>Time</span>
         </div>
-        <div className="flex-grow overflow-y-auto" onScroll={handleScroll}>
+        <div ref={listRef} className="flex-grow overflow-y-auto" style={{overflowAnchor: "none"}}>
             <div className="space-y-1">
                 {trades.map((trade, index) => (
                 <div key={trade.t + '-' + index} className="flex justify-between text-xs font-mono p-0.5">
@@ -61,7 +60,6 @@ export function RecentTrades({ marketId }: { marketId: string }) {
                 </div>
                 ))}
             </div>
-            <div ref={tradesEndRef} />
         </div>
       </div>
     );

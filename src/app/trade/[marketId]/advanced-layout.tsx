@@ -9,6 +9,7 @@ import { Balances } from '@/components/trade/balances';
 import { UserTrades } from '@/components/trade/user-trades';
 import { useMarketDataStore } from '@/lib/market-data-service';
 import { OrderHistoryPanel } from '@/components/trade/order-history-panel';
+import { TradeHistoryPanel } from '@/components/trade/trade-history-panel';
 
 export function AdvancedLayout({ marketId }: { marketId: string }) {
   const klineData = useMarketDataStore((state) => state.klines);
@@ -38,6 +39,7 @@ export function AdvancedLayout({ marketId }: { marketId: string }) {
       </div>
       <div className="col-span-12 row-span-6 lg:col-span-9">
         <OrderHistoryPanel />
+        <TradeHistoryPanel />
       </div>
     </div>
   );

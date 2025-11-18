@@ -300,3 +300,5 @@ export class MarketDataService {
     this.createSocket(url, onMessage);
   }
 }
+
+export const marketDataService = MarketDataService;

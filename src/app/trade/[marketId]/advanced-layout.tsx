@@ -12,7 +12,7 @@ import { OrderHistoryPanel } from '@/components/trade/order-history-panel';
 import { TradeHistoryPanel } from '@/components/trade/trade-history-panel';
 import { PositionsPanel } from '@/components/trade/positions-panel';
 import { cn } from '@/lib/utils';
-
+import CanvasDepthChart from '@/components/trade/canvas-depth-chart';
 
 export function AdvancedLayout({ marketId }: { marketId: string }) {
   const [tab, setTab] = useState<'open-orders' | 'order-history' | 'trade-history' | 'positions'>('open-orders');
@@ -20,14 +20,18 @@ export function AdvancedLayout({ marketId }: { marketId: string }) {
 
   return (
     <div className="grid h-full grid-cols-12 grid-rows-12 gap-2">
-      <div className="col-span-12 row-span-6 lg:col-span-9">
+      <div className="col-span-12 row-span-6 lg:col-span-9 relative h-[420px] max-h-[420px] overflow-hidden rounded-lg bg-[#081018]">
         <LightweightChart marketId={marketId} />
       </div>
       <div className="col-span-12 row-span-6 lg:col-span-3 lg:row-span-12">
         <OrderBook />
       </div>
       <div className="col-span-12 row-span-6 lg:col-span-3">
-        <OrderFormAdvanced marketId={marketId} />
+        <div className="absolute left-6 top-6 w-[360px] z-40 pointer-events-auto">
+            <div className="bg-[#0b1220]/90 border border-[#1f2937] rounded-xl p-4 shadow-xl">
+                <OrderFormAdvanced marketId={marketId} />
+            </div>
+        </div>
       </div>
       <div className="col-span-12 row-span-6 lg:col-span-3">
         <RecentTrades marketId={marketId} />

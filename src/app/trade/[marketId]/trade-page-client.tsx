@@ -36,7 +36,7 @@ export default function TradePageClient({ marketId }: Props) {
   }, [marketId]);
 
   return (
-    <div className="flex flex-col bg-[#05070a] text-gray-200 h-full">
+    <div className="flex flex-col bg-[#05070a] text-gray-200 h-full trade-area">
 
       {showOrderPanel && (
         <FloatingOrderPanel>

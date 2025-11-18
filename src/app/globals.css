@@ -1,3 +1,4 @@
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -8,6 +9,10 @@ body {
 
 html, body {
   overflow-anchor: none !important;
+}
+
+.trade-area {
+  overflow-anchor: none;
 }
 
 @layer base {
@@ -147,4 +152,12 @@ html, body {
   .trading-panel-body {
     @apply px-3 py-2;
   }
+}
+
+.canvas-depth-wrapper {
+  height: 360px !important;
+  max-height: 360px !important;
+  overflow: hidden !important;
+  position: relative;
+  overflow-anchor: none;
 }

@@ -1,3 +1,4 @@
+
 import { getFirebaseAdmin } from '@/lib/firebase-admin';
 import { collection, collectionGroup, query, where, orderBy, getDocs } from 'firebase/firestore';
 import type { SpotPosition } from '@/lib/types';

@@ -1,6 +1,6 @@
 'use client';
 
-import { createChart, ColorType, IChartApi, ISeriesApi } from 'lightweight-charts';
+import { createChart, ColorType, IChartApi, ISeriesApi, CrosshairMode } from 'lightweight-charts';
 import { useEffect, useRef, useState } from 'react';
 import { useMarketDataStore, ProcessedOrder, RawOrder } from '@/lib/market-data-service';
 import { useMarkets } from '@/hooks/use-markets';
@@ -24,6 +24,25 @@ function ceilPrice(price: number, precision: number) {
 }
 
 // --------------------------------------
+// Quantity Rounding (Binance Hybrid)
+// --------------------------------------
+function floorQty(qty: number, precision: number) {
+  const factor = Math.pow(10, precision);
+  return Math.floor(qty * factor) / factor;
+}
+
+function roundQty(qty: number, precision: number) {
+  const factor = Math.pow(10, precision);
+  return Math.round(qty * factor) / factor;
+}
+
+function ceilQty(qty: number, precision: number) {
+  const factor = Math.pow(10, precision);
+  return Math.ceil(qty * factor) / factor;
+}
+
+
+// --------------------------------------
 // Smooth easing curve (Binance-like)
 // --------------------------------------
 function ease(current: number, target: number, factor = 0.18) {
@@ -33,6 +52,53 @@ function ease(current: number, target: number, factor = 0.18) {
 function nearlyEqual(a: number, b: number, tolerance = 0.000001) {
   return Math.abs(a - b) < tolerance;
 }
+
+// ---------------------------------------------------------
+// Build Cumulative Depth (Binance Hybrid Rounding)
+// ---------------------------------------------------------
+function buildCumulative(
+  bids: ProcessedOrder[],
+  asks: ProcessedOrder[],
+  pricePrecision: number,
+  quantityPrecision: number
+) {
+  const processedBids = bids.map((order) => ({
+    price: snapPrice(order.price, pricePrecision),
+    size: floorQty(order.size, quantityPrecision),
+  }));
+
+  const processedAsks = asks.map((order) => ({
+    price: snapPrice(order.price, pricePrecision),
+    size: floorQty(order.size, quantityPrecision),
+  }));
+
+  // Sort
+  const sortedBids = processedBids.sort((a, b) => b.price - a.price);
+  const sortedAsks = processedAsks.sort((a, b) => a.price - b.price);
+
+  // Cumulative (round)
+  let bidCum = 0;
+  let askCum = 0;
+
+  const bidPoints = sortedBids.map((b) => {
+    bidCum += b.size;
+    return {
+      price: b.price,
+      cumulative: roundQty(bidCum, quantityPrecision),
+    };
+  });
+
+  const askPoints = sortedAsks.map((a) => {
+    askCum += a.size;
+    return {
+      price: a.price,
+      cumulative: roundQty(aCum, quantityPrecision),
+    };
+  });
+
+  return { bidPoints, askPoints };
+}
+
 
 
 export default function DepthChart({ marketId }: { marketId: string }) {
@@ -106,7 +172,7 @@ export default function DepthChart({ marketId }: { marketId: string }) {
   // 2. Chart Initialization
   // ------------------------------------------
   useEffect(() => {
-    if (!containerRef.current) return;
+    if (!containerRef.current || !market) return;
 
     if (!chartRef.current) {
       chartRef.current = createChart(containerRef.current, {
@@ -133,18 +199,17 @@ export default function DepthChart({ marketId }: { marketId: string }) {
     }
 
     const chart = chartRef.current as any;
+    
+    const { bidPoints, askPoints } = buildCumulative(
+      bids,
+      asks,
+      market.pricePrecision,
+      market.quantityPrecision
+    );
 
-    const bidData = (bids || []).map((p) => ({
-      time: p.price,
-      value: p.size,
-    }));
-    const askData = (asks || []).map((p) => ({
-      time: p.price,
-      value: p.size,
-    }));
+    chart.bidSeries.setData(bidPoints.map(p => ({ time: p.price, value: p.cumulative })));
+    chart.askSeries.setData(askPoints.map(p => ({ time: p.price, value: p.cumulative })));
 
-    chart.bidSeries.setData(bidData);
-    chart.askSeries.setData(askData);
 
     const wallBids = bids.filter((b: any) => b.isWall);
     const wallAsks = asks.filter((a: any) => a.isWall);
@@ -157,7 +222,7 @@ export default function DepthChart({ marketId }: { marketId: string }) {
         const el = containerRef.current;
         if (!el || !chart) return;
         const x = chart.timeScale().timeToCoordinate(price);
-        if (!x) return;
+        if (x === null) return;
 
         const div = document.createElement('div');
         div.className = 'depth-wall';
@@ -177,25 +242,29 @@ export default function DepthChart({ marketId }: { marketId: string }) {
     wallAsks.forEach((w: any) => createWallMarker(w.price, 'rgba(255,100,100,0.7)'));
 
 
-  }, [bids, asks]);
+  }, [bids, asks, market]);
 
   // ------------------------------------------
   // 3. Mid Price Line Overlay (HTML Layer)
   // ------------------------------------------
   useEffect(() => {
     const el = containerRef.current;
-    if (!el || !midPrice || !chartRef.current) return;
+    if (!el || !midPrice || !chartRef.current || !market) return;
 
     const chart = chartRef.current as IChartApi;
 
+    // Remove old line
     const oldLine = document.getElementById('mid-price-line');
     const oldLabel = document.getElementById('mid-price-label');
     if (oldLine) oldLine.remove();
     if (oldLabel) oldLabel.remove();
 
+    // Convert price → pixel position
     const pixelX = chart.timeScale().timeToCoordinate(midPrice);
-    if (!pixelX) return;
 
+    if (pixelX === null) return;
+
+    // Create vertical line element
     const line = document.createElement('div');
     line.id = 'mid-price-line';
     line.style.position = 'absolute';
@@ -206,9 +275,10 @@ export default function DepthChart({ marketId }: { marketId: string }) {
     line.style.background = 'rgba(200,200,200,0.35)';
     line.style.pointerEvents = 'none';
 
+    // Create label element
     const label = document.createElement('div');
     label.id = 'mid-price-label';
-    label.innerText = midPrice.toFixed(2);
+    label.innerText = midPrice.toFixed(market.pricePrecision);
     label.style.position = 'absolute';
     label.style.left = `${pixelX - 30}px`;
     label.style.top = '10px';
@@ -223,7 +293,7 @@ export default function DepthChart({ marketId }: { marketId: string }) {
     el.appendChild(line);
     el.appendChild(label);
 
-  }, [midPrice]);
+  }, [midPrice, market]);
 
   // ------------------------------------------
   // 4. Hover Sync: Detect hovered price
@@ -237,7 +307,7 @@ export default function DepthChart({ marketId }: { marketId: string }) {
     function handleMove(param: any) {
         if (!param.point) return;
         const price = chart.timeScale().coordinateToTime(param.point.x);
-        if (!price) return;
+        if (price === null) return;
         useMarketDataStore.getState().setHoveredPrice(price);
     }
 
@@ -255,7 +325,6 @@ export default function DepthChart({ marketId }: { marketId: string }) {
     
       const bids = store.bids;
       const asks = store.asks;
-      const ticker = store.ticker;
     
       if (!bids.length || !asks.length || !market) return;
     
@@ -268,6 +337,10 @@ export default function DepthChart({ marketId }: { marketId: string }) {
     
       // → Animated smoothing
       setAnimatedRange((prev) => {
+        // Initialize if first run
+        if (prev.min === 0 && prev.max === 0) {
+            return { min: targetMin, max: targetMax };
+        }
         const nextMin = ease(prev.min, targetMin, 0.20);
         const nextMax = ease(prev.max, targetMax, 0.20);
   
@@ -296,7 +369,7 @@ export default function DepthChart({ marketId }: { marketId: string }) {
     
     const timeScale = (chartRef.current as IChartApi).timeScale();
     if(timeScale) {
-        timeScale.setVisibleLogicalRange({
+        timeScale.setVisibleRange({
             from: min,
             to: max,
         });

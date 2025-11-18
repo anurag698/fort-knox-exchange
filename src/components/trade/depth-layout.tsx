@@ -2,7 +2,7 @@
 'use client';
 
 import { DepthChart } from '@/components/trade/depth-chart';
-import { OrderBook } from '@/components/trade/order-book';
+import OrderBook from '@/components/trade/order-book';
 import { useMarketDataStore } from '@/lib/market-data-service';
 
 export function DepthLayout({ marketId }: { marketId: string }) {

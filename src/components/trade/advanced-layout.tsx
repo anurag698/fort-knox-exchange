@@ -2,7 +2,7 @@
 'use client';
 
 import { MemoizedLightweightChart } from '@/components/trade/lightweight-chart';
-import { OrderBook } from '@/components/trade/order-book';
+import OrderBook from '@/components/trade/order-book';
 import { OrderForm } from '@/components/trade/order-form';
 import { RecentTrades } from '@/components/trade/recent-trades';
 import { Balances } from '@/components/trade/balances';

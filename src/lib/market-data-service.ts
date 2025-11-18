@@ -1,18 +1,14 @@
 
-
-// ===========================================================
-//  Fort Knox Exchange — PRO Market Data Engine (Binance Spot)
-// ===========================================================
-
 'use client';
 
 import { create } from 'zustand';
+import type { TickerData } from '@/lib/market-data-service';
 
 // ------------------------------
 // Zustand store for live updates
 // ------------------------------
 interface MarketDataState {
-  ticker: any | null;
+  ticker: TickerData | null;
   bids: any[];
   asks: any[];
   trades: any[];
@@ -20,7 +16,7 @@ interface MarketDataState {
   isConnected: boolean;
   error: string | null;
   hoveredPrice: number | null;
-  setTicker: (data: any) => void;
+  setTicker: (data: TickerData) => void;
   setDepth: (bids: any[], asks: any[]) => void;
   setTrades: (t: any[]) => void;
   pushTrade: (trade: any) => void;
@@ -41,34 +37,53 @@ export const useMarketDataStore = create<MarketDataState>((set) => ({
   error: null,
   hoveredPrice: null,
   setTicker: (data) => set({ ticker: data }),
-  setDepth: (bids, asks) => set((state) => {
-    // Optimization: avoid re-render if data is identical
-    if (state.bids === bids && state.asks === asks) return state;
-    return { bids, asks };
-  }),
+  setDepth: (bids, asks) => {
+    function detectWalls(levels: any[]) {
+      if (!Array.isArray(levels) || levels.length === 0) return [];
+
+      const amounts = levels
+        .slice(0, 15)
+        .map((lvl) => parseFloat(lvl[1]) || 0);
+
+      const avg = amounts.reduce((a, b) => a + b, 0) / (amounts.length || 1);
+      const threshold = avg * 2.5;
+
+      return levels.map((lvl) => {
+        const price = parseFloat(lvl[0]);
+        const size = parseFloat(lvl[1]);
+        return {
+          price,
+          size,
+          isWall: size >= threshold,
+        };
+      });
+    }
+
+    const bidWalls = detectWalls(bids);
+    const askWalls = detectWalls(asks);
+
+    set({
+      bids: bidWalls,
+      asks: askWalls,
+    });
+  },
   setTrades: (t) => set({ trades: t }),
-  pushTrade: (trade) => set((state) => ({
-    trades: [...state.trades, trade].slice(-100) // Keep last 100 trades
-  })),
+  pushTrade: (trade) =>
+    set((state) => ({
+      trades: [...state.trades, trade].slice(-100), // Keep last 100 trades
+    })),
   setKlines: (k) => set({ klines: k }),
-  pushKline: (kline) => set((state) => {
-    // Update if exists, else append. Ensures no duplicates.
-    const newKlines = state.klines.filter(k => k.time !== kline.time);
-    newKlines.push(kline);
-    return { klines: newKlines.sort((a,b) => a.time - b.time) };
-  }),
+  pushKline: (kline) =>
+    set((state) => {
+      // Update if exists, else append. Ensures no duplicates.
+      const newKlines = state.klines.filter((k) => k.time !== kline.time);
+      newKlines.push(kline);
+      return { klines: newKlines.sort((a, b) => a.time - b.time) };
+    }),
   setConnected: (status) => set({ isConnected: status }),
   setError: (error) => set({ error }),
   setHoveredPrice: (price) => set({ hoveredPrice: price }),
 }));
-
-
-// ------------------------------
-// Binance WS URLs
-// ------------------------------
-function streamUrl(symbol: string, stream: string) {
-  return `wss://stream.binance.com:9443/ws/${symbol.toLowerCase()}@${stream}`;
-}
 
 // ------------------------------
 // MarketDataService (singleton)
@@ -78,14 +93,12 @@ export class MarketDataService {
 
   private symbol: string;
   private sockets: WebSocket[] = [];
-  
+
   private constructor(symbol: string) {
     this.symbol = symbol;
   }
 
-  // ---------------------------------------------------------
-  // Singleton access for each symbol (BTCUSDT, ETHUSDT, etc.)
-  // ---------------------------------------------------------
+  // Singleton access for each symbol
   static get(symbol: string) {
     if (!this.instances.has(symbol)) {
       this.instances.set(symbol, new MarketDataService(symbol));
@@ -93,125 +106,101 @@ export class MarketDataService {
     return this.instances.get(symbol)!;
   }
 
-  // ---------------------------------------------------------
-  // Connect all Binance streams needed for PRO terminal
-  // ---------------------------------------------------------
+  // Connect all streams
   connect() {
     this.disconnect(); // clean old sockets
 
     const streams = [
-        { name: 'ticker', type: 'ticker' },
-        { name: 'depth20@100ms', type: 'depth' },
-        { name: 'trade', type: 'trade' },
-        { name: 'kline_1m', type: 'kline' },
+      { name: 'ticker', type: 'ticker' },
+      { name: 'depth20@100ms', type: 'depth' },
+      { name: 'trade', type: 'trade' },
+      { name: 'kline_1m', type: 'kline' },
     ];
     this.setupBufferedListener(streams);
   }
 
-  // ---------------------------------------------------------
   // Cleanup
-  // ---------------------------------------------------------
   disconnect() {
     this.sockets.forEach((ws) => {
-        if(ws.readyState === WebSocket.OPEN) {
-            ws.close();
-        }
+      if (ws.readyState === WebSocket.OPEN) {
+        ws.close();
+      }
     });
     this.sockets = [];
   }
-  
+
   // Public method for subscribing to tickers
   public subscribeToTickers(symbols: string[]) {
-    const streamNames = symbols.map(s => `${s}@ticker`);
+    const streamNames = symbols.map((s) => `${s}@ticker`);
     const url = `wss://stream.binance.com:9443/ws/${streamNames.join('/')}`;
     const onMessage = (event: MessageEvent) => {
-        const payload = JSON.parse(event.data);
-        // For combined streams, the payload has a `data` property
-        const data = payload.data || payload;
-        if (data.e === '24hrTicker') {
-             useMarketDataStore.getState().setTicker(data);
-        }
-    }
+      const payload = JSON.parse(event.data);
+      const data = payload.data || payload;
+      if (data.e === '24hrTicker') {
+        useMarketDataStore.getState().setTicker(data);
+      }
+    };
     this.createSocket(url, onMessage);
   }
 
   public unsubscribeFromTickers(symbols: string[]) {
-    // In a real app, you might map sockets to subscription types to close them selectively.
-    // For now, we'll just disconnect all when the component unmounts.
     this.disconnect();
   }
 
-
-  // ---------------------------------------------------------
-  // WebSocket helpers
-  // ---------------------------------------------------------
   private createSocket(url: string, onMessage: (event: MessageEvent) => void) {
     const ws = new WebSocket(url);
-
     ws.onopen = () => {
       console.log('[WS OPEN]', url);
       useMarketDataStore.getState().setConnected(true);
       useMarketDataStore.getState().setError(null);
     };
-
     ws.onerror = (err) => {
       console.error('[WS ERROR]', url, err);
       useMarketDataStore.getState().setError('WebSocket connection error.');
     };
-
     ws.onclose = () => {
       console.warn('[WS CLOSED]', url);
       useMarketDataStore.getState().setConnected(false);
     };
-
     ws.onmessage = onMessage;
-
     this.sockets.push(ws);
     return ws;
   }
-  
-  private setupBufferedListener(streams: {name: string, type: 'ticker' | 'depth' | 'trade' | 'kline'}[]) {
-      const streamNames = streams.map(s => `${this.symbol.toLowerCase()}@${s.name}`);
-      const url = `wss://stream.binance.com:9443/ws/${streamNames.join('/')}`;
-      
-      const onMessage = (event: MessageEvent) => {
-        const payload = JSON.parse(event.data);
 
-        // Combined stream format has a `stream` key
-        const streamIdentifier = payload.stream || null;
-        const data = payload.data || payload;
-      
-        // Depth update
-        if (data.e === 'depthUpdate' || streamIdentifier?.includes('depth')) {
-          useMarketDataStore.getState().setDepth(
-            data.b || [],
-            data.a || []
-          );
-        }
-      
-        // Ticker update
-        if (data.e === '24hrTicker' || streamIdentifier?.includes('ticker')) {
-          useMarketDataStore.getState().setTicker(data);
-        }
-      
-        // Kline update
-        if (data.e === 'kline' || streamIdentifier?.includes('kline')) {
-            const { k } = data; // kline data is nested in 'k'
-            useMarketDataStore.getState().pushKline({
-              time: k.t / 1000,
-              open: parseFloat(k.o),
-              high: parseFloat(k.h),
-              low: parseFloat(k.l),
-              close: parseFloat(k.c),
-            });
-        }
-      
-        // Trades update
-        if (data.e === 'trade' || streamIdentifier?.includes('trade')) {
-            useMarketDataStore.getState().pushTrade(data);
-        }
-      };
-      
-      this.createSocket(url, onMessage);
+  private setupBufferedListener(
+    streams: { name: string; type: 'ticker' | 'depth' | 'trade' | 'kline' }[]
+  ) {
+    const streamNames = streams.map(
+      (s) => `${this.symbol.toLowerCase()}@${s.name}`
+    );
+    const url = `wss://stream.binance.com:9443/ws/${streamNames.join('/')}`;
+
+    const onMessage = (event: MessageEvent) => {
+      const payload = JSON.parse(event.data);
+      const streamIdentifier = payload.stream || null;
+      const data = payload.data || payload;
+
+      if (data.e === 'depthUpdate' || streamIdentifier?.includes('depth')) {
+        useMarketDataStore.getState().setDepth(data.b || [], data.a || []);
+      }
+      if (data.e === '24hrTicker' || streamIdentifier?.includes('ticker')) {
+        useMarketDataStore.getState().setTicker(data);
+      }
+      if (data.e === 'kline' || streamIdentifier?.includes('kline')) {
+        const { k } = data;
+        useMarketDataStore.getState().pushKline({
+          time: k.t / 1000,
+          open: parseFloat(k.o),
+          high: parseFloat(k.h),
+          low: parseFloat(k.l),
+          close: parseFloat(k.c),
+        });
+      }
+      if (data.e === 'trade' || streamIdentifier?.includes('trade')) {
+        useMarketDataStore.getState().pushTrade(data);
+      }
+    };
+
+    this.createSocket(url, onMessage);
   }
 }

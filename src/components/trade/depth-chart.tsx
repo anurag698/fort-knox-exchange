@@ -1,3 +1,4 @@
+
 'use client';
 
 import { createChart, ColorType } from 'lightweight-charts';
@@ -20,8 +21,8 @@ export default function DepthChart() {
   useEffect(() => {
     if (!bids || !asks) return;
 
-    const bestBid = bids.length ? parseFloat(bids[0][0]) : null;
-    const bestAsk = asks.length ? parseFloat(asks[0][0]) : null;
+    const bestBid = bids.length ? bids[0].price : null;
+    const bestAsk = asks.length ? asks[0].price : null;
 
     let derived = null;
 
@@ -70,18 +71,50 @@ export default function DepthChart() {
       });
     }
 
-    // Map orderbook to chart points
-    const bidData = (bids || []).map(([p, q]) => ({
-      time: parseFloat(p),
-      value: q,
+    const chart = chartRef.current;
+
+    const bidData = (bids || []).map((p) => ({
+      time: p.price,
+      value: p.size,
     }));
-    const askData = (asks || []).map(([p, q]) => ({
-      time: parseFloat(p),
-      value: q,
+    const askData = (asks || []).map((p) => ({
+      time: p.price,
+      value: p.size,
     }));
 
-    chartRef.current.bidSeries.setData(bidData);
-    chartRef.current.askSeries.setData(askData);
+    chart.bidSeries.setData(bidData);
+    chart.askSeries.setData(askData);
+
+    const wallBids = bids.filter((b: any) => b.isWall);
+    const wallAsks = asks.filter((a: any) => a.isWall);
+
+    // Remove old wall markers
+    document.querySelectorAll('.depth-wall').forEach(e => e.remove());
+
+    function createWallMarker(price: number, color: string) {
+        const chart = chartRef.current;
+        const el = containerRef.current;
+        if (!el || !chart) return;
+        const x = chart.timeScale().timeToCoordinate(price);
+        if (!x) return;
+
+        const div = document.createElement('div');
+        div.className = 'depth-wall';
+        div.style.position = 'absolute';
+        div.style.left = `${x - 2}px`;
+        div.style.top = '0px';
+        div.style.bottom = '0px';
+        div.style.width = '4px';
+        div.style.background = color;
+        div.style.opacity = '0.4';
+        div.style.boxShadow = `0 0 12px ${color}`;
+        div.style.pointerEvents = 'none'; // Ensure it doesn't interfere with chart events
+        el.appendChild(div);
+    }
+
+    wallBids.forEach((w: any) => createWallMarker(w.price, 'rgba(0,255,140,0.7)'));
+    wallAsks.forEach((w: any) => createWallMarker(w.price, 'rgba(255,100,100,0.7)'));
+
 
   }, [bids, asks]);
 
@@ -94,18 +127,14 @@ export default function DepthChart() {
 
     const chart = chartRef.current;
 
-    // Remove old line
     const oldLine = document.getElementById('mid-price-line');
     const oldLabel = document.getElementById('mid-price-label');
     if (oldLine) oldLine.remove();
     if (oldLabel) oldLabel.remove();
 
-    // Convert price → pixel position
     const pixelX = chart.timeScale().timeToCoordinate(midPrice);
-
     if (!pixelX) return;
 
-    // Create vertical line element
     const line = document.createElement('div');
     line.id = 'mid-price-line';
     line.style.position = 'absolute';
@@ -116,7 +145,6 @@ export default function DepthChart() {
     line.style.background = 'rgba(200,200,200,0.35)';
     line.style.pointerEvents = 'none';
 
-    // Create label element
     const label = document.createElement('div');
     label.id = 'mid-price-label';
     label.innerText = midPrice.toFixed(2);
@@ -147,12 +175,8 @@ export default function DepthChart() {
 
     function handleMove(param: any) {
         if (!param.point) return;
-
-        // Convert pixel → price  
         const price = chart.timeScale().coordinateToTime(param.point.x);
         if (!price) return;
-
-        // Save hovered price globally
         useMarketDataStore.getState().setHoveredPrice(price);
     }
 

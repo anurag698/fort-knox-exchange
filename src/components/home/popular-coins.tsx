@@ -10,7 +10,7 @@ import { useMemo, useState, useEffect } from 'react';
 import Link from 'next/link';
 import { Button } from '../ui/button';
 import { useMarkets } from '@/hooks/use-markets';
-import { useMarketDataStore } from '@/hooks/use-market-data-store';
+import { useMarketDataStore, type TickerData } from '@/hooks/use-market-data-store';
 import { marketDataService } from '@/lib/market-data-service';
 
 // Mock icons for coins
@@ -28,6 +28,7 @@ export function PopularCoins() {
   const { data: markets, isLoading: marketsLoading, error } = useMarkets();
   const tickers = useMarketDataStore(state => state.tickers);
   const isConnected = useMarketDataStore(state => state.isConnected);
+  const updateTicker = useMarketDataStore(state => state.updateTicker);
 
   const displayMarkets = useMemo(() => {
     if (!markets) return [];
@@ -37,23 +38,30 @@ export function PopularCoins() {
   useEffect(() => {
     if (displayMarkets.length === 0) return;
 
-    const symbols = displayMarkets.map(m => m.id.replace('-', '').toLowerCase() + '@ticker');
+    const subscriptions: (()=>void)[] = [];
     
-    // The service will push updates to the zustand store.
-    symbols.forEach(symbol => {
-      marketDataService.subscribe(symbol, (data) => {
-        // This callback is simplified because the store update is handled in trade-page-client
-        // For a standalone component, you might dispatch to the store here.
+    displayMarkets.forEach(market => {
+      const streamName = `${market.id.replace('-', '').toLowerCase()}@ticker`;
+      const unsub = marketDataService.subscribe(streamName, (data) => {
+        // The data from Binance ticker stream needs to be adapted to our TickerData type
+        const tickerData: TickerData = {
+          price: parseFloat(data.c),
+          priceChangePercent: parseFloat(data.P),
+          high: parseFloat(data.h),
+          low: parseFloat(data.l),
+          volume: parseFloat(data.v),
+          quoteVolume: parseFloat(data.q),
+          eventTime: data.E,
+        };
+        updateTicker(data.s.toLowerCase(), tickerData);
       });
+      subscriptions.push(unsub);
     });
 
-    // In a real app, you'd manage unsubscription more granularly.
     return () => {
-        // symbols.forEach(symbol => {
-        //   marketDataService.unsubscribe(symbol);
-        // });
+        subscriptions.forEach(unsub => unsub());
     };
-  }, [displayMarkets]);
+  }, [displayMarkets, updateTicker]);
 
 
   const isLoading = marketsLoading || (Object.keys(tickers).length === 0 && isConnected);

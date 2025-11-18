@@ -15,6 +15,7 @@ import { Hotkeys } from '@/components/trade/hotkeys';
 import { Balances } from '@/components/trade/balances';
 import { RecentTrades } from '@/components/trade/recent-trades';
 import { UserTrades } from '@/components/trade/user-trades';
+import CanvasDepthChart from '@/components/trade/canvas-depth-chart';
 
 interface Props {
   marketId: string;

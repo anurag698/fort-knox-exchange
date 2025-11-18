@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useRef, useEffect, useState, useCallback, useMemo } from 'react';
@@ -17,6 +18,7 @@ import { useMarkets } from '@/hooks/use-markets';
  * - Area shading, bubbles, wall heat
  * - Hover (crosshair + tooltip + snap)
  * - Best Bid / Best Ask banners
+ * - Performance Tuning (FPS cap, visibility pause, RAF throttling)
  *
  * Note: This component expects your zustand store bids/asks to be arrays of processed objects:
  *   { price: number, size: number, isWall?: boolean, cumulative?: number }
@@ -58,6 +60,29 @@ export default function CanvasDepthChart({ marketId, height = 360 }: CanvasDepth
 
   // Banner pos smoothing
   const bannerPos = useRef({ bidX: 0, askX: 0 });
+
+  // --- Performance tuning / low-CPU controls ---
+  const lowCpuModeRef = useRef(false); // set to true to force low CPU mode
+  // You can toggle this from UI by writing to useRef: lowCpuModeRef.current = true
+
+  // Desired FPS depending on mode
+  const MAX_FPS_HIGH = 144;
+  const MAX_FPS_NORMAL = 60;
+  const MAX_FPS_LOW = 30;
+
+  // Adaptive sampling thresholds
+  const TARGET_SPLINE_POINTS = 60; // normal
+  const LOW_CPU_SPLINE_POINTS = 30; // low cpu
+
+  // offscreen canvas support
+  const offscreenRef = useRef<OffscreenCanvas | null>(null);
+  const useOffscreen = typeof window !== 'undefined' && 'OffscreenCanvas' in window;
+
+  // For debug / UI toggles — temporarily expose on window for quick tests
+  useEffect(() => {
+    (window as any).__fk_lowCpuToggle = (val: boolean) => { lowCpuModeRef.current = !!val; };
+    return () => { delete (window as any).__fk_lowCpuToggle; };
+  }, []);
 
   // ------------------------------
   // Utilities: snapping & rounding
@@ -216,7 +241,7 @@ export default function CanvasDepthChart({ marketId, height = 360 }: CanvasDepth
       const p1 = points[i];
       const p2 = points[i + 1];
       const p3 = points[i + 2] || p2;
-      for (let t = 0; t <= 1; t += 0.125) {
+      for (let t = 0; t <= 1; t += 0.1) {
         const nx = catmullRom(p0.x, p1.x, p2.x, p3.x, t);
         const ny = catmullRom(p0.y, p1.y, p2.y, p3.y, t);
         out.push({ x: nx, y: ny, price: undefined, cum: undefined });
@@ -393,9 +418,10 @@ export default function CanvasDepthChart({ marketId, height = 360 }: CanvasDepth
     // Build canvas points
     const { pointsBid, pointsAsk, maxCum } = buildDepthPointsForCanvas(bids, asks, pricePrecision, quantityPrecision, minPrice, maxPrice, width, heightPx);
 
-    // Create splines (we use the points arrays — if too many points, we sample)
-    const sampleBid = pointsBid.length > 60 ? pointsBid.filter((_, i) => i % Math.ceil(pointsBid.length / 60) === 0) : pointsBid;
-    const sampleAsk = pointsAsk.length > 60 ? pointsAsk.filter((_, i) => i % Math.ceil(pointsAsk.length / 60) === 0) : pointsAsk;
+    // adaptive sampling to reduce points when low cpu mode
+    const targetPoints = lowCpuModeRef.current ? LOW_CPU_SPLINE_POINTS : TARGET_SPLINE_POINTS;
+    const sampleBid = pointsBid.length > targetPoints ? pointsBid.filter((_, i) => i % Math.ceil(pointsBid.length / targetPoints) === 0) : pointsBid;
+    const sampleAsk = pointsAsk.length > targetPoints ? pointsAsk.filter((_, i) => i % Math.ceil(pointsAsk.length / targetPoints) === 0) : pointsAsk;
 
     // convert to simple x/y array for splines
     const simpleBid = sampleBid.map(p => ({ x: p.x, y: p.y, price: p.price, cum: p.cum, size: p.size }));
@@ -587,38 +613,134 @@ export default function CanvasDepthChart({ marketId, height = 360 }: CanvasDepth
   ]);
 
   // ------------------------------
-  // Animation loop
+  // Throttled animation loop + Offscreen support
   // ------------------------------
   useEffect(() => {
-    function frame() {
-      draw();
-      animationRef.current = requestAnimationFrame(frame);
+    let last = performance.now();
+    let rafId = 0;
+    let frameInterval = 1000 / MAX_FPS_NORMAL; // default
+
+    function computeFrameInterval() {
+      const low = lowCpuModeRef.current;
+      if (low) return 1000 / MAX_FPS_LOW;
+      // choose 144 on powerful desktops (you can detect GPU later)
+      return 1000 / MAX_FPS_NORMAL;
     }
-    animationRef.current = requestAnimationFrame(frame);
-    return () => {
-      if (animationRef.current) cancelAnimationFrame(animationRef.current);
+
+    // create offscreen canvas if supported
+    if (useOffscreen && !offscreenRef.current) {
+      try {
+        const c = new OffscreenCanvas(Math.max(1, Math.floor(dim.width)), Math.max(1, Math.floor(dim.height)));
+        offscreenRef.current = c;
+      } catch (e) {
+        offscreenRef.current = null;
+      }
+    }
+
+    // draw wrapper: uses offscreen if available
+    function drawFrame(now: number) {
+      // Pause if tab hidden
+      if (document.hidden) {
+        last = now;
+        rafId = requestAnimationFrame(drawFrame);
+        return;
+      }
+
+      frameInterval = computeFrameInterval();
+      const delta = now - last;
+      if (delta < frameInterval) {
+        // not time yet — schedule next
+        rafId = requestAnimationFrame(drawFrame);
+        return;
+      }
+      last = now - (delta % frameInterval);
+
+      // prepare canvas(s)
+      if (useOffscreen && offscreenRef.current) {
+        // draw to offscreen and blit
+        const off = offscreenRef.current;
+        // resize offscreen to match dims (only when size changed)
+        const dpr = window.devicePixelRatio || 1;
+        const targetW = Math.max(1, Math.floor(dim.width * dpr));
+        const targetH = Math.max(1, Math.floor(dim.height * dpr));
+        if (off.width !== targetW || off.height !== targetH) {
+          off.width = targetW;
+          off.height = targetH;
+        }
+        const ctxOff = off.getContext('2d');
+        if (!ctxOff) {
+          // fallback: draw directly
+          draw();
+        } else {
+          // scale context to CSS pixels (we use dpr scaling like main canvas)
+          ctxOff.setTransform(dpr, 0, 0, dpr, 0, 0);
+          // call the internal draw routine but with ctx override if you refactor draw to accept ctx
+          // simple approach: temporarily swap canvasRef.current to a fake that draw() uses.
+          // Easiest approach here: call draw() which will call prepareCanvas() and render to real canvas.
+          // But for offscreen, you can refactor draw() to accept an optional ctx. For now, fallback to direct draw.
+          draw();
+        }
+
+        // blit offscreen to visible canvas (if draw used offscreen, you'd blit here)
+        // const visibleCtx = canvasRef.current?.getContext('2d');
+        // if (visibleCtx) visibleCtx.drawImage(off, 0, 0);
+      } else {
+        // no offscreen or failed: draw directly
+        draw();
+      }
+
+      rafId = requestAnimationFrame(drawFrame);
+    }
+
+    rafId = requestAnimationFrame(drawFrame);
+
+    // visibility change: when tab is hidden, keep loop but skip draws (handled above)
+    const onVisibility = () => {
+      // immediately skip heavy draws if hidden
+      if (document.hidden) {
+        // nothing special required; drawFrame checks document.hidden
+      } else {
+        // resume and reset timer
+        last = performance.now();
+      }
     };
-  }, [draw]);
+    document.addEventListener('visibilitychange', onVisibility);
+
+    return () => {
+      if (rafId) cancelAnimationFrame(rafId);
+      document.removeEventListener('visibilitychange', onVisibility);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [draw, dim.width, dim.height, bids, asks]);
 
   // ------------------------------
-  // Attach pointer events (scaled with devicePixelRatio)
+  // Pointer move throttled via RAF
   // ------------------------------
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
+    let pending = false;
     const dpr = window.devicePixelRatio || 1;
 
-    const onMove = (e: PointerEvent) => {
-      const r = canvas.getBoundingClientRect();
-      const x = (e.clientX - r.left) * dpr;
-      const y = (e.clientY - r.top) * dpr;
-      hoverRef.current = { x, y };
+    const onPointerMove = (e: PointerEvent) => {
+      if (pending) return;
+      pending = true;
+      requestAnimationFrame(() => {
+        const r = canvas.getBoundingClientRect();
+        const x = (e.clientX - r.left) * dpr;
+        const y = (e.clientY - r.top) * dpr;
+        hoverRef.current = { x, y };
+        pending = false;
+      });
     };
+
     const onLeave = () => { hoverRef.current = null; };
-    canvas.addEventListener('pointermove', onMove);
+
+    canvas.addEventListener('pointermove', onPointerMove, { passive: true });
     canvas.addEventListener('pointerleave', onLeave);
+
     return () => {
-      canvas.removeEventListener('pointermove', onMove);
+      canvas.removeEventListener('pointermove', onPointerMove);
       canvas.removeEventListener('pointerleave', onLeave);
     };
   }, []);

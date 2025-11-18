@@ -10,7 +10,7 @@ import { useResizable } from "@/hooks/useResizable";
 const ProChart = dynamic(() => import("./lightweight-pro-chart"), { ssr: false });
 
 const OrderBook = dynamic(
-  () => import("./order-book"), 
+  () => import("./order-book"),
   { ssr: false }
 );
 
@@ -23,7 +23,6 @@ const OrderForm = dynamic(
   () => import("./order-form").then((mod) => mod.OrderForm),
   { ssr: false }
 );
-
 
 // Layout Wrapper
 export default function ProTradingLayout({

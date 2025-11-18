@@ -1,16 +1,16 @@
+
 'use client';
 
 import { useState } from 'react';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { OpenOrdersPanel } from '@/components/trade/open-orders-panel';
-import { OrderHistoryPanel } from '@/components/trade/order-history-panel';
-import { TradeHistoryPanel } from '@/components/trade/trade-history-panel';
-import { PositionsPanel } from '@/components/trade/positions-panel';
 import LightweightChart from '@/components/trade/lightweight-chart';
 import OrderBook from '@/components/trade/order-book';
 import { OrderFormAdvanced } from '@/components/trade/order-form-advanced';
 import { RecentTrades } from '@/components/trade/recent-trades';
 import { Balances } from '@/components/trade/balances';
+import { OpenOrdersPanel } from '@/components/trade/open-orders-panel';
+import { OrderHistoryPanel } from '@/components/trade/order-history-panel';
+import { TradeHistoryPanel } from '@/components/trade/trade-history-panel';
+import { PositionsPanel } from '@/components/trade/positions-panel';
 import { cn } from '@/lib/utils';
 
 
@@ -35,6 +35,9 @@ export function AdvancedLayout({ marketId }: { marketId: string }) {
       <div className="col-span-12 row-span-6 lg:col-span-3">
         <div className="flex h-full flex-col gap-2">
           <Balances marketId={marketId} />
+          <div className="flex-grow">
+            {/* Placeholder for future components */}
+          </div>
         </div>
       </div>
       <div className="col-span-12 row-span-6 lg:col-span-9">

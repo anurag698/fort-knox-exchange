@@ -1,3 +1,4 @@
+
 // This component displays the user's available balances for the base and quote assets of the current market.
 'use client';
 
@@ -51,7 +52,7 @@ export function Balances({ marketId }: { marketId: string }) {
   };
 
   return (
-    <div className="trading-panel">
+    <div className="trading-panel h-full">
       <div className="trading-panel-header flex items-center gap-2">
         <Wallet className="h-4 w-4 text-zinc-400" />
         <span>Balances</span>

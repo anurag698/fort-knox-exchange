@@ -1,3 +1,4 @@
+
 // This component provides the interface for users to place buy and sell orders.
 'use client';
 
@@ -39,6 +40,9 @@ export function OrderForm({ selectedPrice, marketId }: { selectedPrice?: number;
 
   const baseBalance = balances?.find(b => b.assetId === baseAsset)?.available ?? 0;
   const quoteBalance = balances?.find(b => b.assetId === quoteAsset)?.available ?? 0;
+  const ticker = useMarketDataStore((s) => s.ticker);
+  const marketPrice = ticker?.c ? parseFloat(ticker.c) : 0;
+
 
   const defaultValues: Partial<OrderFormValues> = {
     price: undefined, quantity: undefined, marketId, type: orderType, userId: user?.uid || '',
@@ -56,8 +60,14 @@ export function OrderForm({ selectedPrice, marketId }: { selectedPrice?: number;
     const quantity = watch("quantity");
 
     const setAmountByPercentage = (percentage: number) => {
-      const balance = side === 'BUY' ? quoteBalance : baseBalance;
-      setValue('quantity', balance * percentage, { shouldValidate: true });
+      if (side === 'BUY') {
+        const totalUsdt = quoteBalance * percentage;
+        const buyAmount = marketPrice > 0 ? totalUsdt / marketPrice : 0;
+        setValue('quantity', buyAmount, { shouldValidate: true });
+      } else { // SELL
+        const sellAmount = baseBalance * percentage;
+        setValue('quantity', sellAmount, { shouldValidate: true });
+      }
     };
 
     return (

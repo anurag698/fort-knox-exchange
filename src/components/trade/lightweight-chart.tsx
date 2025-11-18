@@ -83,61 +83,81 @@ export default function LightweightChart({ marketId }: { marketId: string }) {
       borderVisible: false,
     });
 
-    const handleResize = () => {
-      if (containerRef.current) {
-        chart.applyOptions({ width: containerRef.current.clientWidth, height: containerRef.current.clientHeight });
+    // Throttled ResizeObserver
+    let resizeRAF: number | null = null;
+    const ro = new ResizeObserver(() => {
+      if (containerRef.current && !resizeRAF) {
+        resizeRAF = requestAnimationFrame(() => {
+          chart.applyOptions({
+            width: containerRef.current!.clientWidth,
+            height: containerRef.current!.clientHeight,
+          });
+          resizeRAF = null;
+        });
       }
-    };
-    window.addEventListener('resize', handleResize);
-    handleResize();
+    });
+    ro.observe(containerRef.current);
 
-    // Tooltip logic
-    if (tooltipRef.current) {
-      const tooltip = tooltipRef.current;
-      chart.subscribeCrosshairMove((param) => {
-        // Safely extract price from all possible formats (Map, object, undefined)
-        const seriesPrices = param.seriesPrices;
-        const priceData = seriesPrices && typeof seriesPrices.get === 'function' ? seriesPrices.get(seriesRef.current!) : null;
 
-        if (!param.time || !priceData) {
-            tooltip.style.display = 'none';
-            return;
-        }
+    // Throttled Tooltip
+    let tooltipRAF: number | null = null;
+    function updateTooltip(text: string, x: number, y: number) {
+      if (!tooltipRef.current) return;
+      if (tooltipRAF) cancelAnimationFrame(tooltipRAF);
 
-        const { open, high, low, close } = priceData as any;
-        const date = new Date(param.time * 1000).toLocaleString();
-
-        tooltip.style.display = 'block';
-        tooltip.innerHTML = `
-            <div style="font-size: 14px; margin-bottom: 4px;">${date}</div>
-            <div><strong>O:</strong> ${open.toFixed(2)}</div>
-            <div><strong>H:</strong> ${high.toFixed(2)}</div>
-            <div><strong>L:</strong> ${low.toFixed(2)}</div>
-            <div><strong>C:</strong> ${close.toFixed(2)}</div>
-        `;
+      tooltipRAF = requestAnimationFrame(() => {
+        if (!tooltipRef.current) return;
         
+        tooltipRef.current.innerHTML = text;
+        tooltipRef.current.style.display = 'block';
+
         const chartWidth = containerRef.current!.clientWidth;
         const chartHeight = containerRef.current!.clientHeight;
-        const tooltipWidth = tooltip.offsetWidth;
-        const tooltipHeight = tooltip.offsetHeight;
+        const tooltipWidth = tooltipRef.current.offsetWidth;
+        const tooltipHeight = tooltipRef.current.offsetHeight;
 
-        let left = param.point!.x + 15;
+        let left = x + 15;
         if (left + tooltipWidth > chartWidth) {
-            left = param.point!.x - tooltipWidth - 15;
+            left = x - tooltipWidth - 15;
         }
 
-        let top = param.point!.y + 15;
+        let top = y + 15;
         if (top + tooltipHeight > chartHeight) {
-            top = param.point!.y - tooltipHeight - 15;
+            top = y - tooltipHeight - 15;
         }
         
-        tooltip.style.left = `${left}px`;
-        tooltip.style.top = `${top}px`;
+        tooltipRef.current.style.left = `${left}px`;
+        tooltipRef.current.style.top = `${top}px`;
+        tooltipRAF = null;
       });
     }
 
+    chart.subscribeCrosshairMove((param) => {
+      if (!param.time || !param.seriesPrices.size || !seriesRef.current || !param.point) {
+          if (tooltipRef.current) tooltipRef.current.style.display = 'none';
+          return;
+      }
+      
+      const priceData = param.seriesPrices.get(seriesRef.current);
+      if (!priceData) {
+          if (tooltipRef.current) tooltipRef.current.style.display = 'none';
+          return;
+      }
+
+      const { open, high, low, close } = priceData as any;
+      const date = new Date(param.time * 1000).toLocaleString();
+      const tooltipText = `
+          <div style="font-size: 14px; margin-bottom: 4px;">${date}</div>
+          <div><strong>O:</strong> ${open.toFixed(2)}</div>
+          <div><strong>H:</strong> ${high.toFixed(2)}</div>
+          <div><strong>L:</strong> ${low.toFixed(2)}</div>
+          <div><strong>C:</strong> ${close.toFixed(2)}</div>
+      `;
+      updateTooltip(tooltipText, param.point.x, param.point.y);
+    });
+
     return () => {
-      window.removeEventListener('resize', handleResize);
+      ro.disconnect();
       chart.remove();
     }
   }, []);
@@ -148,6 +168,9 @@ export default function LightweightChart({ marketId }: { marketId: string }) {
     seriesRef.current.setData(klineData);
     chartRef.current?.timeScale().fitContent();
   }, [klineData]);
+
+  // Real-time updates via WebSocket would go here, using queueKlineUpdate
+  // For now, it relies on the periodic refetch from the top-level useEffect.
 
   return (
     <div className="h-full w-full flex flex-col">

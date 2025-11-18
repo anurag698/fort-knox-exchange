@@ -1,15 +1,24 @@
-
 'use client';
 
-import React, { useMemo } from 'react';
+import React from 'react';
+import { cn } from '@/lib/utils';
 
 interface Props {
   bids: any[];
   asks: any[];
 }
 
+function depthIntensity(amount: number, maxAmount: number) {
+  if (maxAmount === 0) return 0;
+  const percent = amount / maxAmount;
+  return Math.min(percent * 100, 100);
+}
+
 export default function OrderBook({ bids, asks }: Props) {
   const isLoading = !bids || !asks || bids.length === 0 || asks.length === 0;
+
+  const maxBidVolume = isLoading ? 0 : Math.max(...bids.map((b: any) => parseFloat(b[1])));
+  const maxAskVolume = isLoading ? 0 : Math.max(...asks.map((a: any) => parseFloat(a[1])));
 
   if (isLoading) {
     return (
@@ -18,9 +27,6 @@ export default function OrderBook({ bids, asks }: Props) {
       </div>
     );
   }
-
-  const maxBidVolume = Math.max(...bids.map((b: any) => parseFloat(b[1])));
-  const maxAskVolume = Math.max(...asks.map((a: any) => parseFloat(a[1])));
 
   return (
     <div className="bg-[#0d1117] border border-gray-800 rounded p-2 h-full flex flex-col">
@@ -31,23 +37,25 @@ export default function OrderBook({ bids, asks }: Props) {
         {asks.slice(0, 20).map((ask: any, i: number) => {
           const price = parseFloat(ask[0]);
           const volume = parseFloat(ask[1]);
-          const barWidth = (volume / maxAskVolume) * 100;
+          const intensity = depthIntensity(volume, maxAskVolume);
 
           return (
-            <div key={i} className="relative text-xs flex justify-between px-1">
-              <div
-                className="absolute right-0 top-0 bottom-0 bg-red-600/20"
-                style={{ width: `${barWidth}%` }}
-              />
-              <span className="text-red-400 font-mono">{price.toFixed(2)}</span>
-              <span className="text-gray-300 font-mono">{volume.toFixed(3)}</span>
+            <div
+              key={i}
+              className="relative text-xs flex justify-between px-1"
+              style={{
+                background: `linear-gradient(to left, rgba(239,68,68,0.25) ${intensity}%, transparent)`
+              }}
+            >
+              <span className="text-red-400 font-mono z-10">{price.toFixed(2)}</span>
+              <span className="text-gray-300 font-mono z-10">{volume.toFixed(3)}</span>
             </div>
           );
         })}
       </div>
 
-      <div className="py-1 text-center text-gray-500 text-xs border-y border-gray-800 my-1">
-        SPREAD
+      <div className="py-1 text-center text-lg font-bold border-y border-gray-800 my-1 flash-green flash-red">
+        {bids.length > 0 && asks.length > 0 ? parseFloat(bids[0][0]).toFixed(2) : '...'}
       </div>
 
       {/* Bids */}
@@ -55,16 +63,18 @@ export default function OrderBook({ bids, asks }: Props) {
         {bids.slice(0, 20).map((bid: any, i: number) => {
           const price = parseFloat(bid[0]);
           const volume = parseFloat(bid[1]);
-          const barWidth = (volume / maxBidVolume) * 100;
+          const intensity = depthIntensity(volume, maxBidVolume);
 
           return (
-            <div key={i} className="relative text-xs flex justify-between px-1">
-              <div
-                className="absolute right-0 top-0 bottom-0 bg-green-600/20"
-                style={{ width: `${barWidth}%` }}
-              />
-              <span className="text-green-400 font-mono">{price.toFixed(2)}</span>
-              <span className="text-gray-300 font-mono">{volume.toFixed(3)}</span>
+            <div
+              key={i}
+              className="relative text-xs flex justify-between px-1"
+              style={{
+                background: `linear-gradient(to left, rgba(34,197,94,0.25) ${intensity}%, transparent)`
+              }}
+            >
+              <span className="text-green-400 font-mono z-10">{price.toFixed(2)}</span>
+              <span className="text-gray-300 font-mono z-10">{volume.toFixed(3)}</span>
             </div>
           );
         })}

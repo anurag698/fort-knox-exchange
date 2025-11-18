@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { useMarketDataStore } from '@/lib/market-data-service';
 import { cn } from '@/lib/utils';
 import {
@@ -23,7 +23,6 @@ import { Check, ChevronsUpDown } from 'lucide-react';
 import { useMarkets } from '@/hooks/use-markets';
 import { useAssets } from '@/hooks/use-assets';
 import { useRouter } from 'next/navigation';
-import { useState } from 'react';
 import { coinIcons } from '@/components/markets/markets-table';
 import type { MarketData } from '@/lib/types';
 
@@ -38,6 +37,22 @@ export function MarketHeader({ marketId }: MarketHeaderProps) {
   const { data: assets, isLoading: assetsLoading } = useAssets();
   const [open, setOpen] = useState(false);
   const ticker = useMarketDataStore((s) => s.ticker);
+  
+  const [flash, setFlash] = useState("");
+  const [lastPrice, setLastPrice] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (ticker?.c) {
+      const newPrice = parseFloat(ticker.c);
+      if (lastPrice !== null && newPrice !== lastPrice) {
+        setFlash(newPrice > lastPrice ? 'up' : 'down');
+        const t = setTimeout(() => setFlash(''), 400);
+        return () => clearTimeout(t);
+      }
+      setLastPrice(newPrice);
+    }
+  }, [ticker?.c, lastPrice]);
+
 
   const assetsMap = new Map(assets?.map(a => [a.id, a]));
   const currentMarket = markets?.find(m => m.id === marketId);
@@ -56,6 +71,8 @@ export function MarketHeader({ marketId }: MarketHeaderProps) {
 
   const priceChangePercent = ticker?.P ? parseFloat(ticker.P) : 0;
   const priceColor = priceChangePercent > 0 ? 'text-green-500' : priceChangePercent < 0 ? 'text-red-500' : 'text-foreground';
+  const flashClass = flash === 'up' ? 'flash-green' : flash === 'down' ? 'flash-red' : '';
+
 
   return (
     <div className="flex items-center gap-4 border-b pb-4">
@@ -117,7 +134,7 @@ export function MarketHeader({ marketId }: MarketHeaderProps) {
         <div>
             <p className="text-muted-foreground">Last Price</p>
             {ticker ? (
-                <p className={cn("font-semibold text-lg", priceColor)}>
+                <p className={cn("font-semibold text-lg transition-colors", flashClass)}>
                     {parseFloat(ticker.c).toFixed(currentMarket?.pricePrecision || 2)}
                 </p>
             ) : <Skeleton className="h-6 w-24 mt-1" />}

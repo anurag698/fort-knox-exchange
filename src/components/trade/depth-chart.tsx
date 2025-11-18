@@ -78,17 +78,15 @@ export default function DepthChart({ bids = [], asks = [] }: Props) {
     });
 
     bidSeriesRef.current = chartRef.current.addAreaSeries({
-      topColor: 'rgba(0,255,0,0.5)',
-      bottomColor: 'rgba(0,255,0,0.1)',
-      lineColor: 'rgba(0,255,0,0.8)',
-      lineWidth: 2,
+      lineColor: "#22c55e",
+      topColor: "rgba(34,197,94,0.4)",
+      bottomColor: "rgba(34,197,94,0)",
     });
 
     askSeriesRef.current = chartRef.current.addAreaSeries({
-      topColor: 'rgba(255,0,0,0.5)',
-      bottomColor: 'rgba(255,0,0,0.1)',
-      lineColor: 'rgba(255,0,0,0.8)',
-      lineWidth: 2,
+      lineColor: "#ef4444",
+      topColor: "rgba(239,68,68,0.4)",
+      bottomColor: "rgba(239,68,68,0)",
     });
 
     return () => chartRef.current?.remove();
@@ -99,12 +97,12 @@ export default function DepthChart({ bids = [], asks = [] }: Props) {
 
     // Convert Binance-style "price" to lightweight-charts "time"
     const bidMapped = bidPoints.map((p) => ({
-      time: p.price,
+      time: p.price as any,
       value: p.cumulative,
     }));
 
     const askMapped = askPoints.map((p) => ({
-      time: p.price,
+      time: p.price as any,
       value: p.cumulative,
     }));
 

@@ -25,34 +25,29 @@ const coinIcons: { [key: string]: React.ElementType } = {
 
 export function PopularCoins() {
   const { data: markets, isLoading: marketsLoading, error } = useMarkets();
-  const tickers = useMarketDataStore(state => state.tickers);
-  const isConnected = useMarketDataStore(state => state.isConnected);
-  const updateTicker = useMarketDataStore(state => state.updateTicker);
+  const ticker = useMarketDataStore(state => state.ticker);
 
   const displayMarkets = useMemo(() => {
     if (!markets) return [];
     return markets.filter(m => m.quoteAssetId === 'USDT').slice(0, 5); 
   }, [markets]);
+  
+  const isLoading = marketsLoading || !markets || markets.length === 0;
 
   useEffect(() => {
     if (displayMarkets.length === 0) return;
 
-    const services: MarketDataService[] = [];
-    
-    displayMarkets.forEach(market => {
-      const symbol = market.id.replace('-', '').toLowerCase();
-      const service = MarketDataService.get(symbol);
-      service.connect(); // Connects to all streams for this symbol
-      services.push(service);
-    });
+    // We can connect to just one of the popular markets to get some live data feel,
+    // without overwhelming the connection limit. Or none at all. Let's connect to the first one.
+    const firstMarketSymbol = displayMarkets[0].id.replace('-', '').toLowerCase();
+    const service = MarketDataService.get(firstMarketSymbol);
+    service.connect();
 
     return () => {
-        services.forEach(service => service.disconnect());
+        service.disconnect();
     };
   }, [displayMarkets]);
 
-
-  const isLoading = marketsLoading || (Object.keys(tickers).length === 0 && isConnected);
 
   const renderContent = () => {
     if (isLoading) {
@@ -86,7 +81,10 @@ export function PopularCoins() {
     return (
       <ul className="space-y-1">
         {displayMarkets.map(market => {
-          const tickerData = tickers[market.id.replace('-', '').toLowerCase()];
+          // Use the single ticker from the store, but only if it matches the market we are displaying
+          const marketSymbol = market.id.replace('-', '').toLowerCase();
+          const tickerData = ticker?.s.toLowerCase() === marketSymbol ? ticker : null;
+
           const price = tickerData?.c ?? 0;
           const change = tickerData?.P ?? 0;
           const isPositive = parseFloat(change) >= 0;

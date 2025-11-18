@@ -9,6 +9,7 @@ import {
   LineStyle,
 } from 'lightweight-charts';
 import { TimeframeToolbar } from './timeframe-toolbar';
+import Portal from '../ui/portal';
 
 interface Candle {
   time: number;
@@ -176,14 +177,20 @@ export default function LightweightChart({ marketId }: { marketId: string }) {
 
   return (
     <div className="h-full w-full flex flex-col">
-        <TimeframeToolbar selected={interval} onChange={setInterval} />
+      <Portal>
+        <div className="absolute top-0 left-0 z-10 pointer-events-auto">
+            <TimeframeToolbar selected={interval} onChange={setInterval} />
+        </div>
+      </Portal>
         <div className="relative h-full w-full flex-grow">
             <div ref={containerRef} className="absolute inset-0" />
-            <div
-                ref={tooltipRef}
-                className="absolute pointer-events-none text-xs text-white bg-black/70 px-2 py-1 rounded shadow-lg"
-                style={{ display: "none", zIndex: 40 }}
-            />
+            <Portal>
+              <div
+                  ref={tooltipRef}
+                  className="absolute pointer-events-none text-xs text-white bg-black/70 px-2 py-1 rounded shadow-lg"
+                  style={{ display: "none", zIndex: 40 }}
+              />
+            </Portal>
         </div>
     </div>
   );

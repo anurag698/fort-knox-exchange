@@ -23,7 +23,7 @@ interface Props {
 
 export default function TradePageClient({ marketId }: Props) {
   const [mode, setMode] = useState<TradeMode>('Advanced');
-  const [showOrderPanel, setShowOrderPanel] = useState(false);
+  const [showOrderPanel, setShowOrderPanel] = useState(true);
   const ticker = useMarketDataStore((s) => s.ticker);
 
   useEffect(() => {
@@ -39,12 +39,7 @@ export default function TradePageClient({ marketId }: Props) {
     <div className="flex flex-col bg-[#05070a] text-gray-200 h-full trade-area">
 
       {showOrderPanel && (
-        <FloatingOrderPanel>
-          <OrderFormAdvanced marketId={marketId} />
-          <div className="mt-4">
-            <PnlCalculator price={ticker?.c ? parseFloat(ticker.c) : 0} />
-          </div>
-        </FloatingOrderPanel>
+        <FloatingOrderPanel marketId={marketId} />
       )}
 
       <Hotkeys
@@ -57,7 +52,10 @@ export default function TradePageClient({ marketId }: Props) {
 
       <ModeSwitcher activeMode={mode} setMode={setMode} />
 
-      <div className="flex-1 mt-2 min-h-[300px] md:min-h-[400px]">
+      <div className="relative flex-1 mt-2 min-h-[300px] md:min-h-[400px]">
+        {/* This is the root for all overlay elements like tooltips, modals, and floating panels */}
+        <div id="trade-overlay-root" className="absolute inset-0 pointer-events-none z-50" />
+        
         {mode === 'Advanced' && (
           <AdvancedLayout marketId={marketId} />
         )}

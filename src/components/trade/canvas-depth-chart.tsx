@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, {
@@ -139,6 +140,69 @@ function depthColor(side: 'bid' | 'ask', intensity: number) {
 }
 
 // ---------------------------------------------------------
+// Banner drawing helper (Best Bid / Best Ask)
+// ---------------------------------------------------------
+function drawBanner(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  text: string,
+  color: 'bid' | 'ask',
+  dpr: number,
+  canvasWidth: number
+) {
+  const paddingX = 8 * dpr;
+  const paddingY = 6 * dpr;
+  ctx.font = `${12 * dpr}px Inter, sans-serif`;
+
+  // measure text
+  const textW = ctx.measureText(text).width;
+  const boxW = textW + paddingX * 2;
+  const boxH = 24 * dpr;
+
+  // clamp horizontally within canvas
+  const bx = Math.min(Math.max(x - boxW / 2, 4 * dpr), canvasWidth - boxW - 4 * dpr);
+  const by = Math.max(y - boxH - 10 * dpr, 4 * dpr);
+
+  // background
+  ctx.fillStyle = color === 'bid' ? 'rgba(34,180,115,0.96)' : 'rgba(230,70,70,0.96)';
+  roundRect(ctx, bx, by, boxW, boxH, 4 * dpr, true, true);
+
+  // subtle border
+  ctx.strokeStyle = color === 'bid' ? 'rgba(34,255,160,0.18)' : 'rgba(255,120,120,0.18)';
+  ctx.lineWidth = 1 * dpr;
+  ctx.strokeRect(bx, by, boxW, boxH);
+
+  // text
+  ctx.fillStyle = '#ffffff';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(text, bx + paddingX, by + boxH / 2);
+}
+
+// small rounded rect util used above
+function roundRect(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+  r: number,
+  fill = true,
+  stroke = false
+) {
+  const radius = Math.min(r, h / 2, w / 2);
+  ctx.beginPath();
+  ctx.moveTo(x + radius, y);
+  ctx.arcTo(x + w, y, x + w, y + h, radius);
+  ctx.arcTo(x + w, y + h, x, y + h, radius);
+  ctx.arcTo(x, y + h, x, y, radius);
+  ctx.arcTo(x, y, x + w, y, radius);
+  ctx.closePath();
+  if (fill) ctx.fill();
+  if (stroke) ctx.stroke();
+}
+
+// ---------------------------------------------------------
 // Coordinate Mapping Helpers
 // ---------------------------------------------------------
 function mapPriceToY(
@@ -161,55 +225,6 @@ function mapCumulativeToX(
   const t = cumulative / maxCumulative;
   return t * (width / 2); // Use half width for each side
 }
-
-// ---------------------------------------------------------
-// Build Cumulative Depth (Binance Hybrid Rounding)
-// ---------------------------------------------------------
-function buildCumulative(
-  bids: RawOrder[],
-  asks: RawOrder[],
-  pricePrecision: number,
-  quantityPrecision: number
-) {
-  const processedBids = bids.map(([p, s]) => ({
-    price: snapPrice(parseFloat(p), pricePrecision),
-    size: floorQty(parseFloat(s), quantityPrecision),
-  }));
-
-  const processedAsks = asks.map(([p, s]) => ({
-    price: snapPrice(parseFloat(p), pricePrecision),
-    size: floorQty(parseFloat(s), quantityPrecision),
-  }));
-
-  // Sort
-  const sortedBids = processedBids.sort((a, b) => b.price - a.price);
-  const sortedAsks = processedAsks.sort((a, b) => a.price - b.price);
-
-  // Cumulative (round)
-  let bidCum = 0;
-  let askCum = 0;
-
-  const bidPoints = sortedBids.map((b) => {
-    bidCum += b.size;
-    return {
-      price: b.price,
-      size: b.size,
-      cumulative: roundQty(bidCum, quantityPrecision),
-    };
-  });
-
-  const askPoints = sortedAsks.map((a) => {
-    askCum += a.size;
-    return {
-      price: a.price,
-      size: a.size,
-      cumulative: roundQty(askCum, quantityPrecision),
-    };
-  });
-
-  return { bidPoints, askPoints };
-}
-
 
 // ---------------------------------------------------------
 // Transform Raw Depth Into Canvas-Ready Points
@@ -266,6 +281,50 @@ function findNearestPoint(pts: any[] | null, x: number) {
   return best;
 }
 
+function buildCumulative(
+  bids: RawOrder[],
+  asks: RawOrder[],
+  pricePrecision: number,
+  quantityPrecision: number
+) {
+  const processedBids = bids.map(([p, s]) => ({
+    price: snapPrice(parseFloat(p), pricePrecision),
+    size: floorQty(parseFloat(s), quantityPrecision),
+  }));
+
+  const processedAsks = asks.map(([p, s]) => ({
+    price: snapPrice(parseFloat(p), pricePrecision),
+    size: floorQty(parseFloat(s), quantityPrecision),
+  }));
+
+  // Sort
+  const sortedBids = processedBids.sort((a, b) => b.price - a.price);
+  const sortedAsks = processedAsks.sort((a, b) => a.price - b.price);
+
+  // Cumulative (round)
+  let bidCum = 0;
+  let askCum = 0;
+
+  const bidPoints = sortedBids.map((b) => {
+    bidCum += b.size;
+    return {
+      price: b.price,
+      size: b.size,
+      cumulative: roundQty(bidCum, quantityPrecision),
+    };
+  });
+
+  const askPoints = sortedAsks.map((a) => {
+    askCum += a.size;
+    return {
+      price: a.price,
+      size: a.size,
+      cumulative: roundQty(askCum, quantityPrecision),
+    };
+  });
+
+  return { bidPoints, askPoints };
+}
 
 interface CanvasDepthChartProps {
   marketId: string;
@@ -279,7 +338,11 @@ export default function CanvasDepthChart({
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const parentRef = useRef<HTMLDivElement | null>(null);
   const hover = useRef<{ x: number; y: number } | null>(null);
+  const bannerPos = useRef({ bidX: 0, askX: 0 });
 
+  function easePos(prev: number, next: number, f = 0.18) {
+    return prev + (next - prev) * f;
+  }
 
   // Market precision
   const { data: markets } = useMarkets();
@@ -352,7 +415,9 @@ export default function CanvasDepthChart({
 
     ctx.scale(dpr, dpr);
     
-    // Add Pointer Events
+    // -------------------------------
+    // Mouse move => update hover
+    // -------------------------------
     canvas.addEventListener("mousemove", (e) => {
       const rect = canvas.getBoundingClientRect();
       const x = (e.clientX - rect.left);
@@ -363,6 +428,7 @@ export default function CanvasDepthChart({
     canvas.addEventListener("mouseleave", () => {
       hover.current = null;
     });
+
 
     return ctx;
   }, [dim]);
@@ -400,16 +466,6 @@ export default function CanvasDepthChart({
     const maxPrice = animatedRange.max;
 
     if (!minPrice || !maxPrice || minPrice >= maxPrice) {
-        ctx.fillStyle = '#ccc';
-        ctx.font = '12px Inter';
-        ctx.fillText(`Depth Chart — Canvas Engine`, 10, 20);
-        ctx.fillText(`Market: ${marketId}`, 10, 40);
-        ctx.fillText(`Bids: ${bids.length} | Asks: ${asks.length}`, 10, 60);
-        ctx.fillText(
-          `Precision: price=${pricePrecision}, qty=${quantityPrecision}`,
-          10,
-          80
-        );
         return;
     };
 
@@ -441,8 +497,8 @@ export default function CanvasDepthChart({
         ctx.lineTo(dim.width / 2, dim.height);
         
         const askGrad = ctx.createLinearGradient(0, 0, 0, dim.height);
-        askGrad.addColorStop(0, 'rgba(255, 70, 70, 0.18)');
-        askGrad.addColorStop(1, 'rgba(255, 70, 70, 0.02)');
+        askGrad.addColorStop(0, 'rgba(230, 70, 70, 0.18)');
+        askGrad.addColorStop(1, 'rgba(230, 70, 70, 0.02)');
         ctx.fillStyle = askGrad;
         ctx.fill();
     }
@@ -507,6 +563,7 @@ export default function CanvasDepthChart({
       const radius = minR + (maxR - minR) * intensity;
       const color = depthColor('bid', intensity);
       
+      // Glow effect for walls
       if (intensity > 0.75) {
         ctx.shadowBlur = 12;
         ctx.shadowColor = color;
@@ -529,6 +586,7 @@ export default function CanvasDepthChart({
       const radius = minR + (maxR - minR) * intensity;
       const color = depthColor('ask', intensity);
       
+      // Glow effect for walls
       if (intensity > 0.75) {
         ctx.shadowBlur = 12;
         ctx.shadowColor = color;
@@ -543,6 +601,35 @@ export default function CanvasDepthChart({
     }
     
     ctx.shadowBlur = 0;
+
+    // ---------------------------------------------------------------
+    // BEST BID / BEST ASK BANNERS
+    // ---------------------------------------------------------------
+    {
+      const dpr = window.devicePixelRatio || 1;
+      // best points are the first points in the spline arrays (closest to spread)
+      const bestBidPoint = bidSpline && bidSpline.length ? bidSpline[0] : null;
+      const bestAskPoint = askSpline && askSpline.length ? askSpline[0] : null;
+
+      ctx.save();
+      // slightly fade banners when user is hovering the chart (optional)
+      ctx.globalAlpha = hover.current ? 0.9 : 1.0;
+
+      if (bestBidPoint) {
+        bannerPos.current.bidX = easePos(bannerPos.current.bidX || (dim.width/2 - bestBidPoint.x), dim.width/2 - bestBidPoint.x, 0.18);
+        const priceTxt = `Bid: ${Number(bestBidPoint.price).toFixed(pricePrecision)}`;
+        drawBanner(ctx, bannerPos.current.bidX, bestBidPoint.y, priceTxt, 'bid', dpr, dim.width);
+      }
+
+      if (bestAskPoint) {
+        bannerPos.current.askX = easePos(bannerPos.current.askX || (bestAskPoint.x + dim.width/2), bestAskPoint.x + dim.width/2, 0.18);
+        const priceTxt = `Ask: ${Number(bestAskPoint.price).toFixed(pricePrecision)}`;
+        drawBanner(ctx, bannerPos.current.askX, bestAskPoint.y, priceTxt, 'ask', dpr, dim.width);
+      }
+
+      ctx.restore();
+    }
+
 
     // ---------------------------------------------------------------
     // HOVER LAYER (Crosshair + Highlight + Tooltip)
@@ -661,3 +748,6 @@ export default function CanvasDepthChart({
     </div>
   );
 }
+
+
+    

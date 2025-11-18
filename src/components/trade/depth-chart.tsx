@@ -12,6 +12,7 @@ export default function DepthChart() {
   const bids = useMarketDataStore((s) => s.bids);
   const asks = useMarketDataStore((s) => s.asks);
   const ticker = useMarketDataStore((s) => s.ticker);
+  const hoveredPrice = useMarketDataStore((s) => s.hoveredPrice);
 
   const [midPrice, setMidPrice] = useState<number | null>(null);
 

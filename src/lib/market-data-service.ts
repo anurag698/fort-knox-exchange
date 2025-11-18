@@ -2,22 +2,59 @@
 'use client';
 
 import { create } from 'zustand';
-import type { TickerData } from '@/lib/market-data-service';
+
+// ------------------------------
+// Types
+// ------------------------------
+export type TickerData = {
+  e: string; // Event type
+  E: number; // Event time
+  s: string; // Symbol
+  p: string; // Price change
+  P: string; // Price change percent
+  w: string; // Weighted average price
+  x: string; // First trade price
+  c: string; // Last price
+  Q: string; // Last quantity
+  b: string; // Best bid price
+  B: string; // Best bid quantity
+  a: string; // Best ask price
+  A: string; // Best ask quantity
+  o: string; // Open price
+  h: string; // High price
+  l: string; // Low price
+  v: string; // Total traded base asset volume
+  q: string; // Total traded quote asset volume
+  O: number; // Statistics open time
+  C: number; // Statistics close time
+  F: number; // First trade ID
+  L: number; // Last trade ID
+  n: number; // Total number of trades
+};
+
+export type RawOrder = [string, string]; // [price, size]
+
+export type ProcessedOrder = {
+  price: number;
+  size: number;
+  isWall: boolean;
+};
+
 
 // ------------------------------
 // Zustand store for live updates
 // ------------------------------
 interface MarketDataState {
   ticker: TickerData | null;
-  bids: any[];
-  asks: any[];
+  bids: ProcessedOrder[];
+  asks: ProcessedOrder[];
   trades: any[];
   klines: any[];
   isConnected: boolean;
   error: string | null;
   hoveredPrice: number | null;
   setTicker: (data: TickerData) => void;
-  setDepth: (bids: any[], asks: any[]) => void;
+  setDepth: (bids: RawOrder[], asks: RawOrder[]) => void;
   setTrades: (t: any[]) => void;
   pushTrade: (trade: any) => void;
   setKlines: (k: any[]) => void;
@@ -38,33 +75,34 @@ export const useMarketDataStore = create<MarketDataState>((set) => ({
   hoveredPrice: null,
   setTicker: (data) => set({ ticker: data }),
   setDepth: (bids, asks) => {
-    function detectWalls(levels: any[]) {
-      if (!Array.isArray(levels) || levels.length === 0) return [];
+    // ----------------------
+    // Detect Order Book Walls
+    // ----------------------
+    function detectWalls(levels: RawOrder[]): ProcessedOrder[] {
+        if (!Array.isArray(levels) || levels.length === 0) return [];
 
-      const amounts = levels
-        .slice(0, 15)
-        .map((lvl) => parseFloat(lvl[1]) || 0);
+        const top15Levels = levels.slice(0, 15);
+        const amounts = top15Levels.map((lvl) => parseFloat(lvl[1]) || 0);
+        const avg = amounts.reduce((a, b) => a + b, 0) / (amounts.length || 1);
+        const threshold = avg * 2.5;
 
-      const avg = amounts.reduce((a, b) => a + b, 0) / (amounts.length || 1);
-      const threshold = avg * 2.5;
-
-      return levels.map((lvl) => {
-        const price = parseFloat(lvl[0]);
-        const size = parseFloat(lvl[1]);
-        return {
-          price,
-          size,
-          isWall: size >= threshold,
-        };
-      });
+        return levels.map((lvl) => {
+            const price = parseFloat(lvl[0]);
+            const size = parseFloat(lvl[1]);
+            return {
+                price,
+                size,
+                isWall: size >= threshold,
+            };
+        });
     }
 
-    const bidWalls = detectWalls(bids);
-    const askWalls = detectWalls(asks);
-
+    const processedBids = detectWalls(bids);
+    const processedAsks = detectWalls(asks);
+    
     set({
-      bids: bidWalls,
-      asks: askWalls,
+        bids: processedBids,
+        asks: processedAsks,
     });
   },
   setTrades: (t) => set({ trades: t }),
@@ -75,7 +113,6 @@ export const useMarketDataStore = create<MarketDataState>((set) => ({
   setKlines: (k) => set({ klines: k }),
   pushKline: (kline) =>
     set((state) => {
-      // Update if exists, else append. Ensures no duplicates.
       const newKlines = state.klines.filter((k) => k.time !== kline.time);
       newKlines.push(kline);
       return { klines: newKlines.sort((a, b) => a.time - b.time) };
@@ -98,7 +135,6 @@ export class MarketDataService {
     this.symbol = symbol;
   }
 
-  // Singleton access for each symbol
   static get(symbol: string) {
     if (!this.instances.has(symbol)) {
       this.instances.set(symbol, new MarketDataService(symbol));
@@ -106,9 +142,8 @@ export class MarketDataService {
     return this.instances.get(symbol)!;
   }
 
-  // Connect all streams
   connect() {
-    this.disconnect(); // clean old sockets
+    this.disconnect();
 
     const streams = [
       { name: 'ticker', type: 'ticker' },
@@ -119,7 +154,6 @@ export class MarketDataService {
     this.setupBufferedListener(streams);
   }
 
-  // Cleanup
   disconnect() {
     this.sockets.forEach((ws) => {
       if (ws.readyState === WebSocket.OPEN) {
@@ -129,7 +163,6 @@ export class MarketDataService {
     this.sockets = [];
   }
 
-  // Public method for subscribing to tickers
   public subscribeToTickers(symbols: string[]) {
     const streamNames = symbols.map((s) => `${s}@ticker`);
     const url = `wss://stream.binance.com:9443/ws/${streamNames.join('/')}`;
@@ -150,7 +183,6 @@ export class MarketDataService {
   private createSocket(url: string, onMessage: (event: MessageEvent) => void) {
     const ws = new WebSocket(url);
     ws.onopen = () => {
-      console.log('[WS OPEN]', url);
       useMarketDataStore.getState().setConnected(true);
       useMarketDataStore.getState().setError(null);
     };
@@ -159,7 +191,6 @@ export class MarketDataService {
       useMarketDataStore.getState().setError('WebSocket connection error.');
     };
     ws.onclose = () => {
-      console.warn('[WS CLOSED]', url);
       useMarketDataStore.getState().setConnected(false);
     };
     ws.onmessage = onMessage;

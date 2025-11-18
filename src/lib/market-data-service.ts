@@ -206,17 +206,78 @@ export class MarketDataService {
     );
     const url = `wss://stream.binance.com:9443/ws/${streamNames.join('/')}`;
 
+    // ---- Auto-Zoom system state ----
+    let lastMid = 0;
+    let lastSpread = 0;
+    let lastDepthSignature = '';
+
+    const emitZoomEvent = (reason: string) => {
+      window.dispatchEvent(
+        new CustomEvent('depth:autoZoom', {
+          detail: { reason, ts: Date.now() }
+        })
+      );
+    };
+
+    const computeSignature = (bids: RawOrder[], asks: RawOrder[]) => {
+      const top5b = bids.slice(0, 5).map((b) => b.join('-')).join('|');
+      const top5a = asks.slice(0, 5).map((a) => a.join('-')).join('|');
+      return top5b + '::' + top5a;
+    };
+
     const onMessage = (event: MessageEvent) => {
       const payload = JSON.parse(event.data);
       const streamIdentifier = payload.stream || null;
       const data = payload.data || payload;
 
+      // -----------------------------------------
+      // DEPTH UPDATE
+      // -----------------------------------------
       if (data.e === 'depthUpdate' || streamIdentifier?.includes('depth')) {
-        useMarketDataStore.getState().setDepth(data.b || [], data.a || []);
+        const bids = data.b || [];
+        const asks = data.a || [];
+
+        useMarketDataStore.getState().setDepth(bids, asks);
+
+        // ---- Auto-Zoom Trigger Logic ----
+        if (bids.length > 0 && asks.length > 0) {
+          const bestBid = parseFloat(bids[0][0]);
+          const bestAsk = parseFloat(asks[0][0]);
+
+          const mid = (bestBid + bestAsk) / 2;
+          const spread = bestAsk - bestBid;
+
+          // Spread change trigger (Binance Spot threshold ~1.6%)
+          if (lastSpread === 0 || Math.abs(spread - lastSpread) / spread > 0.016) {
+            emitZoomEvent('spread-change');
+            lastSpread = spread;
+          }
+
+          // Mid-price movement trigger (~1.2%)
+          if (lastMid === 0 || Math.abs(mid - lastMid) / mid > 0.012) {
+            emitZoomEvent('mid-move');
+            lastMid = mid;
+          }
+
+          // Depth shape signature check
+          const signature = computeSignature(bids, asks);
+          if (signature !== lastDepthSignature) {
+            emitZoomEvent('depth-shape');
+            lastDepthSignature = signature;
+          }
+        }
       }
+
+      // -----------------------------------------
+      // TICKER UPDATE
+      // -----------------------------------------
       if (data.e === '24hrTicker' || streamIdentifier?.includes('ticker')) {
         useMarketDataStore.getState().setTicker(data);
       }
+
+      // -----------------------------------------
+      // KLINE UPDATE
+      // -----------------------------------------
       if (data.e === 'kline' || streamIdentifier?.includes('kline')) {
         const { k } = data;
         useMarketDataStore.getState().pushKline({
@@ -227,6 +288,10 @@ export class MarketDataService {
           close: parseFloat(k.c),
         });
       }
+
+      // -----------------------------------------
+      // TRADE UPDATE
+      // -----------------------------------------
       if (data.e === 'trade' || streamIdentifier?.includes('trade')) {
         useMarketDataStore.getState().pushTrade(data);
       }

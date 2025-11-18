@@ -5,10 +5,16 @@ import React from "react";
 
 export default function ChartArea({ children }: { children?: React.ReactNode }) {
   return (
-    <div className="w-full h-full">
+    <div style={{ width: "100%", height: "100%" }}>
       {children ?? (
-        <div className="text-slate-400 text-sm p-4">
-          Chart Area Loaded — waiting for chart component...
+        <div
+          style={{
+            color: "#888",
+            padding: "16px",
+            fontSize: "14px",
+          }}
+        >
+          Chart Area Ready — waiting for chart component...
         </div>
       )}
     </div>

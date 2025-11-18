@@ -28,8 +28,8 @@ export function RecentTrades({ marketId }: { marketId: string }) {
     const isAtBottom = Math.abs(node.scrollHeight - node.clientHeight - node.scrollTop) < 20;
 
     if (isAtBottom) {
-      // Use scrollIntoView on a dummy element for smooth scrolling
-      node.lastElementChild?.scrollIntoView({ behavior: "smooth", block: "end" });
+      // Directly set scrollTop for more reliable scrolling within the container
+      node.scrollTop = node.scrollHeight;
     }
   }, [trades]);
 
@@ -50,7 +50,11 @@ export function RecentTrades({ marketId }: { marketId: string }) {
             <span>Amount</span>
             <span>Time</span>
         </div>
-        <div ref={listRef} className="flex-grow overflow-y-auto" style={{overflowAnchor: "none"}}>
+        <div 
+          ref={listRef} 
+          className="flex-grow overflow-y-auto" 
+          style={{overflowAnchor: "none"}}
+        >
             <div className="space-y-1">
                 {trades.map((trade, index) => (
                 <div key={trade.t + '-' + index} className="flex justify-between text-xs font-mono p-0.5">

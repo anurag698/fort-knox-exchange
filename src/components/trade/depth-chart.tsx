@@ -23,6 +23,18 @@ function ceilPrice(price: number, precision: number) {
   return Math.ceil(price * factor) / factor;
 }
 
+// --------------------------------------
+// Smooth easing curve (Binance-like)
+// --------------------------------------
+function ease(current: number, target: number, factor = 0.18) {
+  return current + (target - current) * factor;
+}
+
+function nearlyEqual(a: number, b: number, tolerance = 0.000001) {
+  return Math.abs(a - b) < tolerance;
+}
+
+
 export default function DepthChart({ marketId }: { marketId: string }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
@@ -35,6 +47,12 @@ export default function DepthChart({ marketId }: { marketId: string }) {
   const market = markets?.find(m => m.id === marketId);
 
   const [midPrice, setMidPrice] = useState<number | null>(null);
+
+  // Smooth animated zoom range
+  const [animatedRange, setAnimatedRange] = useState<{ min: number; max: number }>({
+    min: 0,
+    max: 0,
+  });
 
   // --------------------------------------------
   // Dynamic Price Range (Binance Spot Auto-Zoom)
@@ -92,14 +110,8 @@ export default function DepthChart({ marketId }: { marketId: string }) {
 
     if (!chartRef.current) {
       chartRef.current = createChart(containerRef.current, {
-        layout: {
-          background: { type: ColorType.Solid, color: '#0e0e0e' },
-          textColor: '#ccc',
-        },
-        grid: {
-          vertLines: { color: '#1a1a1a' },
-          horzLines: { color: '#1a1a1a' },
-        },
+        layout: { background: { type: ColorType.Solid, color: '#0e0e0e' }, textColor: '#ccc' },
+        grid: { vertLines: { color: '#1a1a1a' }, horzLines: { color: '#1a1a1a' } },
         height: 300,
         rightPriceScale: { visible: false },
         timeScale: { visible: false },
@@ -240,27 +252,27 @@ export default function DepthChart({ marketId }: { marketId: string }) {
   useEffect(() => {
     const handler = () => {
       const store = useMarketDataStore.getState();
-  
+    
       const bids = store.bids;
       const asks = store.asks;
       const ticker = store.ticker;
-  
+    
       if (!bids.length || !asks.length || !market) return;
-  
+    
       const bestBid = bids[0].price;
       const bestAsk = asks[0].price;
-  
+    
       const pricePrecision = market.pricePrecision ?? 2;
+    
+      const { min: targetMin, max: targetMax } = computeVisibleRange(bestBid, bestAsk, pricePrecision);
+    
+      // → Animated smoothing
+      setAnimatedRange((prev) => {
+        const nextMin = ease(prev.min, targetMin, 0.20);
+        const nextMax = ease(prev.max, targetMax, 0.20);
   
-      const { min, max } = computeVisibleRange(bestBid, bestAsk, pricePrecision);
-  
-      // Update chart scale
-      if (chartRef.current) {
-        (chartRef.current as IChartApi).timeScale().setVisibleLogicalRange({
-          from: min,
-          to: max,
-        });
-      }
+        return { min: nextMin, max: nextMax };
+      });
     };
   
     window.addEventListener('depth:autoZoom', handler);
@@ -269,6 +281,28 @@ export default function DepthChart({ marketId }: { marketId: string }) {
   
     return () => window.removeEventListener('depth:autoZoom', handler);
   }, [market]);
+
+  // ---------------------------------------------
+  // APPLY ANIMATED ZOOM TO CHART
+  // ---------------------------------------------
+  useEffect(() => {
+    if (!chartRef.current) return;
+
+    const { min, max } = animatedRange;
+    if (!min || !max || min >= max) return;
+
+    // Smooth stability: ignore micro-deltas
+    if (nearlyEqual(min, max)) return;
+    
+    const timeScale = (chartRef.current as IChartApi).timeScale();
+    if(timeScale) {
+        timeScale.setVisibleLogicalRange({
+            from: min,
+            to: max,
+        });
+    }
+
+  }, [animatedRange]);
   
 
   return (

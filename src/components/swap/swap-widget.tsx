@@ -141,14 +141,18 @@ export function SwapWidget() {
         setChainId(Number(network.chainId));
       }
     } catch (error: any) {
-        let description = 'An unknown error occurred.';
-        // MetaMask error codes are useful for specific feedback
+        let description = 'An unknown error occurred. Please check your browser console.';
+        // MetaMask user rejection error code
         if (error.code === 4001) {
-            description = 'Connection rejected. Please approve the connection in MetaMask.';
+            description = 'Connection request rejected. Please approve the connection in your MetaMask wallet to proceed.';
         } else if (error.message) {
-            description = error.message;
+            description = `Connection failed. Make sure your wallet is unlocked and try again. (${error.message})`;
         }
-        toast({ variant: 'destructive', title: 'Failed to connect wallet.', description });
+        toast({ 
+            variant: 'destructive', 
+            title: 'Failed to Connect Wallet', 
+            description 
+        });
         console.error("Wallet connection error:", error);
     } finally {
       setIsConnecting(false);

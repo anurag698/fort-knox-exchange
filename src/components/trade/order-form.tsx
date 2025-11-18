@@ -18,7 +18,7 @@ import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { cn } from '@/lib/utils';
 import { useBalances } from '@/hooks/use-balances';
 import { Alert } from '@/components/ui/alert';
-import { useMarketDataStore } from '@/hooks/use-market-data-store';
+import { useMarketDataStore } from '@/lib/market-data-service';
 
 const orderSchema = z.object({
   price: z.coerce.number().optional(),

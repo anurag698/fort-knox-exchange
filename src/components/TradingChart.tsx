@@ -1,7 +1,8 @@
+
 "use client";
 
 import { useEffect, useRef } from "react";
-import MarketDataService from "../lib/market-data-service";
+import { marketDataService } from "../lib/market-data-service";
 import { createChart, ColorType } from "lightweight-charts";
 
 export default function TradingChart({ symbol }: { symbol: string }) {
@@ -41,17 +42,18 @@ export default function TradingChart({ symbol }: { symbol: string }) {
     candleSeries.current = series;
 
     // Subscribe to market data
-    const service = MarketDataService.getInstance(symbol);
-
-    const unsub = service.subscribeKline((kline: any) => {
-      series.update({
-        time: Math.floor(kline.time / 1000) as any,
-        open: kline.open,
-        high: kline.high,
-        low: kline.low,
-        close: kline.close,
-      });
+    const streamName = `${symbol}@kline_1m`;
+    const subscription = marketDataService.subscribe(streamName, (klineData: any) => {
+        const kline = klineData.k;
+        series.update({
+            time: Math.floor(kline.t / 1000) as any,
+            open: kline.o,
+            high: kline.h,
+            low: kline.l,
+            close: kline.c,
+        });
     });
+
 
     // Resize chart dynamically
     const handleResize = () => {
@@ -64,7 +66,9 @@ export default function TradingChart({ symbol }: { symbol: string }) {
 
     return () => {
       window.removeEventListener("resize", handleResize);
-      unsub && unsub();
+      if (subscription) {
+          subscription.close();
+      }
       chart.remove();
     };
   }, [symbol]);

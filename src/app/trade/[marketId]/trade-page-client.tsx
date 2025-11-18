@@ -1,58 +1,49 @@
+// This component is the main client-side wrapper for the entire trading terminal.
+// It manages the active mode (Advanced, Chart, Depth) and renders the appropriate layout.
+'use client';
 
-"use client";
-
-import { useEffect, useState } from "react";
-import MarketHeader from "../../../components/MarketHeader";
-import TradingChart from "../../../components/TradingChart";
-import OrderBook from "../../../components/OrderBook";
-import TradesFeed from "../../../components/TradesFeed";
-import BuySellForm from "../../../components/BuySellForm";
-import { marketDataService } from "../../../lib/market-data-service";
+import { useState, useEffect } from 'react';
+import { MarketHeader } from '@/components/trade/market-header';
+import { ModeSwitcher, type TradeMode } from '@/components/trade/mode-switcher';
+import { AdvancedLayout } from '@/components/trade/advanced-layout';
+import { ChartLayout } from '@/components/trade/chart-layout';
+import { DepthLayout } from '@/components/trade/depth-layout';
+import { marketDataService } from '@/lib/market-data-service';
 
 export default function TradePageClient({ marketId }: { marketId: string }) {
-  // Convert BTCUSDT → btcusdt for Binance websockets
-  const symbol = marketId.toLowerCase();
-
-  const [ticker, setTicker] = useState<any>(null);
+  const [mode, setMode] = useState<TradeMode>('Advanced');
 
   useEffect(() => {
-    const streamName = `${symbol}@ticker`;
-    const subscription = marketDataService.subscribe(streamName, (data: any) => {
-      setTicker(data);
-    });
+    // Establish WebSocket connections for the given market
+    const streams = [
+      `depth`, // Real-time order book updates
+      `trade`, // Real-time trades
+      `ticker`, // Real-time ticker statistics
+      `kline_1m`, // 1-minute candlesticks
+    ];
 
+    const symbol = marketId.replace('-', '').toLowerCase();
+    marketDataService.connect(symbol, streams);
+
+    // Clean up connections when the marketId changes or component unmounts
     return () => {
-      if (subscription) {
-        subscription.close();
-      }
+      marketDataService.disconnect();
     };
-  }, [symbol]);
+  }, [marketId]);
 
   return (
-    <div className="h-screen p-3 grid grid-rows-[auto_1fr] gap-3 bg-[#0b0e11] text-white select-none">
+    <div className="flex h-full flex-col gap-4 bg-background p-4 text-foreground">
+      {/* The header is always visible, regardless of the selected mode */}
+      <MarketHeader marketId={marketId} />
+      
+      {/* The mode switcher allows users to toggle between different layouts */}
+      <ModeSwitcher activeMode={mode} setMode={setMode} />
 
-      {/* MARKET HEADER */}
-      <MarketHeader symbol={symbol} ticker={ticker} />
-
-      {/* MAIN GRID */}
-      <div className="grid grid-cols-[3fr_2fr_1.5fr] gap-3 min-h-0">
-
-        {/* CHART + BUY/SELL FORM */}
-        <div className="bg-[#111418] rounded-xl p-2 flex flex-col gap-3 overflow-hidden">
-          <TradingChart symbol={symbol} />
-          <BuySellForm symbol={symbol} />
-        </div>
-
-        {/* ORDERBOOK */}
-        <div className="bg-[#111418] rounded-xl p-2 overflow-y-auto">
-          <OrderBook symbol={symbol} />
-        </div>
-
-        {/* TRADES */}
-        <div className="bg-[#111418] rounded-xl p-2 overflow-y-auto">
-          <TradesFeed symbol={symbol} />
-        </div>
-
+      {/* The main content area dynamically renders the layout based on the active mode */}
+      <div className="flex-1 overflow-hidden">
+        {mode === 'Advanced' && <AdvancedLayout marketId={marketId} />}
+        {mode === 'Chart' && <ChartLayout marketId={marketId} />}
+        {mode === 'Depth' && <DepthLayout marketId={marketId} />}
       </div>
     </div>
   );

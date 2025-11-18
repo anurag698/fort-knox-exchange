@@ -1,7 +1,7 @@
-
+// This component displays the market selector and real-time ticker data.
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { ChevronsUpDown, Check } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -78,7 +78,7 @@ export function MarketHeader({ marketId }: MarketHeaderProps) {
                 <div className="flex items-center gap-3">
                     <Avatar className="h-8 w-8">
                        {typeof BaseIcon === 'string' ? (
-                        <AvatarImage src={BaseIcon} alt={baseAsset.name} />
+                        <AvatarImage src={BaseIcon as string} alt={baseAsset.name} />
                       ) : (
                         <BaseIcon className="h-8 w-8" />
                       )}

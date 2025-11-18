@@ -1,4 +1,5 @@
 
+
 // ===========================================================
 //  Fort Knox Exchange — PRO Market Data Engine (Binance Spot)
 // ===========================================================
@@ -12,11 +13,13 @@ import { create } from 'zustand';
 // ------------------------------
 interface MarketDataState {
   ticker: any | null;
-  depth: { bids: any[]; asks: any[] };
+  bids: any[];
+  asks: any[];
   trades: any[];
   klines: any[];
   isConnected: boolean;
   error: string | null;
+  hoveredPrice: number | null;
   setTicker: (data: any) => void;
   setDepth: (bids: any[], asks: any[]) => void;
   setTrades: (t: any[]) => void;
@@ -25,20 +28,23 @@ interface MarketDataState {
   pushKline: (kline: any) => void;
   setConnected: (status: boolean) => void;
   setError: (error: string | null) => void;
+  setHoveredPrice: (price: number | null) => void;
 }
 
 export const useMarketDataStore = create<MarketDataState>((set) => ({
   ticker: null,
-  depth: { bids: [], asks: [] },
+  bids: [],
+  asks: [],
   trades: [],
   klines: [],
   isConnected: false,
   error: null,
+  hoveredPrice: null,
   setTicker: (data) => set({ ticker: data }),
   setDepth: (bids, asks) => set((state) => {
     // Optimization: avoid re-render if data is identical
-    if (state.depth.bids === bids && state.depth.asks === asks) return state;
-    return { depth: { bids, asks } };
+    if (state.bids === bids && state.asks === asks) return state;
+    return { bids, asks };
   }),
   setTrades: (t) => set({ trades: t }),
   pushTrade: (trade) => set((state) => ({
@@ -53,6 +59,7 @@ export const useMarketDataStore = create<MarketDataState>((set) => ({
   }),
   setConnected: (status) => set({ isConnected: status }),
   setError: (error) => set({ error }),
+  setHoveredPrice: (price) => set({ hoveredPrice: price }),
 }));
 
 
@@ -119,6 +126,7 @@ export class MarketDataService {
     const url = `wss://stream.binance.com:9443/ws/${streamNames.join('/')}`;
     const onMessage = (event: MessageEvent) => {
         const payload = JSON.parse(event.data);
+        // For combined streams, the payload has a `data` property
         const data = payload.data || payload;
         if (data.e === '24hrTicker') {
              useMarketDataStore.getState().setTicker(data);
@@ -176,8 +184,8 @@ export class MarketDataService {
         // Depth update
         if (data.e === 'depthUpdate' || streamIdentifier?.includes('depth')) {
           useMarketDataStore.getState().setDepth(
-            data.b || data.bids || [],
-            data.a || data.asks || []
+            data.b || [],
+            data.a || []
           );
         }
       

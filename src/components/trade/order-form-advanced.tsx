@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   HybridOrderRequest,
   OrderSide,
@@ -17,6 +17,7 @@ export function OrderFormAdvanced({ marketId }: { marketId: string }) {
   const ticker = useMarketDataStore((s) => s.ticker);
   const { addTriggerOrder } = useTriggerEngine();
   const openOrders = useOpenOrdersStore();
+  const hoveredPrice = useMarketDataStore((s) => s.hoveredPrice);
 
 
   const [side, setSide] = useState<OrderSide>("BUY");
@@ -40,6 +41,12 @@ export function OrderFormAdvanced({ marketId }: { marketId: string }) {
   const [trailValue, setTrailValue] = useState("");
 
   const currentPrice = ticker?.c ? parseFloat(ticker.c) : 0;
+  
+  useEffect(() => {
+    if (hoveredPrice) {
+      setPrice(hoveredPrice.toFixed(4));
+    }
+  }, [hoveredPrice]);
 
   function resetFields() {
     setPrice("");

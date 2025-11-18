@@ -8,8 +8,8 @@ export default function DepthChart() {
   const containerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<any>(null);
 
-  const bids = useMarketDataStore((s) => s.depth.bids);
-  const asks = useMarketDataStore((s) => s.depth.asks);
+  const bids = useMarketDataStore((s) => s.bids);
+  const asks = useMarketDataStore((s) => s.asks);
   const ticker = useMarketDataStore((s) => s.ticker);
 
   const [midPrice, setMidPrice] = useState<number | null>(null);
@@ -135,6 +135,31 @@ export default function DepthChart() {
     el.appendChild(label);
 
   }, [midPrice, containerRef.current]);
+
+  // ------------------------------------------
+  // 4. Hover Sync: Detect hovered price
+  // ------------------------------------------
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el || !chartRef.current) return;
+
+    const chart = chartRef.current;
+
+    function handleMove(param: any) {
+        if (!param.point) return;
+
+        // Convert pixel → price  
+        const price = chart.timeScale().coordinateToTime(param.point.x);
+        if (!price) return;
+
+        // Save hovered price globally
+        useMarketDataStore.getState().setHoveredPrice(price);
+    }
+
+    chart.subscribeCrosshairMove(handleMove);
+
+    return () => chart.unsubscribeCrosshairMove(handleMove);
+  }, []);
 
   return (
     <div

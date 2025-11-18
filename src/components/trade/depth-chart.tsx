@@ -57,19 +57,19 @@ function nearlyEqual(a: number, b: number, tolerance = 0.000001) {
 // Build Cumulative Depth (Binance Hybrid Rounding)
 // ---------------------------------------------------------
 function buildCumulative(
-  bids: ProcessedOrder[],
-  asks: ProcessedOrder[],
+  bids: RawOrder[],
+  asks: RawOrder[],
   pricePrecision: number,
   quantityPrecision: number
 ) {
-  const processedBids = bids.map((order) => ({
-    price: snapPrice(order.price, pricePrecision),
-    size: floorQty(order.size, quantityPrecision),
+  const processedBids = bids.map(([p, s]) => ({
+    price: snapPrice(parseFloat(p), pricePrecision),
+    size: floorQty(parseFloat(s), quantityPrecision),
   }));
 
-  const processedAsks = asks.map((order) => ({
-    price: snapPrice(order.price, pricePrecision),
-    size: floorQty(order.size, quantityPrecision),
+  const processedAsks = asks.map(([p, s]) => ({
+    price: snapPrice(parseFloat(p), pricePrecision),
+    size: floorQty(parseFloat(s), quantityPrecision),
   }));
 
   // Sort
@@ -201,8 +201,8 @@ export default function DepthChart({ marketId }: { marketId: string }) {
     const chart = chartRef.current as any;
     
     const { bidPoints, askPoints } = buildCumulative(
-      bids,
-      asks,
+      bids as RawOrder[],
+      asks as RawOrder[],
       market.pricePrecision,
       market.quantityPrecision
     );
@@ -385,3 +385,5 @@ export default function DepthChart({ marketId }: { marketId: string }) {
     />
   );
 }
+
+    

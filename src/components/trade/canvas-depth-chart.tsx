@@ -8,9 +8,8 @@ import React, {
   useMemo,
 } from 'react';
 
-import { useMarketDataStore } from '@/lib/market-data-service';
+import { useMarketDataStore, RawOrder } from '@/lib/market-data-service';
 import { useMarkets } from '@/hooks/use-markets';
-import { RawOrder } from '@/lib/market-data-service';
 
 // -----------------------------
 // Price utilities (Binance-Spot)
@@ -30,34 +29,43 @@ function ceilPrice(price: number, precision: number) {
   return Math.ceil(price * factor) / factor;
 }
 
-// --------------------------------------
-// Quantity Rounding (Binance Hybrid)
-// --------------------------------------
-function floorQty(qty: number, precision: number) {
-  const factor = Math.pow(10, precision);
-  return Math.floor(qty * factor) / factor;
+// ---------------------------------------------------------
+// Simple Catmull–Rom Spline Interpolation
+// ---------------------------------------------------------
+function catmullRom(p0: number, p1: number, p2: number, p3: number, t: number) {
+  const v0 = (p2 - p0) * 0.5;
+  const v1 = (p3 - p1) * 0.5;
+  const t2 = t * t;
+  const t3 = t * t * t;
+  return (
+    (2 * p1 - 2 * p2 + v0 + v1) * t3 +
+    (-3 * p1 + 3 * p2 - 2 * v0 - v1) * t2 +
+    v0 * t +
+    p1
+  );
 }
 
-function roundQty(qty: number, precision: number) {
-  const factor = Math.pow(10, precision);
-  return Math.round(qty * factor) / factor;
-}
+function getSplinePoints(points: { x: number; y: number }[]) {
+  if (points.length < 2) return points;
 
-function ceilQty(qty: number, precision: number) {
-  const factor = Math.pow(10, precision);
-  return Math.ceil(qty * factor) / factor;
-}
+  const out = [];
 
+  for (let i = 0; i < points.length - 1; i++) {
+    const p0 = points[i - 1] || points[i];
+    const p1 = points[i];
+    const p2 = points[i + 1];
+    const p3 = points[i + 2] || p2;
 
-// --------------------------------------
-// Smooth easing curve (Binance-like)
-// --------------------------------------
-function ease(current: number, target: number, factor = 0.18) {
-  return current + (target - current) * factor;
-}
+    // Generate 10 interpolated points
+    for (let t = 0; t <= 1; t += 0.1) {
+      out.push({
+        x: catmullRom(p0.x, p1.x, p2.x, p3.x, t),
+        y: catmullRom(p0.y, p1.y, p2.y, p3.y, t),
+      });
+    }
+  }
 
-function nearlyEqual(a: number, b: number, tolerance = 0.000001) {
-  return Math.abs(a - b) < tolerance;
+  return out;
 }
 
 // ---------------------------------------------------------
@@ -279,6 +287,76 @@ export default function CanvasDepthChart({
       dim.height
     );
 
+    // -------- Build smooth spline curves --------
+    const bidSpline = getSplinePoints(pointsBid);
+    const askSpline = getSplinePoints(pointsAsk);
+
+    // ---------------------------------------------------
+    // DRAW ASK AREA (red shaded)
+    // ---------------------------------------------------
+    if (askSpline.length > 0) {
+        ctx.beginPath();
+        ctx.moveTo(askSpline[0].x, askSpline[0].y);
+        for (const p of askSpline) ctx.lineTo(p.x, p.y);
+        ctx.lineTo(dim.width / 2, dim.height); // Midpoint
+        ctx.lineTo(askSpline[0].x, dim.height); // Bottom left of its area
+        
+        const askGrad = ctx.createLinearGradient(0, 0, 0, dim.height);
+        askGrad.addColorStop(0, 'rgba(255, 70, 70, 0.18)');
+        askGrad.addColorStop(1, 'rgba(255, 70, 70, 0.02)');
+        ctx.fillStyle = askGrad;
+        ctx.fill();
+    }
+
+
+    // ---------------------------------------------------
+    // DRAW BID AREA (green shaded)
+    // ---------------------------------------------------
+    if (bidSpline.length > 0) {
+        ctx.beginPath();
+        ctx.moveTo(bidSpline[0].x, bidSpline[0].y);
+        for (const p of bidSpline) ctx.lineTo(p.x, p.y);
+        ctx.lineTo(dim.width / 2, dim.height); // Midpoint
+        ctx.lineTo(bidSpline[0].x, dim.height); // Bottom right of its area
+
+        const bidGrad = ctx.createLinearGradient(0, 0, 0, dim.height);
+        bidGrad.addColorStop(0, 'rgba(50, 200, 120, 0.18)');
+        bidGrad.addColorStop(1, 'rgba(50, 200, 120, 0.02)');
+        ctx.fillStyle = bidGrad;
+        ctx.fill();
+    }
+
+    // ---------------------------------------------------
+    // DRAW ASK CURVE (thin red line)
+    // ---------------------------------------------------
+    if (askSpline.length > 0) {
+        ctx.strokeStyle = 'rgba(255, 100, 110, 0.9)';
+        ctx.lineWidth = 1.6;
+        ctx.beginPath();
+        for (let i = 0; i < askSpline.length; i++) {
+          const p = askSpline[i];
+          if (i === 0) ctx.moveTo(p.x, p.y);
+          else ctx.lineTo(p.x, p.y);
+        }
+        ctx.stroke();
+    }
+
+    // ---------------------------------------------------
+    // DRAW BID CURVE (thin green line)
+    // ---------------------------------------------------
+    if (bidSpline.length > 0) {
+        ctx.strokeStyle = 'rgba(60, 210, 130, 0.9)';
+        ctx.lineWidth = 1.6;
+        ctx.beginPath();
+        for (let i = 0; i < bidSpline.length; i++) {
+          const p = bidSpline[i];
+          if (i === 0) ctx.moveTo(p.x, p.y);
+          else ctx.lineTo(p.x, p.y);
+        }
+        ctx.stroke();
+    }
+
+
     // Debug (temporary):
     ctx.fillStyle = '#888';
     ctx.font = '12px Inter';
@@ -321,6 +399,7 @@ export default function CanvasDepthChart({
           
           setAnimatedRange(prev => {
               if (prev.min === 0 && prev.max === 0) return { min: targetMin, max: targetMax };
+              const ease = (current: number, target: number, factor = 0.18) => current + (target - current) * factor;
               const nextMin = ease(prev.min, targetMin, 0.20);
               const nextMax = ease(prev.max, targetMax, 0.20);
               return { min: nextMin, max: nextMax };

@@ -42,7 +42,7 @@ export function PositionsPanel() {
 
   if (!positions || positions.length === 0)
     return (
-      <div className="mt-4 p-4 rounded-lg bg-zinc-900 border border-zinc-800 text-zinc-500 text-center">
+      <div className="mt-4 p-4 rounded-lg bg-zinc-900 border border-zinc-800 text-zinc-500 text-center h-full flex items-center justify-center">
         You have no spot positions.
       </div>
     );

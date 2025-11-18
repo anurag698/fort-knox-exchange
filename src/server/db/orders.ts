@@ -23,9 +23,6 @@ export async function getUserTradesHistory(userId: string) {
 export async function getUserTradeFills(userId: string) {
   const { firestore } = getFirebaseAdmin();
 
-  // In a real app, this might query a global 'fills' or 'trades' collection.
-  // For this example, we'll assume fills are stored in a user's subcollection.
-  // A 'trades' subcollection seems more appropriate than 'fills'.
   const q = query(
     collectionGroup(firestore, 'trades'),
     where('userId', '==', userId),
@@ -67,12 +64,11 @@ export async function getUserPositions(userId: string): Promise<SpotPosition[]> 
     const assetId = data.assetId;
     const quantity = data.available + (data.locked || 0);
 
-    // Skip zero balance coins
-    if (!quantity || quantity <= 0) continue;
-    if (assetId === 'USDT') continue; // Don't show USDT as a position
+    // Skip zero balance coins or the quote currency
+    if (!quantity || quantity <= 0 || assetId === 'USDT') continue;
 
     // Find the market where this asset is the base asset (e.g., BTC in BTC-USDT)
-    const market = markets.find(m => m.baseAssetId === assetId);
+    const market = markets.find(m => m.baseAssetId === assetId && m.quoteAssetId === 'USDT');
     if (!market) continue;
 
     const mId = market.id;
@@ -85,9 +81,9 @@ export async function getUserPositions(userId: string): Promise<SpotPosition[]> 
     let pnl = null;
     let pnlPercent = null;
 
-    if (avgPrice && marketPrice) {
+    if (avgPrice && marketPrice && avgPrice > 0) {
       pnl = (marketPrice - avgPrice) * quantity;
-      pnlPercent = avgPrice > 0 ? ((marketPrice - avgPrice) / avgPrice) * 100 : 0;
+      pnlPercent = ((marketPrice - avgPrice) / avgPrice) * 100;
     }
 
     positions.push({

@@ -1,7 +1,6 @@
 // This component displays the user's available balances for the base and quote assets of the current market.
 'use client';
 
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useMemo } from 'react';
 import { Wallet, AlertCircle } from 'lucide-react';
@@ -52,9 +51,14 @@ export function Balances({ marketId }: { marketId: string }) {
   };
 
   return (
-    <Card>
-      <CardHeader className="p-4"><CardTitle className="text-lg flex items-center gap-2"><Wallet className="h-5 w-5" /><span>Balances</span></CardTitle></CardHeader>
-      <CardContent className="p-4 pt-0">{renderContent()}</CardContent>
-    </Card>
+    <div className="trading-panel">
+      <div className="trading-panel-header flex items-center gap-2">
+        <Wallet className="h-4 w-4 text-zinc-400" />
+        <span>Balances</span>
+      </div>
+      <div className="trading-panel-body">
+        {renderContent()}
+      </div>
+    </div>
   );
 }

@@ -117,3 +117,18 @@ body {
   from { opacity: 0; transform: scale(0.98); }
   to { opacity: 1; transform: scale(1); }
 }
+
+/* Unified panel container style */
+.trading-panel {
+  @apply bg-zinc-900 border border-zinc-800 rounded-lg;
+}
+
+/* Unified panel header */
+.trading-panel-header {
+  @apply px-4 py-3 border-b border-zinc-800 text-white font-medium;
+}
+
+/* Unified panel body */
+.trading-panel-body {
+  @apply px-4 py-3 text-zinc-300;
+}

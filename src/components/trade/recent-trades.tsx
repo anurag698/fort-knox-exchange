@@ -1,6 +1,5 @@
 'use client';
 
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { AlertCircle } from "lucide-react";
@@ -24,7 +23,6 @@ export function RecentTrades({ marketId }: { marketId: string }) {
 
   const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
     const { scrollTop, scrollHeight, clientHeight } = e.currentTarget;
-    // Check if user is near the bottom, with a small tolerance
     const atBottom = scrollTop + clientHeight >= scrollHeight - 20;
     if (atBottom !== autoScroll) {
       setAutoScroll(atBottom);
@@ -70,11 +68,11 @@ export function RecentTrades({ marketId }: { marketId: string }) {
   }
 
   return (
-    <Card className="h-full flex flex-col">
-      <CardHeader className="p-4"><CardTitle className="text-lg">Recent Trades</CardTitle></CardHeader>
-      <CardContent className="p-4 pt-0 flex-grow overflow-hidden">
+    <div className="trading-panel h-full flex flex-col">
+      <div className="trading-panel-header">Recent Trades</div>
+      <div className="trading-panel-body flex-grow overflow-hidden">
         {renderContent()}
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   );
 }

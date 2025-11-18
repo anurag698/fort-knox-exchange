@@ -10,16 +10,16 @@ export function OpenOrdersPanel({ marketId }: { marketId: string }) {
   const remove = useOpenOrdersStore((s) => s.removeOrder);
   const update = useOpenOrdersStore((s) => s.updateOrder);
 
-  if (orders.length === 0) {
-    return (
-      <div className="bg-[#111315] p-4 rounded-lg border border-gray-800 text-center text-gray-500 h-full flex items-center justify-center">
-        No open orders
-      </div>
-    );
-  }
+  const renderContent = () => {
+    if (orders.length === 0) {
+      return (
+        <div className="p-4 text-center text-gray-500">
+          No open orders
+        </div>
+      );
+    }
 
-  return (
-    <div className="bg-[#111315] border border-gray-800 rounded-xl overflow-auto h-full">
+    return (
       <table className="w-full text-sm">
         <thead>
           <tr className="bg-black/40 text-gray-400">
@@ -31,7 +31,6 @@ export function OpenOrdersPanel({ marketId }: { marketId: string }) {
             <th className="py-2 px-3 text-center">Actions</th>
           </tr>
         </thead>
-
         <tbody>
           {orders.map((o) => (
             <tr
@@ -42,7 +41,6 @@ export function OpenOrdersPanel({ marketId }: { marketId: string }) {
               <td className="py-2 px-3">
                 <OrderTypeBadge type={o.type} parentOcoId={o.parentOcoId} />
               </td>
-
               {/* BUY / SELL COLOR */}
               <td
                 className={`py-2 px-3 font-semibold ${
@@ -51,25 +49,20 @@ export function OpenOrdersPanel({ marketId }: { marketId: string }) {
               >
                 {o.side}
               </td>
-
               {/* PRICE */}
               <td className="py-2 px-3 text-gray-200">
                 {o.price ? o.price.toFixed(4) : "--"}
               </td>
-
               {/* TRIGGER PRICE */}
               <td className="py-2 px-3 text-gray-300">
                 {o.triggerPrice ? o.triggerPrice.toFixed(4) : "--"}
               </td>
-
               {/* QUANTITY */}
               <td className="py-2 px-3 text-gray-200">
                 {o.quantity}
               </td>
-
               {/* ACTIONS */}
               <td className="py-2 px-3 text-center flex gap-2 justify-center">
-
                 {/* MODIFY BUTTON */}
                 <button
                   onClick={() =>
@@ -81,7 +74,6 @@ export function OpenOrdersPanel({ marketId }: { marketId: string }) {
                 >
                   Edit
                 </button>
-
                 {/* CANCEL BUTTON */}
                 <button
                   onClick={() => remove(o.id)}
@@ -89,12 +81,20 @@ export function OpenOrdersPanel({ marketId }: { marketId: string }) {
                 >
                   Cancel
                 </button>
-
               </td>
             </tr>
           ))}
         </tbody>
       </table>
+    );
+  };
+
+  return (
+    <div className="trading-panel">
+      <div className="trading-panel-header">My Open Orders</div>
+      <div className="trading-panel-body p-0">
+        {renderContent()}
+      </div>
     </div>
   );
 }

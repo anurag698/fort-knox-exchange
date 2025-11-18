@@ -1,9 +1,8 @@
-
 'use client';
 
 import { useEffect, useState } from 'react';
 import { ModeSwitcher, type TradeMode } from '@/components/trade/mode-switcher';
-import { AdvancedLayout } from '@/components/trade/advanced-layout';
+import { AdvancedLayout } from '@/app/trade/[marketId]/advanced-layout';
 import { ChartLayout } from '@/components/trade/chart-layout';
 import { DepthLayout } from '@/components/trade/depth-layout';
 import { MarketDataService, useMarketDataStore } from '@/lib/market-data-service';
@@ -12,6 +11,9 @@ import { FloatingOrderPanel } from '@/components/trade/floating-order-panel';
 import { OrderFormAdvanced } from '@/components/trade/order-form-advanced';
 import { PnlCalculator } from '@/components/trade/pnl-calculator';
 import { Hotkeys } from '@/components/trade/hotkeys';
+import { Balances } from '@/components/trade/balances';
+import { RecentTrades } from '@/components/trade/recent-trades';
+import { UserTrades } from '@/components/trade/user-trades';
 
 interface Props {
   marketId: string;
@@ -23,16 +25,9 @@ export default function TradePageClient({ marketId }: Props) {
   const ticker = useMarketDataStore((s) => s.ticker);
 
   useEffect(() => {
-    // The symbol for Binance WS is lowercase without hyphen
     const symbol = marketId.replace('-', '').toLowerCase();
-    
-    // Get the service instance for the current symbol
     const service = MarketDataService.get(symbol);
-    
-    // Connect to all necessary streams
     service.connect();
-
-    // Disconnect when the component unmounts or the marketId changes
     return () => {
       service.disconnect();
     };
@@ -64,15 +59,17 @@ export default function TradePageClient({ marketId }: Props) {
         {mode === 'Advanced' && (
           <AdvancedLayout marketId={marketId} />
         )}
-
         {mode === 'Chart' && (
           <ChartLayout marketId={marketId} />
         )}
-
         {mode === 'Depth' && (
           <DepthLayout marketId={marketId} />
         )}
       </div>
+
+       <div className="mt-6 flex flex-col gap-6">
+        <UserTrades marketId={marketId} />
+       </div>
     </div>
   );
 }

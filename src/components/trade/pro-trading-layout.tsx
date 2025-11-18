@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState, useRef, useEffect } from "react";
@@ -7,9 +8,21 @@ import ResizeRowHandle from "@/components/ui/resize-row-handle";
 import { useResizable } from "@/hooks/useResizable";
 
 const ProChart = dynamic(() => import("./lightweight-pro-chart"), { ssr: false });
-const OrderBook = dynamic(() => import("./order-book"), { ssr: false });
-const RecentTrades = dynamic(() => import("./recent-trades"), { ssr: false });
-const OrderForm = dynamic(() => import("./order-form"), { ssr: false });
+
+const OrderBook = dynamic(
+  () => import("./order-book").then((mod) => mod.default),
+  { ssr: false }
+);
+
+const RecentTrades = dynamic(
+  () => import("./recent-trades").then((mod) => mod.RecentTrades),
+  { ssr: false }
+);
+
+const OrderForm = dynamic(
+  () => import("./order-form").then((mod) => mod.OrderForm),
+  { ssr: false }
+);
 
 export default function ProTradingLayout({ pair, wsUrl }: { pair: string; wsUrl: string }) {
   const { width: leftWidth, startResize: startResizeLeft } = useResizable(900);
@@ -67,7 +80,7 @@ export default function ProTradingLayout({ pair, wsUrl }: { pair: string; wsUrl:
           style={{ height: obHeight }}
         >
           <h3 className="text-white mb-2 text-sm">Order Book</h3>
-          <OrderBook marketId={pair} />
+          <OrderBook />
         </div>
 
         {/* ROW HANDLE */}

@@ -1,3 +1,4 @@
+
 // ===========================================================
 //  Fort Knox Exchange — PRO Market Data Engine (Binance Spot)
 // ===========================================================
@@ -14,10 +15,14 @@ interface MarketDataState {
   depth: { bids: any[]; asks: any[] };
   trades: any[];
   klines: any[];
+  isConnected: boolean;
+  error: string | null;
   setTicker: (data: any) => void;
   setDepth: (bids: any[], asks: any[]) => void;
   setTrades: (t: any[]) => void;
   setKlines: (k: any[]) => void;
+  setConnected: (status: boolean) => void;
+  setError: (error: string | null) => void;
 }
 
 export const useMarketDataStore = create<MarketDataState>((set) => ({
@@ -25,12 +30,16 @@ export const useMarketDataStore = create<MarketDataState>((set) => ({
   depth: { bids: [], asks: [] },
   trades: [],
   klines: [],
-
+  isConnected: false,
+  error: null,
   setTicker: (data) => set({ ticker: data }),
   setDepth: (bids, asks) => set({ depth: { bids, asks } }),
   setTrades: (t) => set({ trades: t }),
   setKlines: (k) => set({ klines: k }),
+  setConnected: (status) => set({ isConnected: status }),
+  setError: (error) => set({ error }),
 }));
+
 
 // ------------------------------
 // Binance WS URLs
@@ -47,6 +56,8 @@ export class MarketDataService {
 
   private symbol: string;
   private sockets: WebSocket[] = [];
+  private tradeBuffer: any[] = [];
+  private tradeTimer: any = null;
 
   private constructor(symbol: string) {
     this.symbol = symbol;
@@ -78,8 +89,16 @@ export class MarketDataService {
   // Cleanup
   // ---------------------------------------------------------
   disconnect() {
-    this.sockets.forEach((ws) => ws.close());
+    this.sockets.forEach((ws) => {
+        if(ws.readyState === WebSocket.OPEN) {
+            ws.close();
+        }
+    });
     this.sockets = [];
+    if (this.tradeTimer) {
+        clearTimeout(this.tradeTimer);
+        this.tradeTimer = null;
+    }
   }
 
   // ---------------------------------------------------------
@@ -90,15 +109,22 @@ export class MarketDataService {
 
     ws.onopen = () => {
       console.log('[WS OPEN]', url);
+      useMarketDataStore.getState().setConnected(true);
+      useMarketDataStore.getState().setError(null);
     };
 
     ws.onerror = (err) => {
       console.error('[WS ERROR]', url, err);
+      useMarketDataStore.getState().setError('WebSocket connection error.');
     };
 
     ws.onclose = () => {
       console.warn('[WS CLOSED — Reconnecting]', url);
-      setTimeout(() => this.createSocket(url, onMessage), 1500);
+      useMarketDataStore.getState().setConnected(false);
+      // Only auto-reconnect if it's not a manual disconnect
+      if (this.sockets.includes(ws)) {
+          setTimeout(() => this.createSocket(url, onMessage), 1500);
+      }
     };
 
     ws.onmessage = (msg) => {
@@ -137,14 +163,32 @@ export class MarketDataService {
   }
 
   // ---------------------------------------------------------
-  // STREAM: Trades
+  // STREAM: Trades (Buffered)
   // ---------------------------------------------------------
   private openTrades() {
     const url = streamUrl(this.symbol, 'trade');
+
     this.createSocket(url, (d) => {
-      const store = useMarketDataStore.getState();
-      const updated = [...store.trades, d].slice(-60); // keep last 60
-      store.setTrades(updated);
+      // push each message into buffer
+      this.tradeBuffer.push(d);
+
+      // limit buffer size
+      if (this.tradeBuffer.length > 100) {
+        this.tradeBuffer.splice(0, this.tradeBuffer.length - 100);
+      }
+
+      // update Zustand at 100ms interval (10 fps)
+      if (!this.tradeTimer) {
+        this.tradeTimer = setTimeout(() => {
+          const store = useMarketDataStore.getState();
+
+          const merged = [...store.trades, ...this.tradeBuffer].slice(-60);
+          store.setTrades(merged);
+
+          this.tradeBuffer = [];
+          this.tradeTimer = null;
+        }, 100);
+      }
     });
   }
 

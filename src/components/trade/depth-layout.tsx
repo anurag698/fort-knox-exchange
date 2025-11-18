@@ -1,20 +1,12 @@
 'use client';
 
+import React from 'react';
 import CanvasDepthChart from '@/components/trade/canvas-depth-chart';
-import OrderBook from '@/components/trade/order-book';
-import { useMarketDataStore } from '@/lib/market-data-service';
 
 export function DepthLayout({ marketId }: { marketId: string }) {
-  const { bids, asks } = useMarketDataStore((state) => state.depth);
-
   return (
-    <div className="grid h-full grid-cols-12 gap-2">
-      <div className="col-span-8">
-        <CanvasDepthChart marketId={marketId} />
-      </div>
-      <div className="col-span-4">
-        <OrderBook />
-      </div>
+    <div className="w-full h-full overflow-hidden bg-[#0b0b0b] border border-[#1a1a1a] rounded">
+      <CanvasDepthChart marketId={marketId} height={360} />
     </div>
   );
 }

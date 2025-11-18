@@ -1,24 +1,12 @@
 'use client';
 
-//
-// This is the MASTER controller for all 3 Pro Modes.
-// It manages:
-//
-//  - MarketDataService (WS engine)
-//  - Mode switching (Advanced / Chart / Depth)
-//  - Zustand data bindings
-//  - Passing real-time data into layouts
-//
-
 import { useEffect, useState } from 'react';
 import { ModeSwitcher, type TradeMode } from '@/components/trade/mode-switcher';
 import { AdvancedLayout } from '@/components/trade/advanced-layout';
 import { ChartLayout } from '@/components/trade/chart-layout';
 import { DepthLayout } from '@/components/trade/depth-layout';
-
-import { marketDataService, useMarketDataStore } from '@/lib/market-data-service';
+import { MarketDataService, useMarketDataStore } from '@/lib/market-data-service';
 import { MarketHeader } from '@/components/trade/market-header';
-
 import { FloatingOrderPanel } from '@/components/trade/floating-order-panel';
 import { OrderForm } from '@/components/trade/order-form';
 import { PnlCalculator } from '@/components/trade/pnl-calculator';
@@ -31,22 +19,21 @@ interface Props {
 export default function TradePageClient({ marketId }: Props) {
   const [mode, setMode] = useState<TradeMode>('Advanced');
   const [showOrderPanel, setShowOrderPanel] = useState(false);
-
-  // Zustand real-time store
   const ticker = useMarketDataStore((s) => s.ticker);
-  const depth = useMarketDataStore((s) => s.depth);
-  const trades = useMarketDataStore((s) => s.trades);
-  const klines = useMarketDataStore((s) => s.klines);
 
-  //
-  // Connect WebSocket streams when marketId changes
-  //
   useEffect(() => {
+    // The symbol for Binance WS is lowercase without hyphen
     const symbol = marketId.replace('-', '').toLowerCase();
-    marketDataService.connect(symbol);
+    
+    // Get the service instance for the current symbol
+    const service = MarketDataService.get(symbol);
+    
+    // Connect to all necessary streams
+    service.connect();
 
+    // Disconnect when the component unmounts or the marketId changes
     return () => {
-      marketDataService.disconnect();
+      service.disconnect();
     };
   }, [marketId]);
 
@@ -57,7 +44,7 @@ export default function TradePageClient({ marketId }: Props) {
         <FloatingOrderPanel>
           <OrderForm marketId={marketId} />
           <div className="mt-4">
-            <PnlCalculator price={ticker?.price} />
+            <PnlCalculator price={ticker?.c ? parseFloat(ticker.c) : 0} />
           </div>
         </FloatingOrderPanel>
       )}
@@ -68,14 +55,10 @@ export default function TradePageClient({ marketId }: Props) {
         goToOrderbook={() => setMode("Advanced")}
       />
 
-
-      {/* TOP HEADER — Pair ticker, last price, 24h info */}
       <MarketHeader marketId={marketId} />
 
-      {/* MODE SWITCHER BAR */}
       <ModeSwitcher activeMode={mode} setMode={setMode} />
 
-      {/* MAIN LAYOUTS */}
       <div className="flex-grow mt-2">
         {mode === 'Advanced' && (
           <AdvancedLayout marketId={marketId} />

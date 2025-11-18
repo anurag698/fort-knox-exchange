@@ -1,29 +1,42 @@
 'use client';
 
-import { useMemo } from 'react';
-import { createChart } from 'lightweight-charts';
-import { useEffect, useRef } from 'react';
+import React, { useEffect, useRef } from 'react';
+import {
+  init,
+  type Chart,
+  type DeepPartial,
+  type AreaSeriesPartialOptions,
+} from 'klinecharts';
+import { useMarketDataStore } from '@/lib/market-data-service';
+import type { RawOrder } from '@/lib/types';
 
-type RawOrder = [string, string];
-
+/* Types */
 interface CumulativePoint {
   price: number;
   cumulative: number;
 }
 
-interface Props {
-  bids?: RawOrder[];
-  asks?: RawOrder[];
+interface DepthChartProps {
+  marketId: string;
 }
 
+/* Build cumulative depth */
 function buildCumulative(
-  bids: RawOrder[] = [],
-  asks: RawOrder[] = []
+  bids: RawOrder[],
+  asks: RawOrder[]
 ): { bidPoints: CumulativePoint[]; askPoints: CumulativePoint[] } {
-  if (!Array.isArray(bids)) bids = [];
-  if (!Array.isArray(asks)) asks = [];
+  if (!Array.isArray(bids) || !Array.isArray(asks)) {
+    return { bidPoints: [], askPoints: [] };
+  }
 
   const ascBids = [...bids]
+    .map(([price, amount]) => ({
+      price: parseFloat(price),
+      amount: parseFloat(amount),
+    }))
+    .sort((a, b) => a.price - b.price);
+
+  const descAsks = [...asks]
     .map(([price, amount]) => ({
       price: parseFloat(price),
       amount: parseFloat(amount),
@@ -36,15 +49,8 @@ function buildCumulative(
     return { price: b.price, cumulative: bidCum };
   });
 
-  const ascAsks = [...asks]
-    .map(([price, amount]) => ({
-      price: parseFloat(price),
-      amount: parseFloat(amount),
-    }))
-    .sort((a, b) => a.price - b.price);
-
   let askCum = 0;
-  const askPoints = ascAsks.map((a) => {
+  const askPoints = descAsks.map((a) => {
     askCum += a.amount;
     return { price: a.price, cumulative: askCum };
   });
@@ -52,68 +58,92 @@ function buildCumulative(
   return { bidPoints, askPoints };
 }
 
-export default function DepthChart({ bids = [], asks = [] }: Props) {
+export default function DepthChart({ marketId }: DepthChartProps) {
   const containerRef = useRef<HTMLDivElement>(null);
-  const chartRef = useRef<any>(null);
-  const bidSeriesRef = useRef<any>(null);
-  const askSeriesRef = useRef<any>(null);
+  const chartRef = useRef<Chart | null>(null);
 
-  const { bidPoints, askPoints } = useMemo(() => {
-    return buildCumulative(bids, asks);
-  }, [bids, asks]);
+  const bids = useMarketDataStore((s) => s.depth.bids);
+  const asks = useMarketDataStore((s) => s.depth.asks);
 
+  const { bidPoints, askPoints } = buildCumulative(bids, asks);
+
+  /* Init chart */
   useEffect(() => {
     if (!containerRef.current) return;
 
-    chartRef.current = createChart(containerRef.current, {
-      width: containerRef.current.clientWidth,
-      height: 350,
-      layout: { background: { color: '#05070a' }, textColor: '#ccc' },
-      grid: {
-        vertLines: { color: '#222' },
-        horzLines: { color: '#222' },
-      },
-      timeScale: { visible: false },
-      rightPriceScale: { visible: false },
+    if (!chartRef.current) {
+      chartRef.current = init(containerRef.current, {
+        layout: {
+          backgroundColor: '#0e0e0e',
+          textColor: '#ccc',
+        },
+        grid: {
+          horizontal: { color: '#1a1a1a' },
+          vertical: { color: '#1a1a1a' },
+        },
+      });
+    }
+
+    const chart = chartRef.current;
+    chart.clearData();
+
+    // --- BID SERIES (GREEN) ---
+    chart.createPane({
+        id: 'bidPane',
+        // @ts-expect-error - klinecharts types might be slightly off
+        series: [
+             {
+                type: 'Area',
+                data: bidPoints.map((p) => ({ value: p.cumulative, timestamp: p.price })),
+                styles: {
+                    line: {
+                        color: '#00b15d',
+                        size: 2,
+                    },
+                    area: {
+                        topColor: 'rgba(0, 225, 115, 0.35)',
+                        bottomColor: 'rgba(0, 225, 115, 0.00)',
+                    }
+                }
+            }
+        ]
+    });
+    
+    // --- ASK SERIES (RED) ---
+     chart.createPane({
+        id: 'askPane',
+        // @ts-expect-error - klinecharts types might be slightly off
+        series: [
+            {
+                type: 'Area',
+                data: askPoints.map((p) => ({ value: p.cumulative, timestamp: p.price })),
+                styles: {
+                    line: {
+                        color: '#d93f3f',
+                        size: 2,
+                    },
+                    area: {
+                        topColor: 'rgba(255, 82, 82, 0.35)',
+                        bottomColor: 'rgba(255, 82, 82, 0.00)',
+                    }
+                }
+            }
+        ]
     });
 
-    bidSeriesRef.current = chartRef.current.addAreaSeries({
-      lineColor: "#22c55e",
-      topColor: "rgba(34,197,94,0.4)",
-      bottomColor: "rgba(34,197,94,0)",
-    });
 
-    askSeriesRef.current = chartRef.current.addAreaSeries({
-      lineColor: "#ef4444",
-      topColor: "rgba(239,68,68,0.4)",
-      bottomColor: "rgba(239,68,68,0)",
-    });
+    chart.setPriceVolumePrecision(2, 2);
+    chart.adjustPaneViewport(false, 'bidPane', true, true);
+    chart.adjustPaneViewport(false, 'askPane', true, true);
 
-    return () => chartRef.current?.remove();
-  }, []);
-
-  useEffect(() => {
-    if (!bidSeriesRef.current || !askSeriesRef.current) return;
-
-    // Convert Binance-style "price" to lightweight-charts "time"
-    const bidMapped = bidPoints.map((p) => ({
-      time: p.price as any,
-      value: p.cumulative,
-    }));
-
-    const askMapped = askPoints.map((p) => ({
-      time: p.price as any,
-      value: p.cumulative,
-    }));
-
-    bidSeriesRef.current.setData(bidMapped);
-    askSeriesRef.current.setData(askMapped);
   }, [bidPoints, askPoints]);
 
   return (
-    <div
-      ref={containerRef}
-      className="w-full bg-[#0d1117] border border-gray-800 rounded"
-    ></div>
+    <div className="w-full h-[300px] relative rounded-lg overflow-hidden bg-[#0d0d0d]">
+      <div
+        ref={containerRef}
+        className="absolute inset-0"
+      />
+    </div>
   );
 }

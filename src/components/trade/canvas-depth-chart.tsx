@@ -75,7 +75,7 @@ function catmullRom(p0: number, p1: number, p2: number, p3: number, t: number) {
   );
 }
 
-function getSplinePoints(points: { x: number; y: number, cum: number }[]) {
+function getSplinePoints(points: { x: number; y: number, cum: number, price: number }[]) {
   if (points.length < 2) return points;
 
   const out = [];
@@ -92,6 +92,7 @@ function getSplinePoints(points: { x: number; y: number, cum: number }[]) {
         x: catmullRom(p0.x, p1.x, p2.x, p3.x, t),
         y: catmullRom(p0.y, p1.y, p2.y, p3.y, t),
         cum: catmullRom(p0.cum, p1.cum, p2.cum, p3.cum, t),
+        price: catmullRom(p0.price, p1.price, p2.price, p3.price, t),
       });
     }
   }
@@ -158,7 +159,7 @@ function mapCumulativeToX(
 ) {
   if (!maxCumulative) return 0;
   const t = cumulative / maxCumulative;
-  return t * width;
+  return t * (width / 2); // Use half width for each side
 }
 
 // ---------------------------------------------------------
@@ -192,6 +193,7 @@ function buildCumulative(
     bidCum += b.size;
     return {
       price: b.price,
+      size: b.size,
       cumulative: roundQty(bidCum, quantityPrecision),
     };
   });
@@ -200,6 +202,7 @@ function buildCumulative(
     askCum += a.size;
     return {
       price: a.price,
+      size: a.size,
       cumulative: roundQty(askCum, quantityPrecision),
     };
   });
@@ -221,36 +224,46 @@ function buildDepthPoints(
   width: number,
   height: number
 ) {
-  const pointsBid: { x: number; y: number; price: number; cum: number }[] = [];
-  const pointsAsk: { x: number; y: number; price: number; cum: number }[] = [];
+    const { bidPoints: cumulativeBids, askPoints: cumulativeAsks } = buildCumulative(bids, asks, pricePrecision, quantityPrecision);
 
-  const {bidPoints: cumulativeBids, askPoints: cumulativeAsks} = buildCumulative(bids as RawOrder[], asks as RawOrder[], pricePrecision, quantityPrecision);
+    const maxCum = Math.max(
+        cumulativeBids.length > 0 ? cumulativeBids[cumulativeBids.length - 1].cumulative : 0,
+        cumulativeAsks.length > 0 ? cumulativeAsks[cumulativeAsks.length - 1].cumulative : 0
+    );
 
-  const maxCum = Math.max(
-    cumulativeBids.length > 0 ? cumulativeBids[cumulativeBids.length - 1].cumulative : 0,
-    cumulativeAsks.length > 0 ? cumulativeAsks[cumulativeAsks.length - 1].cumulative : 0
-  );
+    const pointsBid = cumulativeBids.map(lvl => ({
+        price: lvl.price,
+        cum: lvl.cumulative,
+        size: lvl.size,
+        y: mapPriceToY(lvl.price, minPrice, maxPrice, height),
+        x: mapCumulativeToX(lvl.cumulative, maxCum, width),
+    }));
 
-  // ---- BIDS (descending price) ----
-  for (const lvl of cumulativeBids) {
-    const price = lvl.price;
-    const cum = lvl.cumulative;
-    const x = mapCumulativeToX(cum, maxCum, width / 2);
-    const y = mapPriceToY(price, minPrice, maxPrice, height);
-    pointsBid.push({ x, y, price, cum });
+    const pointsAsk = cumulativeAsks.map(lvl => ({
+        price: lvl.price,
+        cum: lvl.cumulative,
+        size: lvl.size,
+        y: mapPriceToY(lvl.price, minPrice, maxPrice, height),
+        x: mapCumulativeToX(lvl.cumulative, maxCum, width),
+    }));
+
+    return { pointsBid, pointsAsk, maxCum };
+}
+
+function findNearestPoint(pts: any[] | null, x: number) {
+  if (!pts || pts.length === 0) return null;
+  let best = null;
+  let bestDist = Infinity;
+
+  for (const p of pts) {
+    const dx = Math.abs(p.x - x);
+    if (dx < bestDist) {
+      bestDist = dx;
+      best = p;
+    }
   }
 
-  // ---- ASKS (ascending price) ----
-  for (const lvl of cumulativeAsks) {
-    const price = lvl.price;
-    const cum = lvl.cumulative;
-    const x = mapCumulativeToX(cum, maxCum, width / 2);
-    const y = mapPriceToY(price, minPrice, maxPrice, height);
-    pointsAsk.push({ x, y, price, cum });
-  }
-
-
-  return { pointsBid, pointsAsk, maxCum };
+  return best;
 }
 
 
@@ -265,6 +278,8 @@ export default function CanvasDepthChart({
 }: CanvasDepthChartProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const parentRef = useRef<HTMLDivElement | null>(null);
+  const hover = useRef<{ x: number; y: number } | null>(null);
+
 
   // Market precision
   const { data: markets } = useMarkets();
@@ -336,6 +351,19 @@ export default function CanvasDepthChart({
     if (!ctx) return;
 
     ctx.scale(dpr, dpr);
+    
+    // Add Pointer Events
+    canvas.addEventListener("mousemove", (e) => {
+      const rect = canvas.getBoundingClientRect();
+      const x = (e.clientX - rect.left);
+      const y = (e.clientY - rect.top);
+      hover.current = { x, y };
+    });
+
+    canvas.addEventListener("mouseleave", () => {
+      hover.current = null;
+    });
+
     return ctx;
   }, [dim]);
 
@@ -348,6 +376,8 @@ export default function CanvasDepthChart({
 
     const ctx = prepareCanvas();
     if (!ctx) return;
+    
+    const dpr = window.devicePixelRatio || 1;
 
     // Background
     ctx.fillStyle = '#0a0a0a';
@@ -511,15 +541,70 @@ export default function CanvasDepthChart({
       ctx.arc(p.x + dim.width/2, p.y, radius, 0, Math.PI * 2);
       ctx.fill();
     }
-
-
-    // Debug text
+    
     ctx.shadowBlur = 0;
-    ctx.fillStyle = '#888';
-    ctx.font = '12px Inter';
-    ctx.fillText(`Depth points: bid=${pointsBid.length} ask=${pointsAsk.length}`, 10, 20);
-    ctx.fillText(`maxCum=${maxCum.toFixed(2)}`, 10, 40);
-    ctx.fillText(`Range: ${minPrice.toFixed(2)} - ${maxPrice.toFixed(2)}`, 10, 60);
+
+    // ---------------------------------------------------------------
+    // HOVER LAYER (Crosshair + Highlight + Tooltip)
+    // ---------------------------------------------------------------
+    if (hover.current) {
+      const { x: hx, y: hy } = hover.current;
+
+      const bidTarget = findNearestPoint(bidSpline.map(p => ({ ...p, x: dim.width/2 - p.x})), hx);
+      const askTarget = findNearestPoint(askSpline.map(p => ({ ...p, x: p.x + dim.width/2})), hx);
+
+      let target = null;
+      if (bidTarget && askTarget) {
+          target = Math.abs(bidTarget.x - hx) < Math.abs(askTarget.x - hx) ? bidTarget : askTarget;
+      } else {
+          target = bidTarget || askTarget;
+      }
+
+      if (target) {
+        // -------- vertical hover line --------
+        ctx.beginPath();
+        ctx.strokeStyle = "rgba(255,255,255,0.25)";
+        ctx.lineWidth = 1;
+        ctx.moveTo(target.x, 0);
+        ctx.lineTo(target.x, dim.height);
+        ctx.stroke();
+
+        // -------- highlight bubble --------
+        ctx.beginPath();
+        ctx.fillStyle = "#fff";
+        ctx.arc(target.x, target.y, 4, 0, Math.PI * 2);
+        ctx.fill();
+
+        // -------- tooltip --------
+        const tooltipWidth = 140;
+        const tooltipHeight = 60;
+        const padding = 8;
+
+        const boxX = Math.min(
+          Math.max(target.x - tooltipWidth / 2, 0),
+          dim.width - tooltipWidth
+        );
+        const boxY = Math.max(target.y - tooltipHeight - 10, 0);
+
+        // Draw tooltip background
+        ctx.fillStyle = "rgba(22, 22, 22, 0.9)";
+        ctx.fillRect(boxX, boxY, tooltipWidth, tooltipHeight);
+
+        ctx.strokeStyle = "rgba(255,255,255,0.2)";
+        ctx.strokeRect(boxX, boxY, tooltipWidth, tooltipHeight);
+
+        // tooltip labels
+        ctx.fillStyle = "#fff";
+        ctx.font = `11px sans-serif`;
+
+        const priceStr = `Price: ${target.price.toFixed(pricePrecision)}`;
+        const cumStr = `Cum: ${target.cum.toFixed(quantityPrecision)}`;
+        
+        ctx.fillText(priceStr, boxX + padding, boxY + padding + 10);
+        ctx.fillText(cumStr, boxX + padding, boxY + padding + 26);
+      }
+    }
+
 
   }, [prepareCanvas, dim, bids, asks, marketId, pricePrecision, quantityPrecision, animatedRange]);
 
@@ -562,17 +647,9 @@ export default function CanvasDepthChart({
           });
       };
       
-      if (bids.length && asks.length) handler();
-      
-      const sub = setInterval(handler, 100);
-      return () => clearInterval(sub);
-  }, [market, bids, asks, computeVisibleRange]);
-
-
-  // APPLY ANIMATED ZOOM TO CHART
-  useEffect(() => {
-    // This is now handled directly in the draw loop, so this effect is no longer needed
-  }, [animatedRange]);
+      const intervalId = setInterval(handler, 100);
+      return () => clearInterval(intervalId);
+  }, [market, computeVisibleRange]);
 
 
   // --------------------------------------

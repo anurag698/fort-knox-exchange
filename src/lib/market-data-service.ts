@@ -1,4 +1,3 @@
-
 // ===========================================================
 //  Fort Knox Exchange — PRO Market Data Engine (Binance Spot)
 // ===========================================================
@@ -20,7 +19,9 @@ interface MarketDataState {
   setTicker: (data: any) => void;
   setDepth: (bids: any[], asks: any[]) => void;
   setTrades: (t: any[]) => void;
+  pushTrade: (trade: any) => void;
   setKlines: (k: any[]) => void;
+  pushKline: (kline: any) => void;
   setConnected: (status: boolean) => void;
   setError: (error: string | null) => void;
 }
@@ -33,9 +34,19 @@ export const useMarketDataStore = create<MarketDataState>((set) => ({
   isConnected: false,
   error: null,
   setTicker: (data) => set({ ticker: data }),
-  setDepth: (bids, asks) => set({ depth: { bids, asks } }),
+  setDepth: (bids, asks) => set((state) => {
+    // Optimization: avoid re-render if data is identical
+    if (state.depth.bids === bids && state.depth.asks === asks) return state;
+    return { depth: { bids, asks } };
+  }),
   setTrades: (t) => set({ trades: t }),
+  pushTrade: (trade) => set((state) => ({
+    trades: [...state.trades, trade].slice(-100) // Keep last 100 trades
+  })),
   setKlines: (k) => set({ klines: k }),
+  pushKline: (kline) => set((state) => ({
+    klines: [...state.klines.filter(k => k.time !== kline.time), kline]
+  })),
   setConnected: (status) => set({ isConnected: status }),
   setError: (error) => set({ error }),
 }));
@@ -56,9 +67,7 @@ export class MarketDataService {
 
   private symbol: string;
   private sockets: WebSocket[] = [];
-  private tradeBuffer: any[] = [];
-  private tradeTimer: any = null;
-
+  
   private constructor(symbol: string) {
     this.symbol = symbol;
   }
@@ -95,10 +104,6 @@ export class MarketDataService {
         }
     });
     this.sockets = [];
-    if (this.tradeTimer) {
-        clearTimeout(this.tradeTimer);
-        this.tradeTimer = null;
-    }
   }
 
   // ---------------------------------------------------------
@@ -127,89 +132,98 @@ export class MarketDataService {
       }
     };
 
-    ws.onmessage = (msg) => {
-      try {
-        const data = JSON.parse(msg.data);
-        onMessage(data);
-      } catch (e) {
-        console.error('WS parse error', e);
-      }
-    };
+    ws.onmessage = onMessage;
 
     this.sockets.push(ws);
     return ws;
   }
+  
+  private setupBufferedListener(streams: {name: string, type: 'ticker' | 'depth' | 'trade' | 'kline'}[]) {
+      const streamNames = streams.map(s => `${this.symbol.toLowerCase()}@${s.name}`);
+      const url = `wss://stream.binance.com:9443/ws/${streamNames.join('/')}`;
+      
+      let depthBuffer: any = null;
+      let tickerBuffer: any = null;
+      let tradesBuffer: any[] = [];
+      let klineBuffer: any = null;
+      let lastDispatch = 0;
+      let frameId: number;
+
+      const dispatch = () => {
+          if (depthBuffer) {
+              const { b, a } = depthBuffer;
+              useMarketDataStore.getState().setDepth(b, a);
+              depthBuffer = null;
+          }
+          if (tickerBuffer) {
+              useMarketDataStore.getState().setTicker(tickerBuffer);
+              tickerBuffer = null;
+          }
+          if (tradesBuffer.length > 0) {
+              const trades = tradesBuffer;
+              tradesBuffer = [];
+              trades.forEach(trade => useMarketDataStore.getState().pushTrade({
+                  p: trade.p, // price
+                  q: trade.q, // quantity
+                  T: trade.T, // timestamp
+                  m: trade.m, // is market maker
+              }));
+          }
+          if (klineBuffer) {
+              const k = klineBuffer.k;
+              useMarketDataStore.getState().pushKline({
+                  time: k.t / 1000, open: parseFloat(k.o), high: parseFloat(k.h), low: parseFloat(k.l), close: parseFloat(k.c),
+              });
+              klineBuffer = null;
+          }
+      };
+
+      const onMessage = (event: MessageEvent) => {
+          const { stream, data } = JSON.parse(event.data);
+          const streamName = stream.split('@')[1];
+          
+          if (streamName === 'depth20@100ms') depthBuffer = data;
+          else if (streamName === 'ticker') tickerBuffer = data;
+          else if (streamName === 'trade') tradesBuffer.push(data);
+          else if (streamName.startsWith('kline_')) klineBuffer = data;
+
+          const now = performance.now();
+          if (now - lastDispatch > 16) { // ~60fps
+              if (frameId) cancelAnimationFrame(frameId);
+              frameId = requestAnimationFrame(dispatch);
+              lastDispatch = now;
+          }
+      };
+      
+      this.createSocket(url, onMessage);
+  }
+
 
   // ---------------------------------------------------------
   // STREAM: Ticker
   // ---------------------------------------------------------
   private openTicker() {
-    const url = streamUrl(this.symbol, 'ticker');
-    this.createSocket(url, (d) => {
-      useMarketDataStore.getState().setTicker(d);
-    });
+    this.setupBufferedListener([{ name: 'ticker', type: 'ticker' }]);
   }
 
   // ---------------------------------------------------------
   // STREAM: Depth
   // ---------------------------------------------------------
   private openDepth() {
-    const url = streamUrl(this.symbol, 'depth20@100ms');
-    this.createSocket(url, (d) => {
-      useMarketDataStore
-        .getState()
-        .setDepth(d.bids ?? [], d.asks ?? []);
-    });
+    this.setupBufferedListener([{ name: 'depth20@100ms', type: 'depth' }]);
   }
 
   // ---------------------------------------------------------
   // STREAM: Trades (Buffered)
   // ---------------------------------------------------------
   private openTrades() {
-    const url = streamUrl(this.symbol, 'trade');
-
-    this.createSocket(url, (d) => {
-      // push each message into buffer
-      this.tradeBuffer.push(d);
-
-      // limit buffer size
-      if (this.tradeBuffer.length > 100) {
-        this.tradeBuffer.splice(0, this.tradeBuffer.length - 100);
-      }
-
-      // update Zustand at 100ms interval (10 fps)
-      if (!this.tradeTimer) {
-        this.tradeTimer = setTimeout(() => {
-          const store = useMarketDataStore.getState();
-
-          const merged = [...store.trades, ...this.tradeBuffer].slice(-60);
-          store.setTrades(merged);
-
-          this.tradeBuffer = [];
-          this.tradeTimer = null;
-        }, 100);
-      }
-    });
+    this.setupBufferedListener([{ name: 'trade', type: 'trade' }]);
   }
 
   // ---------------------------------------------------------
   // STREAM: Kline (interval)
   // ---------------------------------------------------------
   private openKline(interval: string) {
-    const url = streamUrl(this.symbol, `kline_${interval}`);
-    this.createSocket(url, (d) => {
-      const candle = d.k;
-      const bar = {
-        time: candle.t / 1000,
-        open: Number(candle.o),
-        high: Number(candle.h),
-        low: Number(candle.l),
-        close: Number(candle.c),
-      };
-
-      const store = useMarketDataStore.getState();
-      const updated = [...store.klines.filter((k) => k.time !== bar.time), bar];
-      store.setKlines(updated);
-    });
+    this.setupBufferedListener([{ name: `kline_${interval}`, type: 'kline' }]);
   }
 }

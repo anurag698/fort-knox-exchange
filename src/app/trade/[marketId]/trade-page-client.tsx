@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useEffect, useState } from "react";
@@ -6,7 +7,7 @@ import TradingChart from "../../../components/TradingChart";
 import OrderBook from "../../../components/OrderBook";
 import TradesFeed from "../../../components/TradesFeed";
 import BuySellForm from "../../../components/BuySellForm";
-import MarketDataService from "../../../lib/market-data-service";
+import { marketDataService } from "../../../lib/market-data-service";
 
 export default function TradePageClient({ marketId }: { marketId: string }) {
   // Convert BTCUSDT → btcusdt for Binance websockets
@@ -15,13 +16,16 @@ export default function TradePageClient({ marketId }: { marketId: string }) {
   const [ticker, setTicker] = useState<any>(null);
 
   useEffect(() => {
-    const service = MarketDataService.getInstance(symbol);
-
-    const unsub = service.subscribeTicker((data: any) => {
+    const streamName = `${symbol}@ticker`;
+    const subscription = marketDataService.subscribe(streamName, (data: any) => {
       setTicker(data);
     });
 
-    return () => unsub && unsub();
+    return () => {
+      if (subscription) {
+        subscription.close();
+      }
+    };
   }, [symbol]);
 
   return (

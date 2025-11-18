@@ -1,20 +1,26 @@
+
 "use client";
 
 import { useEffect, useState } from "react";
-import MarketDataService from "../lib/market-data-service";
+import { marketDataService } from "../lib/market-data-service";
 
 export default function TradesFeed({ symbol }: { symbol: string }) {
   const [trades, setTrades] = useState<any[]>([]);
 
   useEffect(() => {
-    const service = MarketDataService.getInstance(symbol);
-
-    service.subscribeTrades((trade: any) => {
+    const streamName = `${symbol}@trade`;
+    const subscription = marketDataService.subscribe(streamName, (trade: any) => {
       setTrades((prev) => {
         const updated = [trade, ...prev];
         return updated.slice(0, 40); // keep last 40 trades
       });
     });
+
+    return () => {
+        if (subscription) {
+            subscription.close();
+        }
+    }
   }, [symbol]);
 
   return (

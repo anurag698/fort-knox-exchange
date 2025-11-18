@@ -1,6 +1,6 @@
 "use client";
 
-import MarketDataService from "../lib/market-data-service";
+import { marketDataService } from "../lib/market-data-service";
 import { useEffect, useState } from "react";
 
 export default function OrderBook({ symbol }: any) {
@@ -8,12 +8,19 @@ export default function OrderBook({ symbol }: any) {
   const [asks, setAsks] = useState<any[]>([]);
 
   useEffect(() => {
-    const service = MarketDataService.getInstance(symbol);
-
-    service.subscribeDepth((d: any) => {
-      setBids(d.bids.slice(0, 15));
-      setAsks(d.asks.slice(0, 15));
+    const streamName = `${symbol}@depth20@100ms`;
+    const subscription = marketDataService.subscribe(streamName, (data: any) => {
+        if (data.b && data.a) {
+            setBids(data.b.slice(0, 15));
+            setAsks(data.a.slice(0, 15));
+        }
     });
+
+    return () => {
+        if (subscription) {
+            subscription.close();
+        }
+    }
   }, [symbol]);
 
   return (

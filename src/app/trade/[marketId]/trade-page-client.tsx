@@ -16,8 +16,13 @@ import { AdvancedLayout } from '@/components/trade/advanced-layout';
 import { ChartLayout } from '@/components/trade/chart-layout';
 import { DepthLayout } from '@/components/trade/depth-layout';
 
-import { MarketDataService, useMarketDataStore } from '@/lib/market-data-service';
+import { marketDataService, useMarketDataStore } from '@/lib/market-data-service';
 import { MarketHeader } from '@/components/trade/market-header';
+
+import { FloatingOrderPanel } from '@/components/trade/floating-order-panel';
+import { OrderForm } from '@/components/trade/order-form';
+import { PnlCalculator } from '@/components/trade/pnl-calculator';
+import { Hotkeys } from '@/components/trade/hotkeys';
 
 interface Props {
   marketId: string;
@@ -25,6 +30,7 @@ interface Props {
 
 export default function TradePageClient({ marketId }: Props) {
   const [mode, setMode] = useState<TradeMode>('Advanced');
+  const [showOrderPanel, setShowOrderPanel] = useState(false);
 
   // Zustand real-time store
   const ticker = useMarketDataStore((s) => s.ticker);
@@ -37,16 +43,31 @@ export default function TradePageClient({ marketId }: Props) {
   //
   useEffect(() => {
     const symbol = marketId.replace('-', '').toLowerCase();
-    const svc = MarketDataService.get(symbol);
-    svc.connect();
+    marketDataService.connect(symbol);
 
     return () => {
-      svc.disconnect();
+      marketDataService.disconnect();
     };
   }, [marketId]);
 
   return (
     <div className="flex flex-col bg-[#05070a] text-gray-200 h-full">
+
+      {showOrderPanel && (
+        <FloatingOrderPanel>
+          <OrderForm marketId={marketId} />
+          <div className="mt-4">
+            <PnlCalculator price={ticker?.price} />
+          </div>
+        </FloatingOrderPanel>
+      )}
+
+      <Hotkeys
+        toggleOrderPanel={() => setShowOrderPanel((s) => !s)}
+        goToChart={() => setMode("Chart")}
+        goToOrderbook={() => setMode("Advanced")}
+      />
+
 
       {/* TOP HEADER — Pair ticker, last price, 24h info */}
       <MarketHeader marketId={marketId} />
@@ -55,17 +76,19 @@ export default function TradePageClient({ marketId }: Props) {
       <ModeSwitcher activeMode={mode} setMode={setMode} />
 
       {/* MAIN LAYOUTS */}
-      {mode === 'Advanced' && (
-        <AdvancedLayout marketId={marketId} />
-      )}
+      <div className="flex-grow mt-2">
+        {mode === 'Advanced' && (
+          <AdvancedLayout marketId={marketId} />
+        )}
 
-      {mode === 'Chart' && (
-        <ChartLayout marketId={marketId} />
-      )}
+        {mode === 'Chart' && (
+          <ChartLayout marketId={marketId} />
+        )}
 
-      {mode === 'Depth' && (
-        <DepthLayout marketId={marketId} />
-      )}
+        {mode === 'Depth' && (
+          <DepthLayout marketId={marketId} />
+        )}
+      </div>
     </div>
   );
 }

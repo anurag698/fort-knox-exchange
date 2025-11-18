@@ -8,26 +8,21 @@ import { ModeSwitcher, type TradeMode } from '@/components/trade/mode-switcher';
 import { AdvancedLayout } from '@/components/trade/advanced-layout';
 import { ChartLayout } from '@/components/trade/chart-layout';
 import { DepthLayout } from '@/components/trade/depth-layout';
-import { marketDataService } from '@/lib/market-data-service';
+import { MarketDataService } from '@/lib/market-data-service';
+import { useMarketDataStore } from '@/lib/market-data-service';
 
 export default function TradePageClient({ marketId }: { marketId: string }) {
   const [mode, setMode] = useState<TradeMode>('Advanced');
+  const { ticker, depth, trades, klines } = useMarketDataStore();
 
   useEffect(() => {
-    // Establish WebSocket connections for the given market
-    const streams = [
-      `depth`, // Real-time order book updates
-      `trade`, // Real-time trades
-      `ticker`, // Real-time ticker statistics
-      `kline_1m`, // 1-minute candlesticks
-    ];
-
     const symbol = marketId.replace('-', '').toLowerCase();
-    marketDataService.connect(symbol, streams);
+    const service = MarketDataService.get(symbol);
+    service.connect();
 
     // Clean up connections when the marketId changes or component unmounts
     return () => {
-      marketDataService.disconnect();
+      service.disconnect();
     };
   }, [marketId]);
 

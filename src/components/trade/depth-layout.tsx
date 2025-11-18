@@ -3,7 +3,7 @@
 
 import { DepthChart } from '@/components/trade/depth-chart';
 import { OrderBook } from '@/components/trade/order-book';
-import { useMarketDataStore } from '@/hooks/use-market-data-store';
+import { useMarketDataStore } from '@/lib/market-data-service';
 
 export function DepthLayout({ marketId }: { marketId: string }) {
   const bids = useMarketDataStore((state) => state.bids);

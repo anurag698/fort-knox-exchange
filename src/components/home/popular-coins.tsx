@@ -10,8 +10,7 @@ import { useMemo, useState, useEffect } from 'react';
 import Link from 'next/link';
 import { Button } from '../ui/button';
 import { useMarkets } from '@/hooks/use-markets';
-import { useMarketDataStore, type TickerData } from '@/hooks/use-market-data-store';
-import { marketDataService } from '@/lib/market-data-service';
+import { useMarketDataStore, type TickerData, MarketDataService } from '@/lib/market-data-service';
 
 // Mock icons for coins
 const coinIcons: { [key: string]: React.ElementType } = {
@@ -38,30 +37,19 @@ export function PopularCoins() {
   useEffect(() => {
     if (displayMarkets.length === 0) return;
 
-    const subscriptions: (()=>void)[] = [];
+    const services: MarketDataService[] = [];
     
     displayMarkets.forEach(market => {
-      const streamName = `${market.id.replace('-', '').toLowerCase()}@ticker`;
-      const unsub = marketDataService.subscribe(streamName, (data) => {
-        // The data from Binance ticker stream needs to be adapted to our TickerData type
-        const tickerData: TickerData = {
-          price: parseFloat(data.c),
-          priceChangePercent: parseFloat(data.P),
-          high: parseFloat(data.h),
-          low: parseFloat(data.l),
-          volume: parseFloat(data.v),
-          quoteVolume: parseFloat(data.q),
-          eventTime: data.E,
-        };
-        updateTicker(data.s.toLowerCase(), tickerData);
-      });
-      subscriptions.push(unsub);
+      const symbol = market.id.replace('-', '').toLowerCase();
+      const service = MarketDataService.get(symbol);
+      service.connect(); // Connects to all streams for this symbol
+      services.push(service);
     });
 
     return () => {
-        subscriptions.forEach(unsub => unsub());
+        services.forEach(service => service.disconnect());
     };
-  }, [displayMarkets, updateTicker]);
+  }, [displayMarkets]);
 
 
   const isLoading = marketsLoading || (Object.keys(tickers).length === 0 && isConnected);
@@ -99,9 +87,9 @@ export function PopularCoins() {
       <ul className="space-y-1">
         {displayMarkets.map(market => {
           const tickerData = tickers[market.id.replace('-', '').toLowerCase()];
-          const price = tickerData?.price ?? 0;
-          const change = tickerData?.priceChangePercent ?? 0;
-          const isPositive = change >= 0;
+          const price = tickerData?.c ?? 0;
+          const change = tickerData?.P ?? 0;
+          const isPositive = parseFloat(change) >= 0;
           const Icon = coinIcons[market.baseAssetId] || coinIcons.DEFAULT;
 
           return (
@@ -112,9 +100,9 @@ export function PopularCoins() {
                  <div className="text-muted-foreground">{market.baseAssetId}</div>
               </div>
               <div className="text-right">
-                <div className="font-mono font-medium">${price.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
+                <div className="font-mono font-medium">${parseFloat(price).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
                 <div className={cn("text-sm", isPositive ? 'text-green-500' : 'text-red-500')}>
-                  {isPositive ? '+' : ''}{change.toFixed(2)}%
+                  {isPositive ? '+' : ''}{parseFloat(change).toFixed(2)}%
                 </div>
               </div>
             </li>

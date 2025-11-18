@@ -7,7 +7,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { AlertCircle } from "lucide-react";
 import { cn } from '@/lib/utils';
 import { useMarkets } from '@/hooks/use-markets';
-import { useMarketDataStore } from '@/hooks/use-market-data-store';
+import { useMarketDataStore } from '@/lib/market-data-service';
 
 export function RecentTrades({ marketId }: { marketId: string }) {
   const { data: markets } = useMarkets();

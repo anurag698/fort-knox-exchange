@@ -1,9 +1,10 @@
+
 // This component defines the grid layout for the "Advanced" trading mode.
 'use client';
 
 import LightweightChart from '@/components/trade/lightweight-chart';
 import OrderBook from '@/components/trade/order-book';
-import { OrderForm } from '@/components/trade/order-form';
+import { OrderFormAdvanced } from '@/components/trade/order-form-advanced';
 import { RecentTrades } from '@/components/trade/recent-trades';
 import { Balances } from '@/components/trade/balances';
 import { UserTrades } from '@/components/trade/user-trades';
@@ -22,7 +23,7 @@ export function AdvancedLayout({ marketId }: { marketId: string }) {
         <OrderBook bids={bids} asks={asks} />
       </div>
       <div className="col-span-12 row-span-6 lg:col-span-3">
-        <OrderForm marketId={marketId} />
+        <OrderFormAdvanced marketId={marketId} />
       </div>
       <div className="col-span-12 row-span-6 lg:col-span-3">
         <RecentTrades marketId={marketId} />

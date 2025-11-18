@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useEffect, useState } from 'react';
@@ -8,7 +9,7 @@ import { DepthLayout } from '@/components/trade/depth-layout';
 import { MarketDataService, useMarketDataStore } from '@/lib/market-data-service';
 import { MarketHeader } from '@/components/trade/market-header';
 import { FloatingOrderPanel } from '@/components/trade/floating-order-panel';
-import { OrderForm } from '@/components/trade/order-form';
+import { OrderFormAdvanced } from '@/components/trade/order-form-advanced';
 import { PnlCalculator } from '@/components/trade/pnl-calculator';
 import { Hotkeys } from '@/components/trade/hotkeys';
 
@@ -42,7 +43,7 @@ export default function TradePageClient({ marketId }: Props) {
 
       {showOrderPanel && (
         <FloatingOrderPanel>
-          <OrderForm marketId={marketId} />
+          <OrderFormAdvanced marketId={marketId} />
           <div className="mt-4">
             <PnlCalculator price={ticker?.c ? parseFloat(ticker.c) : 0} />
           </div>

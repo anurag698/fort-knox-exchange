@@ -1,7 +1,7 @@
 
 'use client';
 
-import { OrderForm } from '@/components/trade/order-form';
+import { OrderFormAdvanced } from '@/components/trade/order-form-advanced';
 import { MultiChartProvider } from './multi-chart-provider';
 import { ChartLayoutToggle } from './chart-layout-toggle';
 import { MultiChartLayout } from './multi-chart-layout';
@@ -18,7 +18,7 @@ export function ChartLayout({ marketId }: { marketId: string }) {
         </MultiChartProvider>
       </div>
       <div className="col-span-3">
-        <OrderForm marketId={marketId} />
+        <OrderFormAdvanced marketId={marketId} />
       </div>
     </div>
   );

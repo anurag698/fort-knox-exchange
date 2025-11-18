@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useEffect, useState } from 'react';
@@ -55,7 +56,7 @@ export default function TradePageClient({ marketId }: Props) {
 
       <ModeSwitcher activeMode={mode} setMode={setMode} />
 
-      <div className="flex-grow mt-2">
+      <div className="flex-1 mt-2 min-h-[300px] md:min-h-[400px]">
         {mode === 'Advanced' && (
           <AdvancedLayout marketId={marketId} />
         )}

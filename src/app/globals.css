@@ -132,3 +132,15 @@ body {
 .trading-panel-body {
   @apply px-4 py-3 text-zinc-300;
 }
+
+@media (max-width: 768px) {
+  body {
+    font-size: 14px;
+  }
+  .trading-panel-header {
+    @apply px-3 py-2 text-sm;
+  }
+  .trading-panel-body {
+    @apply px-3 py-2;
+  }
+}

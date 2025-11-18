@@ -6,6 +6,10 @@ body {
   font-family: 'Inter', sans-serif;
 }
 
+html, body {
+  overflow-anchor: none !important;
+}
+
 @layer base {
   :root {
     --background: 240 10% 3.9%; /* Deep Blue - adjusted for dark theme */

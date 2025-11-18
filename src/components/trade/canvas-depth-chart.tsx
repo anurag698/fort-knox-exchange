@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useRef, useEffect, useState, useCallback, useMemo } from 'react';
@@ -18,11 +17,7 @@ import { useMarkets } from '@/hooks/use-markets';
  * - Area shading, bubbles, wall heat
  * - Hover (crosshair + tooltip + snap)
  * - Best Bid / Best Ask banners
- * - Performance Tuning (FPS cap, visibility pause, RAF throttling)
- *
- * Note: This component expects your zustand store bids/asks to be arrays of processed objects:
- *   { price: number, size: number, isWall?: boolean, cumulative?: number }
- * and that market objects have `pricePrecision` and `quantityPrecision`.
+ * - Performance Tuning (GPU smoothing, low-FPS mode, sampling improvements)
  */
 
 interface CanvasDepthChartProps {
@@ -63,7 +58,6 @@ export default function CanvasDepthChart({ marketId, height = 360 }: CanvasDepth
 
   // --- Performance tuning / low-CPU controls ---
   const lowCpuModeRef = useRef(false); // set to true to force low CPU mode
-  // You can toggle this from UI by writing to useRef: lowCpuModeRef.current = true
 
   // Desired FPS depending on mode
   const MAX_FPS_HIGH = 144;
@@ -177,11 +171,9 @@ export default function CanvasDepthChart({ marketId, height = 360 }: CanvasDepth
 
   // ------------------------------
   // Listen for auto-zoom events emitted by MarketDataService
-  // (we emitted depth:autoZoom in 12F-A)
   // ------------------------------
   useEffect(() => {
     function onZoom(_e: Event) {
-      // Pull latest bids/asks from store
       const store = useMarketDataStore.getState();
       const stBids = store.bids;
       const stAsks = store.asks;
@@ -197,14 +189,13 @@ export default function CanvasDepthChart({ marketId, height = 360 }: CanvasDepth
     return () => window.removeEventListener('depth:autoZoom', onZoom);
   }, [pricePrecision]);
 
-  // Also compute initial targetRange from ticker/orderbook when component mounts / updates
+  // Also compute initial targetRange from ticker/orderbook
   useEffect(() => {
     if (!bids?.length || !asks?.length) return;
     const bestBid = bids[0].price;
     const bestAsk = asks[0].price;
     const { min, max } = computeVisibleRange(bestBid, bestAsk, pricePrecision);
     targetRangeRef.current = { min, max };
-    // set initial animated range quickly
     setAnimatedRange({ min, max });
   }, [bids.length, asks.length, pricePrecision]);
 
@@ -214,7 +205,6 @@ export default function CanvasDepthChart({ marketId, height = 360 }: CanvasDepth
   function mapPriceToY(price: number, minP: number, maxP: number, heightPx: number) {
     if (maxP === minP) return heightPx / 2;
     const t = (price - minP) / (maxP - minP);
-    // invert (higher price -> upper on screen)
     return heightPx - t * heightPx;
   }
   function mapCumToX(cum: number, maxCum: number, widthPx: number) {
@@ -241,14 +231,12 @@ export default function CanvasDepthChart({ marketId, height = 360 }: CanvasDepth
       const p1 = points[i];
       const p2 = points[i + 1];
       const p3 = points[i + 2] || p2;
-      for (let t = 0; t <= 1; t += 0.1) {
+      for (let t = 0; t <= 1; t += 0.125) {
         const nx = catmullRom(p0.x, p1.x, p2.x, p3.x, t);
         const ny = catmullRom(p0.y, p1.y, p2.y, p3.y, t);
         out.push({ x: nx, y: ny, price: undefined, cum: undefined });
       }
     }
-    // attach price/cum by nearest original index for tooltip use (approx)
-    // Not exact but sufficient for tooltip mapping; we'll find nearest target point for hover.
     return out;
   }
 
@@ -338,8 +326,6 @@ export default function CanvasDepthChart({ marketId, height = 360 }: CanvasDepth
     widthPx: number,
     heightPx: number
   ) {
-    // Expect rawBids/rawAsks to be arrays of {price, size, isWall}
-    // Prepare processed arrays sorted by price appropriate order
     const processedBids = rawBids
       .map((b) => ({ price: snapPrice(b.price, pricePrec), size: floorQty(b.size, qtyPrec), isWall: !!b.isWall }))
       .sort((a, b) => b.price - a.price);
@@ -352,7 +338,7 @@ export default function CanvasDepthChart({ marketId, height = 360 }: CanvasDepth
     const pointsBid: { x: number; y: number; price: number; cum: number; size: number; isWall: boolean }[] = [];
     processedBids.forEach((lvl) => {
       cumB += lvl.size;
-      const x = 0; // placeholder, will normalize later
+      const x = 0;
       const y = mapPriceToY(lvl.price, minPrice, maxPrice, heightPx);
       pointsBid.push({ x, y, price: lvl.price, cum: cumB, size: lvl.size, isWall: lvl.isWall });
     });
@@ -368,7 +354,6 @@ export default function CanvasDepthChart({ marketId, height = 360 }: CanvasDepth
 
     const maxCum = Math.max(pointsBid.length ? pointsBid[pointsBid.length - 1].cum : 0, pointsAsk.length ? pointsAsk[pointsAsk.length - 1].cum : 0) || 1;
 
-    // Normalize cumulative to X
     for (const p of pointsBid) p.x = mapCumToX(p.cum, maxCum, widthPx);
     for (const p of pointsAsk) p.x = mapCumToX(p.cum, maxCum, widthPx);
 
@@ -384,11 +369,9 @@ export default function CanvasDepthChart({ marketId, height = 360 }: CanvasDepth
 
     const width = dim.width;
     const heightPx = dim.height;
-    // background
     ctx.fillStyle = '#0a0a0a';
     ctx.fillRect(0, 0, width, heightPx);
 
-    // Quick status before data ready
     if (!bids?.length || !asks?.length) {
       ctx.fillStyle = '#888';
       ctx.font = '12px Inter, sans-serif';
@@ -396,12 +379,10 @@ export default function CanvasDepthChart({ marketId, height = 360 }: CanvasDepth
       return;
     }
 
-    // Animated range easing towards target
     const tr = targetRangeRef.current;
     setAnimatedRange((prev) => {
       const nextMin = prev.min === 0 ? tr.min : ease(prev.min, tr.min, 0.18);
       const nextMax = prev.max === 0 ? tr.max : ease(prev.max, tr.max, 0.18);
-      // small stability check
       if (nearlyEq(nextMin, prev.min) && nearlyEq(nextMax, prev.max)) return prev;
       return { min: nextMin, max: nextMax };
     });
@@ -415,22 +396,18 @@ export default function CanvasDepthChart({ marketId, height = 360 }: CanvasDepth
       return;
     }
 
-    // Build canvas points
     const { pointsBid, pointsAsk, maxCum } = buildDepthPointsForCanvas(bids, asks, pricePrecision, quantityPrecision, minPrice, maxPrice, width, heightPx);
 
-    // adaptive sampling to reduce points when low cpu mode
     const targetPoints = lowCpuModeRef.current ? LOW_CPU_SPLINE_POINTS : TARGET_SPLINE_POINTS;
     const sampleBid = pointsBid.length > targetPoints ? pointsBid.filter((_, i) => i % Math.ceil(pointsBid.length / targetPoints) === 0) : pointsBid;
     const sampleAsk = pointsAsk.length > targetPoints ? pointsAsk.filter((_, i) => i % Math.ceil(pointsAsk.length / targetPoints) === 0) : pointsAsk;
 
-    // convert to simple x/y array for splines
     const simpleBid = sampleBid.map(p => ({ x: p.x, y: p.y, price: p.price, cum: p.cum, size: p.size }));
     const simpleAsk = sampleAsk.map(p => ({ x: p.x, y: p.y, price: p.price, cum: p.cum, size: p.size }));
 
     const bidSpline = getSplinePoints(simpleBid);
     const askSpline = getSplinePoints(simpleAsk);
 
-    // --- DRAW ASK SHADING ---
     if (askSpline.length) {
       ctx.beginPath();
       ctx.moveTo(askSpline[0].x, askSpline[0].y);
@@ -444,7 +421,6 @@ export default function CanvasDepthChart({ marketId, height = 360 }: CanvasDepth
       ctx.fill();
     }
 
-    // --- DRAW BID SHADING ---
     if (bidSpline.length) {
       ctx.beginPath();
       ctx.moveTo(bidSpline[0].x, bidSpline[0].y);
@@ -458,7 +434,6 @@ export default function CanvasDepthChart({ marketId, height = 360 }: CanvasDepth
       ctx.fill();
     }
 
-    // --- DRAW ASK CURVE ---
     if (askSpline.length) {
       ctx.strokeStyle = 'rgba(255,100,110,0.9)';
       ctx.lineWidth = 1.6;
@@ -471,7 +446,6 @@ export default function CanvasDepthChart({ marketId, height = 360 }: CanvasDepth
       ctx.stroke();
     }
 
-    // --- DRAW BID CURVE ---
     if (bidSpline.length) {
       ctx.strokeStyle = 'rgba(60,210,130,0.9)';
       ctx.lineWidth = 1.6;
@@ -484,13 +458,10 @@ export default function CanvasDepthChart({ marketId, height = 360 }: CanvasDepth
       ctx.stroke();
     }
 
-    // --- BUBBLES / HEAT (use original simple arrays to compute intensity)
     const maxCumVal = maxCum;
-    // map cum->index for lookup approx (we used sampling for spline; for bubble positions use full arrays)
     const fullBidPoints = pointsBid;
     const fullAskPoints = pointsAsk;
 
-    // render bubbles (sample along splines by mapping x to nearest original point)
     const getNearestOriginalForX = (arr: any[], x: number) => {
       let best = arr[0];
       let bd = Math.abs(arr[0].x - x);
@@ -501,7 +472,6 @@ export default function CanvasDepthChart({ marketId, height = 360 }: CanvasDepth
       return best;
     };
 
-    // BIDS
     for (const s of bidSpline) {
       const orig = getNearestOriginalForX(fullBidPoints, s.x);
       const intensity = computeIntensity(orig?.cum ?? 0, maxCumVal);
@@ -514,7 +484,6 @@ export default function CanvasDepthChart({ marketId, height = 360 }: CanvasDepth
       ctx.fill();
     }
 
-    // ASKS
     for (const s of askSpline) {
       const orig = getNearestOriginalForX(fullAskPoints, s.x);
       const intensity = computeIntensity(orig?.cum ?? 0, maxCumVal);
@@ -528,7 +497,6 @@ export default function CanvasDepthChart({ marketId, height = 360 }: CanvasDepth
     }
     ctx.shadowBlur = 0;
 
-    // --- BEST BID / ASK BANNERS (compute eased positions)
     const dpr = window.devicePixelRatio || 1;
     const bestBidPoint = fullBidPoints.length ? fullBidPoints[0] : null;
     const bestAskPoint = fullAskPoints.length ? fullAskPoints[0] : null;
@@ -547,12 +515,11 @@ export default function CanvasDepthChart({ marketId, height = 360 }: CanvasDepth
       drawBanner(ctx, bannerPos.current.askX, bestAskPoint.y, `Ask: ${bestAskPoint.price.toFixed(pricePrecision)}`, 'ask', dpr, width);
     }
 
-    // --- HOVER LAYER
     const canvas = canvasRef.current!;
     const rect = canvas.getBoundingClientRect();
     const dprCss = window.devicePixelRatio || 1;
     if (hoverRef.current) {
-      const hx = hoverRef.current.x / dprCss; // because ctx scaled to dpr (we used setTransform)
+      const hx = hoverRef.current.x / dprCss;
       const hy = hoverRef.current.y / dprCss;
       const pBid = findNearestPoint(bidSpline, hx);
       const pAsk = findNearestPoint(askSpline, hx);
@@ -561,7 +528,6 @@ export default function CanvasDepthChart({ marketId, height = 360 }: CanvasDepth
       else target = pBid || pAsk;
 
       if (target) {
-        // vertical line
         ctx.beginPath();
         ctx.strokeStyle = 'rgba(255,255,255,0.25)';
         ctx.lineWidth = 1;
@@ -569,13 +535,11 @@ export default function CanvasDepthChart({ marketId, height = 360 }: CanvasDepth
         ctx.lineTo(target.x, heightPx);
         ctx.stroke();
 
-        // highlight dot
         ctx.beginPath();
         ctx.fillStyle = '#fff';
         ctx.arc(target.x, target.y, 4, 0, Math.PI * 2);
         ctx.fill();
 
-        // tooltip
         const tooltipW = 160;
         const tooltipH = 68;
         const boxX = Math.min(Math.max(target.x - tooltipW / 2, 4), width - tooltipW - 4);
@@ -598,8 +562,7 @@ export default function CanvasDepthChart({ marketId, height = 360 }: CanvasDepth
       }
     }
 
-  }, // draw deps
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+  },
   [
     prepareCanvas,
     dim.width,
@@ -618,16 +581,14 @@ export default function CanvasDepthChart({ marketId, height = 360 }: CanvasDepth
   useEffect(() => {
     let last = performance.now();
     let rafId = 0;
-    let frameInterval = 1000 / MAX_FPS_NORMAL; // default
+    let frameInterval = 1000 / MAX_FPS_NORMAL;
 
     function computeFrameInterval() {
       const low = lowCpuModeRef.current;
       if (low) return 1000 / MAX_FPS_LOW;
-      // choose 144 on powerful desktops (you can detect GPU later)
       return 1000 / MAX_FPS_NORMAL;
     }
 
-    // create offscreen canvas if supported
     if (useOffscreen && !offscreenRef.current) {
       try {
         const c = new OffscreenCanvas(Math.max(1, Math.floor(dim.width)), Math.max(1, Math.floor(dim.height)));
@@ -637,9 +598,7 @@ export default function CanvasDepthChart({ marketId, height = 360 }: CanvasDepth
       }
     }
 
-    // draw wrapper: uses offscreen if available
     function drawFrame(now: number) {
-      // Pause if tab hidden
       if (document.hidden) {
         last = now;
         rafId = requestAnimationFrame(drawFrame);
@@ -649,17 +608,13 @@ export default function CanvasDepthChart({ marketId, height = 360 }: CanvasDepth
       frameInterval = computeFrameInterval();
       const delta = now - last;
       if (delta < frameInterval) {
-        // not time yet — schedule next
         rafId = requestAnimationFrame(drawFrame);
         return;
       }
       last = now - (delta % frameInterval);
 
-      // prepare canvas(s)
       if (useOffscreen && offscreenRef.current) {
-        // draw to offscreen and blit
         const off = offscreenRef.current;
-        // resize offscreen to match dims (only when size changed)
         const dpr = window.devicePixelRatio || 1;
         const targetW = Math.max(1, Math.floor(dim.width * dpr));
         const targetH = Math.max(1, Math.floor(dim.height * dpr));
@@ -669,23 +624,12 @@ export default function CanvasDepthChart({ marketId, height = 360 }: CanvasDepth
         }
         const ctxOff = off.getContext('2d');
         if (!ctxOff) {
-          // fallback: draw directly
           draw();
         } else {
-          // scale context to CSS pixels (we use dpr scaling like main canvas)
           ctxOff.setTransform(dpr, 0, 0, dpr, 0, 0);
-          // call the internal draw routine but with ctx override if you refactor draw to accept ctx
-          // simple approach: temporarily swap canvasRef.current to a fake that draw() uses.
-          // Easiest approach here: call draw() which will call prepareCanvas() and render to real canvas.
-          // But for offscreen, you can refactor draw() to accept an optional ctx. For now, fallback to direct draw.
           draw();
         }
-
-        // blit offscreen to visible canvas (if draw used offscreen, you'd blit here)
-        // const visibleCtx = canvasRef.current?.getContext('2d');
-        // if (visibleCtx) visibleCtx.drawImage(off, 0, 0);
       } else {
-        // no offscreen or failed: draw directly
         draw();
       }
 
@@ -694,13 +638,10 @@ export default function CanvasDepthChart({ marketId, height = 360 }: CanvasDepth
 
     rafId = requestAnimationFrame(drawFrame);
 
-    // visibility change: when tab is hidden, keep loop but skip draws (handled above)
     const onVisibility = () => {
-      // immediately skip heavy draws if hidden
       if (document.hidden) {
-        // nothing special required; drawFrame checks document.hidden
+        // Paused
       } else {
-        // resume and reset timer
         last = performance.now();
       }
     };
@@ -710,8 +651,7 @@ export default function CanvasDepthChart({ marketId, height = 360 }: CanvasDepth
       if (rafId) cancelAnimationFrame(rafId);
       document.removeEventListener('visibilitychange', onVisibility);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [draw, dim.width, dim.height, bids, asks]);
+  }, [draw, dim.width, dim.height, useOffscreen]);
 
   // ------------------------------
   // Pointer move throttled via RAF

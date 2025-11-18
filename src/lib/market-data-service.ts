@@ -1,78 +1,68 @@
+
 "use client";
 
 class MarketDataService {
-  static instances: Record<string, MarketDataService> = {};
-  symbol: string;
+    private websockets: Map<string, WebSocket> = new Map();
+    private static instance: MarketDataService;
 
-  depthCallbacks: any[] = [];
-  tickerCallbacks: any[] = [];
-  tradeCallbacks: any[] = [];
-  klineCallbacks: any[] = [];
-
-  constructor(symbol: string) {
-    this.symbol = symbol;
-
-    this.initDepth();
-    this.initTrades();
-    this.initTicker();
-    this.initKline();
-  }
-
-  static getInstance(symbol: string) {
-    if (!this.instances[symbol]) {
-      this.instances[symbol] = new MarketDataService(symbol);
+    private constructor() {
+        // Private constructor to enforce singleton
     }
-    return this.instances[symbol];
-  }
 
-  subscribeDepth(cb: any) { this.depthCallbacks.push(cb); return () => {}; }
-  subscribeTicker(cb: any) { this.tickerCallbacks.push(cb); return () => {}; }
-  subscribeTrades(cb: any) { this.tradeCallbacks.push(cb); return () => {}; }
-  subscribeKline(cb: any) { this.klineCallbacks.push(cb); return () => {}; }
+    public static getInstance(): MarketDataService {
+        if (!MarketDataService.instance) {
+            MarketDataService.instance = new MarketDataService();
+        }
+        return MarketDataService.instance;
+    }
 
-  // ORDERBOOK DEPTH
-  initDepth() {
-    const ws = new WebSocket(`wss://stream.binance.com/ws/${this.symbol}@depth20@100ms`);
-    ws.onmessage = (msg) => {
-      const data = JSON.parse(msg.data);
-      this.depthCallbacks.forEach(cb => cb({ bids: data.b, asks: data.a }));
-    };
-  }
+    public subscribe(
+        streamName: string, 
+        onMessage: (data: any) => void, 
+        onOpen?: () => void, 
+        onError?: (error: string) => void
+    ) {
+        const wsUrl = `wss://stream.binance.com:9443/ws/${streamName}`;
+        
+        // If a websocket for this stream already exists, just add the new callbacks
+        if (this.websockets.has(streamName)) {
+            const ws = this.websockets.get(streamName)!;
+            // This is a simplified approach; a more robust solution would manage multiple callbacks per stream
+        }
 
-  // TICKER
-  initTicker() {
-    const ws = new WebSocket(`wss://stream.binance.com/ws/${this.symbol}@ticker`);
-    ws.onmessage = (msg) => {
-      const data = JSON.parse(msg.data);
-      this.tickerCallbacks.forEach(cb => cb(data));
-    };
-  }
+        const ws = new WebSocket(wsUrl);
 
-  // TRADES
-  initTrades() {
-    const ws = new WebSocket(`wss://stream.binance.com/ws/${this.symbol}@trade`);
-    ws.onmessage = (msg) => {
-      const data = JSON.parse(msg.data);
-      this.tradeCallbacks.forEach(cb => cb(data));
-    };
-  }
+        ws.onopen = () => {
+            console.log(`[WebSocket] Connected to ${streamName}`);
+            if (onOpen) onOpen();
+        };
 
-  // KLINE (1m)
-  initKline() {
-    const ws = new WebSocket(`wss://stream.binance.com/ws/${this.symbol}@kline_1m`);
-    ws.onmessage = (msg) => {
-      const k = JSON.parse(msg.data).k;
-      this.klineCallbacks.forEach(cb =>
-        cb({
-          time: k.t,
-          open: parseFloat(k.o),
-          high: parseFloat(k.h),
-          low: parseFloat(k.l),
-          close: parseFloat(k.c),
-        })
-      );
-    };
-  }
+        ws.onmessage = (event) => {
+            const data = JSON.parse(event.data);
+            onMessage(data);
+        };
+
+        ws.onerror = (event) => {
+            console.error(`[WebSocket] Error on ${streamName}:`, event);
+            if (onError) onError('WebSocket connection failed.');
+        };
+        
+        ws.onclose = () => {
+            console.log(`[WebSocket] Disconnected from ${streamName}`);
+            this.websockets.delete(streamName);
+        };
+
+        this.websockets.set(streamName, ws);
+
+        return {
+            close: () => {
+                if (ws.readyState === WebSocket.OPEN) {
+                    ws.close();
+                }
+                this.websockets.delete(streamName);
+            }
+        };
+    }
 }
 
-export default MarketDataService;
+export const marketDataService = MarketDataService.getInstance();

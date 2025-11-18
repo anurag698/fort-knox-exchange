@@ -185,4 +185,3 @@ export function DepthChart({ bids, asks }: DepthChartProps) {
     </Card>
   );
 }
-

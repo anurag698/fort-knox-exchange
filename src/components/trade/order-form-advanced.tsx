@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState } from "react";
@@ -10,10 +11,13 @@ import {
 import { submitHybridOrder } from "@/lib/order-client";
 import { useMarketDataStore } from "@/lib/market-data-service";
 import { useTriggerEngine } from "@/components/trade/trigger-engine-provider";
+import { useOpenOrdersStore } from "@/lib/open-orders-store";
 
 export function OrderFormAdvanced({ marketId }: { marketId: string }) {
   const ticker = useMarketDataStore((s) => s.ticker);
   const { addTriggerOrder } = useTriggerEngine();
+  const openOrders = useOpenOrdersStore();
+
 
   const [side, setSide] = useState<OrderSide>("BUY");
   const [tab, setTab] = useState<
@@ -78,6 +82,20 @@ export function OrderFormAdvanced({ marketId }: { marketId: string }) {
 
     const res = await submitHybridOrder(payload);
     console.log("ORDER RESPONSE", res);
+
+    if (res.status === 'ACCEPTED') {
+      openOrders.addOrder({
+        id: res.orderId,
+        marketId,
+        side,
+        type: payload.type,
+        quantity: Number(quantity),
+        price: payload.price,
+        triggerPrice: payload.triggerPrice ?? null,
+        status: "OPEN",
+        timestamp: Date.now(),
+      });
+    }
 
     resetFields();
   }

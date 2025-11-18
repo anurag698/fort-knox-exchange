@@ -1,9 +1,12 @@
+
 "use client";
 
 import { createContext, useContext, useEffect, useRef, useState, ReactNode } from "react";
 import { useMarketDataStore } from "@/lib/market-data-service";
 import { submitHybridOrder } from "@/lib/order-client";
 import { HybridOrderRequest, OrderType } from "@/lib/order-types";
+import { useOpenOrdersStore } from "@/lib/open-orders-store";
+
 
 type TriggerOrder = HybridOrderRequest & {
   id: string; // local ID
@@ -28,12 +31,25 @@ export function TriggerEngineProvider({ children }: { children: ReactNode }) {
   const [orders, setOrders] = useState<TriggerOrder[]>([]);
   const ticker = useMarketDataStore((s) => s.ticker);
   const lastPrice = ticker?.c ? parseFloat(ticker.c) : null;
+  const openOrdersStore = useOpenOrdersStore.getState();
 
   const checking = useRef(false);
 
   // Add a new trigger order (from order form UI)
   function addTriggerOrder(o: TriggerOrder) {
     setOrders((prev) => [...prev, o]);
+    openOrdersStore.addOrder({
+      id: o.id,
+      marketId: o.marketId,
+      side: o.side,
+      type: o.type,
+      quantity: o.quantity,
+      price: o.price ?? null,
+      triggerPrice: o.triggerPrice ?? null,
+      parentOcoId: o.parentOcoId ?? null,
+      status: "OPEN",
+      timestamp: Date.now(),
+    });
   }
 
   function removeTriggerOrder(id: string) {
@@ -45,12 +61,14 @@ export function TriggerEngineProvider({ children }: { children: ReactNode }) {
     try {
       await submitHybridOrder(order);
       removeTriggerOrder(order.id);
+      openOrdersStore.updateOrder(order.id, { status: "FILLED" });
+
 
       // OCO logic: cancel the other leg
       if (order.parentOcoId) {
-        setOrders((prev) =>
-          prev.filter((o) => o.parentOcoId !== order.parentOcoId)
-        );
+        openOrdersStore.orders
+          .filter((o) => o.parentOcoId === order.parentOcoId && o.id !== order.id)
+          .forEach((o) => openOrdersStore.removeOrder(o.id));
       }
     } catch (err) {
       console.error("Trigger execution error:", err);

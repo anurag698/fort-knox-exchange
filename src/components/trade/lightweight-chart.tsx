@@ -88,62 +88,41 @@ export default function LightweightChart({ marketId }: { marketId: string }) {
     const ro = new ResizeObserver(() => {
       if (containerRef.current && !resizeRAF) {
         resizeRAF = requestAnimationFrame(() => {
-          chart.applyOptions({
-            width: containerRef.current!.clientWidth,
-            height: containerRef.current!.clientHeight,
-          });
+          if (chartRef.current && containerRef.current) {
+            chartRef.current.applyOptions({
+              width: containerRef.current.clientWidth,
+              height: containerRef.current.clientHeight,
+            });
+          }
           resizeRAF = null;
         });
       }
     });
     ro.observe(containerRef.current);
 
-
-    // Throttled Tooltip
-    let tooltipRAF: number | null = null;
-    function updateTooltip(text: string, x: number, y: number) {
-      if (!tooltipRef.current) return;
-      if (tooltipRAF) cancelAnimationFrame(tooltipRAF);
-
-      tooltipRAF = requestAnimationFrame(() => {
-        if (!tooltipRef.current) return;
-        
-        tooltipRef.current.innerHTML = text;
-        tooltipRef.current.style.display = 'block';
-
-        const chartWidth = containerRef.current!.clientWidth;
-        const chartHeight = containerRef.current!.clientHeight;
-        const tooltipWidth = tooltipRef.current.offsetWidth;
-        const tooltipHeight = tooltipRef.current.offsetHeight;
-
-        let left = x + 15;
-        if (left + tooltipWidth > chartWidth) {
-            left = x - tooltipWidth - 15;
-        }
-
-        let top = y + 15;
-        if (top + tooltipHeight > chartHeight) {
-            top = y - tooltipHeight - 15;
-        }
-        
-        tooltipRef.current.style.left = `${left}px`;
-        tooltipRef.current.style.top = `${top}px`;
-        tooltipRAF = null;
-      });
-    }
-
     chart.subscribeCrosshairMove((param) => {
-      if (!param.time || !param.seriesPrices.size || !seriesRef.current || !param.point) {
-          if (tooltipRef.current) tooltipRef.current.style.display = 'none';
-          return;
-      }
-      
-      const priceData = param.seriesPrices.get(seriesRef.current);
-      if (!priceData) {
-          if (tooltipRef.current) tooltipRef.current.style.display = 'none';
-          return;
+      const tooltip = tooltipRef.current;
+
+      // Extract price safely from any format
+      let priceData = null;
+
+      if (param.seriesPrices && typeof param.seriesPrices === 'object') {
+        const values = Object.values(param.seriesPrices);
+        priceData = values && values.length > 0 ? values[0] : null;
       }
 
+      // If no data → hide tooltip
+      if (!param.time || !priceData || !seriesRef.current || !param.point) {
+        if (tooltip) tooltip.style.display = 'none';
+        return;
+      }
+
+      // Normalize price depending on library version
+      const price =
+        typeof priceData === 'object' && 'value' in priceData
+          ? priceData.value
+          : priceData;
+      
       const { open, high, low, close } = priceData as any;
       const date = new Date(param.time * 1000).toLocaleString();
       const tooltipText = `
@@ -153,7 +132,30 @@ export default function LightweightChart({ marketId }: { marketId: string }) {
           <div><strong>L:</strong> ${low.toFixed(2)}</div>
           <div><strong>C:</strong> ${close.toFixed(2)}</div>
       `;
-      updateTooltip(tooltipText, param.point.x, param.point.y);
+
+      // Show tooltip
+      if (tooltip) {
+        tooltip.style.display = 'block';
+        tooltip.innerHTML = tooltipText;
+        
+        const chartWidth = containerRef.current!.clientWidth;
+        const chartHeight = containerRef.current!.clientHeight;
+        const tooltipWidth = tooltip.offsetWidth;
+        const tooltipHeight = tooltip.offsetHeight;
+
+        let left = param.point.x + 15;
+        if (left + tooltipWidth > chartWidth) {
+            left = param.point.x - tooltipWidth - 15;
+        }
+
+        let top = param.point.y + 15;
+        if (top + tooltipHeight > chartHeight) {
+            top = param.point.y - tooltipHeight - 15;
+        }
+        
+        tooltip.style.left = `${left}px`;
+        tooltip.style.top = `${top}px`;
+      }
     });
 
     return () => {

@@ -1,4 +1,4 @@
-
+// src/components/trade/pro-trading-layout.tsx
 "use client";
 
 import React, { useState, useRef, useEffect } from "react";
@@ -10,7 +10,7 @@ import { useResizable } from "@/hooks/useResizable";
 const ProChart = dynamic(() => import("./lightweight-pro-chart"), { ssr: false });
 
 const OrderBook = dynamic(
-  () => import("./order-book").then((mod) => mod.default),
+  () => import("./order-book"), 
   { ssr: false }
 );
 
@@ -24,7 +24,15 @@ const OrderForm = dynamic(
   { ssr: false }
 );
 
-export default function ProTradingLayout({ pair, wsUrl }: { pair: string; wsUrl: string }) {
+
+// Layout Wrapper
+export default function ProTradingLayout({
+  pair,
+  wsUrl,
+}: {
+  pair: string;
+  wsUrl: string;
+}) {
   const { width: leftWidth, startResize: startResizeLeft } = useResizable(900);
 
   const [obHeight, setObHeight] = useState(220);

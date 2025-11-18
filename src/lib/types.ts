@@ -138,3 +138,13 @@ export type PriceAlert = {
     createdAt: any;
     lastTriggeredAt: any;
 };
+
+export type SpotPosition = {
+  assetId: string;
+  quantity: number;
+  avgPrice: number | null;
+  marketPrice: number | null;
+  value: number | null;
+  pnl: number | null;
+  pnlPercent: number | null;
+};

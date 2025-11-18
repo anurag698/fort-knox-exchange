@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState } from "react";
@@ -10,9 +9,11 @@ import {
 } from "@/lib/order-types";
 import { submitHybridOrder } from "@/lib/order-client";
 import { useMarketDataStore } from "@/lib/market-data-service";
+import { useTriggerEngine } from "@/components/trade/trigger-engine-provider";
 
 export function OrderFormAdvanced({ marketId }: { marketId: string }) {
   const ticker = useMarketDataStore((s) => s.ticker);
+  const { addTriggerOrder } = useTriggerEngine();
 
   const [side, setSide] = useState<OrderSide>("BUY");
   const [tab, setTab] = useState<
@@ -34,7 +35,7 @@ export function OrderFormAdvanced({ marketId }: { marketId: string }) {
   const [reduceOnly, setReduceOnly] = useState(false);
   const [trailValue, setTrailValue] = useState("");
 
-  const currentPrice = ticker?.price ?? 0;
+  const currentPrice = ticker?.c ? parseFloat(ticker.c) : 0;
 
   function resetFields() {
     setPrice("");
@@ -60,6 +61,20 @@ export function OrderFormAdvanced({ marketId }: { marketId: string }) {
       timeInForce,
       trailValue: trailValue ? Number(trailValue) : null,
     };
+    
+    if (
+      payload.type === "STOP_MARKET" ||
+      payload.type === "STOP_LIMIT" ||
+      payload.type === "TAKE_PROFIT_MARKET" ||
+      payload.type === "TAKE_PROFIT_LIMIT" ||
+      payload.type === "OCO" ||
+      payload.type === "TRAILING_STOP"
+    ) {
+      addTriggerOrder({ ...payload, id: crypto.randomUUID() });
+      resetFields();
+      return;
+    }
+
 
     const res = await submitHybridOrder(payload);
     console.log("ORDER RESPONSE", res);

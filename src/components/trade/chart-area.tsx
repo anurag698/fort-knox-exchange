@@ -9,12 +9,12 @@ export default function ChartArea({ children }: { children?: React.ReactNode }) 
       {children ?? (
         <div
           style={{
-            color: "#888",
             padding: "16px",
+            color: "#999",
             fontSize: "14px",
           }}
         >
-          Chart Area Ready — waiting for chart component...
+          ChartArea Loaded — waiting for chart component…
         </div>
       )}
     </div>

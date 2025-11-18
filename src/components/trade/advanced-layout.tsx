@@ -1,21 +1,25 @@
 // This component defines the grid layout for the "Advanced" trading mode.
 'use client';
 
-import { MemoizedLightweightChart } from '@/components/trade/lightweight-chart';
+import LightweightChart from '@/components/trade/lightweight-chart';
 import OrderBook from '@/components/trade/order-book';
 import { OrderForm } from '@/components/trade/order-form';
 import { RecentTrades } from '@/components/trade/recent-trades';
 import { Balances } from '@/components/trade/balances';
 import { UserTrades } from '@/components/trade/user-trades';
+import { useMarketDataStore } from '@/lib/market-data-service';
 
 export function AdvancedLayout({ marketId }: { marketId: string }) {
+  const klineData = useMarketDataStore((state) => state.klines);
+  const { bids, asks } = useMarketDataStore((state) => state.depth);
+
   return (
     <div className="grid h-full grid-cols-12 grid-rows-12 gap-2">
       <div className="col-span-12 row-span-6 lg:col-span-9">
-        <MemoizedLightweightChart marketId={marketId} />
+        <LightweightChart klineData={klineData} />
       </div>
       <div className="col-span-12 row-span-6 lg:col-span-3 lg:row-span-12">
-        <OrderBook marketId={marketId} onPriceSelect={() => {}} />
+        <OrderBook bids={bids} asks={asks} />
       </div>
       <div className="col-span-12 row-span-6 lg:col-span-3">
         <OrderForm marketId={marketId} />

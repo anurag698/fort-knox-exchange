@@ -1,3 +1,4 @@
+
 // ===========================================================
 //  Fort Knox Exchange — PRO Market Data Engine (Binance Spot)
 // ===========================================================
@@ -44,9 +45,12 @@ export const useMarketDataStore = create<MarketDataState>((set) => ({
     trades: [...state.trades, trade].slice(-100) // Keep last 100 trades
   })),
   setKlines: (k) => set({ klines: k }),
-  pushKline: (kline) => set((state) => ({
-    klines: [...state.klines.filter(k => k.time !== kline.time), kline]
-  })),
+  pushKline: (kline) => set((state) => {
+    // Update if exists, else append. Ensures no duplicates.
+    const newKlines = state.klines.filter(k => k.time !== kline.time);
+    newKlines.push(kline);
+    return { klines: newKlines.sort((a,b) => a.time - b.time) };
+  }),
   setConnected: (status) => set({ isConnected: status }),
   setError: (error) => set({ error }),
 }));
@@ -88,10 +92,13 @@ export class MarketDataService {
   connect() {
     this.disconnect(); // clean old sockets
 
-    this.openTicker();
-    this.openDepth();
-    this.openTrades();
-    this.openKline('1m');
+    const streams = [
+        { name: 'ticker', type: 'ticker' },
+        { name: 'depth20@100ms', type: 'depth' },
+        { name: 'trade', type: 'trade' },
+        { name: 'kline_1m', type: 'kline' },
+    ];
+    this.setupBufferedListener(streams);
   }
 
   // ---------------------------------------------------------
@@ -105,11 +112,32 @@ export class MarketDataService {
     });
     this.sockets = [];
   }
+  
+  // Public method for subscribing to tickers
+  public subscribeToTickers(symbols: string[]) {
+    const streamNames = symbols.map(s => `${s}@ticker`);
+    const url = `wss://stream.binance.com:9443/ws/${streamNames.join('/')}`;
+    const onMessage = (event: MessageEvent) => {
+        const payload = JSON.parse(event.data);
+        const data = payload.data || payload;
+        if (data.e === '24hrTicker') {
+             useMarketDataStore.getState().setTicker(data);
+        }
+    }
+    this.createSocket(url, onMessage);
+  }
+
+  public unsubscribeFromTickers(symbols: string[]) {
+    // In a real app, you might map sockets to subscription types to close them selectively.
+    // For now, we'll just disconnect all when the component unmounts.
+    this.disconnect();
+  }
+
 
   // ---------------------------------------------------------
   // WebSocket helpers
   // ---------------------------------------------------------
-  private createSocket(url: string, onMessage: (d: any) => void) {
+  private createSocket(url: string, onMessage: (event: MessageEvent) => void) {
     const ws = new WebSocket(url);
 
     ws.onopen = () => {
@@ -124,12 +152,8 @@ export class MarketDataService {
     };
 
     ws.onclose = () => {
-      console.warn('[WS CLOSED — Reconnecting]', url);
+      console.warn('[WS CLOSED]', url);
       useMarketDataStore.getState().setConnected(false);
-      // Only auto-reconnect if it's not a manual disconnect
-      if (this.sockets.includes(ws)) {
-          setTimeout(() => this.createSocket(url, onMessage), 1500);
-      }
     };
 
     ws.onmessage = onMessage;
@@ -142,88 +166,44 @@ export class MarketDataService {
       const streamNames = streams.map(s => `${this.symbol.toLowerCase()}@${s.name}`);
       const url = `wss://stream.binance.com:9443/ws/${streamNames.join('/')}`;
       
-      let depthBuffer: any = null;
-      let tickerBuffer: any = null;
-      let tradesBuffer: any[] = [];
-      let klineBuffer: any = null;
-      let lastDispatch = 0;
-      let frameId: number;
-
-      const dispatch = () => {
-          if (depthBuffer) {
-              const { b, a } = depthBuffer;
-              useMarketDataStore.getState().setDepth(b, a);
-              depthBuffer = null;
-          }
-          if (tickerBuffer) {
-              useMarketDataStore.getState().setTicker(tickerBuffer);
-              tickerBuffer = null;
-          }
-          if (tradesBuffer.length > 0) {
-              const trades = tradesBuffer;
-              tradesBuffer = [];
-              trades.forEach(trade => useMarketDataStore.getState().pushTrade({
-                  p: trade.p, // price
-                  q: trade.q, // quantity
-                  T: trade.T, // timestamp
-                  m: trade.m, // is market maker
-              }));
-          }
-          if (klineBuffer) {
-              const k = klineBuffer.k;
-              useMarketDataStore.getState().pushKline({
-                  time: k.t / 1000, open: parseFloat(k.o), high: parseFloat(k.h), low: parseFloat(k.l), close: parseFloat(k.c),
-              });
-              klineBuffer = null;
-          }
-      };
-
       const onMessage = (event: MessageEvent) => {
-          const { stream, data } = JSON.parse(event.data);
-          const streamName = stream.split('@')[1];
-          
-          if (streamName === 'depth20@100ms') depthBuffer = data;
-          else if (streamName === 'ticker') tickerBuffer = data;
-          else if (streamName === 'trade') tradesBuffer.push(data);
-          else if (streamName.startsWith('kline_')) klineBuffer = data;
+        const payload = JSON.parse(event.data);
 
-          const now = performance.now();
-          if (now - lastDispatch > 16) { // ~60fps
-              if (frameId) cancelAnimationFrame(frameId);
-              frameId = requestAnimationFrame(dispatch);
-              lastDispatch = now;
-          }
+        // Combined stream format has a `stream` key
+        const streamIdentifier = payload.stream || null;
+        const data = payload.data || payload;
+      
+        // Depth update
+        if (data.e === 'depthUpdate' || streamIdentifier?.includes('depth')) {
+          useMarketDataStore.getState().setDepth(
+            data.b || data.bids || [],
+            data.a || data.asks || []
+          );
+        }
+      
+        // Ticker update
+        if (data.e === '24hrTicker' || streamIdentifier?.includes('ticker')) {
+          useMarketDataStore.getState().setTicker(data);
+        }
+      
+        // Kline update
+        if (data.e === 'kline' || streamIdentifier?.includes('kline')) {
+            const { k } = data; // kline data is nested in 'k'
+            useMarketDataStore.getState().pushKline({
+              time: k.t / 1000,
+              open: parseFloat(k.o),
+              high: parseFloat(k.h),
+              low: parseFloat(k.l),
+              close: parseFloat(k.c),
+            });
+        }
+      
+        // Trades update
+        if (data.e === 'trade' || streamIdentifier?.includes('trade')) {
+            useMarketDataStore.getState().pushTrade(data);
+        }
       };
       
       this.createSocket(url, onMessage);
-  }
-
-
-  // ---------------------------------------------------------
-  // STREAM: Ticker
-  // ---------------------------------------------------------
-  private openTicker() {
-    this.setupBufferedListener([{ name: 'ticker', type: 'ticker' }]);
-  }
-
-  // ---------------------------------------------------------
-  // STREAM: Depth
-  // ---------------------------------------------------------
-  private openDepth() {
-    this.setupBufferedListener([{ name: 'depth20@100ms', type: 'depth' }]);
-  }
-
-  // ---------------------------------------------------------
-  // STREAM: Trades (Buffered)
-  // ---------------------------------------------------------
-  private openTrades() {
-    this.setupBufferedListener([{ name: 'trade', type: 'trade' }]);
-  }
-
-  // ---------------------------------------------------------
-  // STREAM: Kline (interval)
-  // ---------------------------------------------------------
-  private openKline(interval: string) {
-    this.setupBufferedListener([{ name: `kline_${interval}`, type: 'kline' }]);
   }
 }

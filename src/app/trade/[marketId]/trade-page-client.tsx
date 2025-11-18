@@ -1,45 +1,71 @@
-// This component is the main client-side wrapper for the entire trading terminal.
-// It manages the active mode (Advanced, Chart, Depth) and renders the appropriate layout.
 'use client';
 
-import { useState, useEffect } from 'react';
-import { MarketHeader } from '@/components/trade/market-header';
+//
+// This is the MASTER controller for all 3 Pro Modes.
+// It manages:
+//
+//  - MarketDataService (WS engine)
+//  - Mode switching (Advanced / Chart / Depth)
+//  - Zustand data bindings
+//  - Passing real-time data into layouts
+//
+
+import { useEffect, useState } from 'react';
 import { ModeSwitcher, type TradeMode } from '@/components/trade/mode-switcher';
 import { AdvancedLayout } from '@/components/trade/advanced-layout';
 import { ChartLayout } from '@/components/trade/chart-layout';
 import { DepthLayout } from '@/components/trade/depth-layout';
-import { MarketDataService } from '@/lib/market-data-service';
-import { useMarketDataStore } from '@/lib/market-data-service';
 
-export default function TradePageClient({ marketId }: { marketId: string }) {
+import { MarketDataService, useMarketDataStore } from '@/lib/market-data-service';
+import { MarketHeader } from '@/components/trade/market-header';
+
+interface Props {
+  marketId: string;
+}
+
+export default function TradePageClient({ marketId }: Props) {
   const [mode, setMode] = useState<TradeMode>('Advanced');
-  const { ticker, depth, trades, klines } = useMarketDataStore();
 
+  // Zustand real-time store
+  const ticker = useMarketDataStore((s) => s.ticker);
+  const depth = useMarketDataStore((s) => s.depth);
+  const trades = useMarketDataStore((s) => s.trades);
+  const klines = useMarketDataStore((s) => s.klines);
+
+  //
+  // Connect WebSocket streams when marketId changes
+  //
   useEffect(() => {
     const symbol = marketId.replace('-', '').toLowerCase();
-    const service = MarketDataService.get(symbol);
-    service.connect();
+    const svc = MarketDataService.get(symbol);
+    svc.connect();
 
-    // Clean up connections when the marketId changes or component unmounts
     return () => {
-      service.disconnect();
+      svc.disconnect();
     };
   }, [marketId]);
 
   return (
-    <div className="flex h-full flex-col gap-4 bg-background p-4 text-foreground">
-      {/* The header is always visible, regardless of the selected mode */}
+    <div className="flex flex-col bg-[#05070a] text-gray-200 h-full">
+
+      {/* TOP HEADER — Pair ticker, last price, 24h info */}
       <MarketHeader marketId={marketId} />
-      
-      {/* The mode switcher allows users to toggle between different layouts */}
+
+      {/* MODE SWITCHER BAR */}
       <ModeSwitcher activeMode={mode} setMode={setMode} />
 
-      {/* The main content area dynamically renders the layout based on the active mode */}
-      <div className="flex-1 overflow-hidden">
-        {mode === 'Advanced' && <AdvancedLayout marketId={marketId} />}
-        {mode === 'Chart' && <ChartLayout marketId={marketId} />}
-        {mode === 'Depth' && <DepthLayout marketId={marketId} />}
-      </div>
+      {/* MAIN LAYOUTS */}
+      {mode === 'Advanced' && (
+        <AdvancedLayout marketId={marketId} />
+      )}
+
+      {mode === 'Chart' && (
+        <ChartLayout marketId={marketId} />
+      )}
+
+      {mode === 'Depth' && (
+        <DepthLayout marketId={marketId} />
+      )}
     </div>
   );
 }

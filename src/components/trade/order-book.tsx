@@ -12,7 +12,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { AlertCircle, Lock, Unlock } from "lucide-react";
 import { Tooltip, TooltipProvider, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { useMarketDataStore } from "@/hooks/use-market-data-store";
+import { useMarketDataStore } from "@/lib/market-data-service";
 
 type Order = { price: number; quantity: number; total: number };
 type Props = {

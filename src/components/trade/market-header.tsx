@@ -25,7 +25,7 @@ import { useRouter } from 'next/navigation';
 import { useAssets } from '@/hooks/use-assets';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { coinIcons } from '@/components/markets/markets-table';
-import { useMarketDataStore } from '@/hooks/use-market-data-store';
+import { useMarketDataStore } from '@/lib/market-data-service';
 
 interface MarketHeaderProps {
   marketId: string;

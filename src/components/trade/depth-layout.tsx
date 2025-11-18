@@ -1,6 +1,6 @@
 'use client';
 
-import DepthChart from '@/components/trade/depth-chart';
+import CanvasDepthChart from '@/components/trade/canvas-depth-chart';
 import OrderBook from '@/components/trade/order-book';
 import { useMarketDataStore } from '@/lib/market-data-service';
 
@@ -10,10 +10,10 @@ export function DepthLayout({ marketId }: { marketId: string }) {
   return (
     <div className="grid h-full grid-cols-12 gap-2">
       <div className="col-span-8">
-        <DepthChart bids={bids} asks={asks} />
+        <CanvasDepthChart marketId={marketId} />
       </div>
       <div className="col-span-4">
-        <OrderBook bids={bids} asks={asks} />
+        <OrderBook />
       </div>
     </div>
   );

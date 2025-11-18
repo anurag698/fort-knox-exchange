@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useMemo } from 'react';
@@ -98,8 +97,19 @@ export default function DepthChart({ bids = [], asks = [] }: Props) {
   useEffect(() => {
     if (!bidSeriesRef.current || !askSeriesRef.current) return;
 
-    bidSeriesRef.current.setData(bidPoints);
-    askSeriesRef.current.setData(askPoints);
+    // Convert Binance-style "price" to lightweight-charts "time"
+    const bidMapped = bidPoints.map((p) => ({
+      time: p.price,
+      value: p.cumulative,
+    }));
+
+    const askMapped = askPoints.map((p) => ({
+      time: p.price,
+      value: p.cumulative,
+    }));
+
+    bidSeriesRef.current.setData(bidMapped);
+    askSeriesRef.current.setData(askMapped);
   }, [bidPoints, askPoints]);
 
   return (

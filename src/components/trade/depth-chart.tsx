@@ -1,20 +1,68 @@
-
 'use client';
 
-import { createChart, ColorType } from 'lightweight-charts';
+import { createChart, ColorType, IChartApi, ISeriesApi } from 'lightweight-charts';
 import { useEffect, useRef, useState } from 'react';
-import { useMarketDataStore } from '@/lib/market-data-service';
+import { useMarketDataStore, ProcessedOrder, RawOrder } from '@/lib/market-data-service';
+import { useMarkets } from '@/hooks/use-markets';
 
-export default function DepthChart() {
+// -----------------------------
+// Price utilities (Binance-Spot)
+// -----------------------------
+function snapPrice(price: number, precision: number) {
+  const factor = Math.pow(10, precision);
+  return Math.round(price * factor) / factor;
+}
+
+function floorPrice(price: number, precision: number) {
+  const factor = Math.pow(10, precision);
+  return Math.floor(price * factor) / factor;
+}
+
+function ceilPrice(price: number, precision: number) {
+  const factor = Math.pow(10, precision);
+  return Math.ceil(price * factor) / factor;
+}
+
+export default function DepthChart({ marketId }: { marketId: string }) {
   const containerRef = useRef<HTMLDivElement>(null);
-  const chartRef = useRef<any>(null);
+  const chartRef = useRef<IChartApi | null>(null);
 
   const bids = useMarketDataStore((s) => s.bids);
   const asks = useMarketDataStore((s) => s.asks);
   const ticker = useMarketDataStore((s) => s.ticker);
   const hoveredPrice = useMarketDataStore((s) => s.hoveredPrice);
+  const { data: markets } = useMarkets();
+  const market = markets?.find(m => m.id === marketId);
 
   const [midPrice, setMidPrice] = useState<number | null>(null);
+
+  // --------------------------------------------
+  // Dynamic Price Range (Binance Spot Auto-Zoom)
+  // --------------------------------------------
+  function computeVisibleRange(
+    bestBid: number,
+    bestAsk: number,
+    pricePrecision: number
+  ) {
+    if (!bestBid || !bestAsk || bestBid <= 0 || bestAsk <= 0) {
+      return { min: 0, max: 0 };
+    }
+
+    const mid = (bestBid + bestAsk) / 2;
+    const spread = bestAsk - bestBid;
+
+    // Binance Spot: 4% padding
+    const PAD = 0.04;
+
+    const paddedMin = bestBid * (1 - PAD);
+    const paddedMax = bestAsk * (1 + PAD);
+
+    // Snap to market precision
+    const min = floorPrice(paddedMin, pricePrecision);
+    const max = ceilPrice(paddedMax, pricePrecision);
+
+    return { min, max };
+  }
 
   // ------------------------------------------
   // 1. Mid Price Calculation
@@ -57,14 +105,14 @@ export default function DepthChart() {
         timeScale: { visible: false },
       });
 
-      chartRef.current.bidSeries = chartRef.current.addAreaSeries({
+      (chartRef.current as any).bidSeries = (chartRef.current as IChartApi).addAreaSeries({
         lineColor: '#00b15d',
         topColor: 'rgba(0, 225, 115, 0.35)',
         bottomColor: 'rgba(0, 225, 115, 0.00)',
         lineWidth: 2,
       });
 
-      chartRef.current.askSeries = chartRef.current.addAreaSeries({
+      (chartRef.current as any).askSeries = (chartRef.current as IChartApi).addAreaSeries({
         lineColor: '#d93f3f',
         topColor: 'rgba(255, 82, 82, 0.35)',
         bottomColor: 'rgba(255, 82, 82, 0.00)',
@@ -72,7 +120,7 @@ export default function DepthChart() {
       });
     }
 
-    const chart = chartRef.current;
+    const chart = chartRef.current as any;
 
     const bidData = (bids || []).map((p) => ({
       time: p.price,
@@ -90,10 +138,10 @@ export default function DepthChart() {
     const wallAsks = asks.filter((a: any) => a.isWall);
 
     // Remove old wall markers
-    document.querySelectorAll('.depth-wall').forEach(e => e.remove());
+    containerRef.current.querySelectorAll('.depth-wall').forEach(e => e.remove());
 
     function createWallMarker(price: number, color: string) {
-        const chart = chartRef.current;
+        const chart = chartRef.current as IChartApi;
         const el = containerRef.current;
         if (!el || !chart) return;
         const x = chart.timeScale().timeToCoordinate(price);
@@ -126,7 +174,7 @@ export default function DepthChart() {
     const el = containerRef.current;
     if (!el || !midPrice || !chartRef.current) return;
 
-    const chart = chartRef.current;
+    const chart = chartRef.current as IChartApi;
 
     const oldLine = document.getElementById('mid-price-line');
     const oldLabel = document.getElementById('mid-price-label');
@@ -163,7 +211,7 @@ export default function DepthChart() {
     el.appendChild(line);
     el.appendChild(label);
 
-  }, [midPrice, containerRef.current]);
+  }, [midPrice]);
 
   // ------------------------------------------
   // 4. Hover Sync: Detect hovered price
@@ -172,7 +220,7 @@ export default function DepthChart() {
     const el = containerRef.current;
     if (!el || !chartRef.current) return;
 
-    const chart = chartRef.current;
+    const chart = chartRef.current as IChartApi;
 
     function handleMove(param: any) {
         if (!param.point) return;
@@ -185,6 +233,43 @@ export default function DepthChart() {
 
     return () => chart.unsubscribeCrosshairMove(handleMove);
   }, []);
+
+  // ---------------------------------------------------------
+  // AUTO-ZOOM LISTENER (uses MarketDataService zoom events)
+  // ---------------------------------------------------------
+  useEffect(() => {
+    const handler = () => {
+      const store = useMarketDataStore.getState();
+  
+      const bids = store.bids;
+      const asks = store.asks;
+      const ticker = store.ticker;
+  
+      if (!bids.length || !asks.length || !market) return;
+  
+      const bestBid = bids[0].price;
+      const bestAsk = asks[0].price;
+  
+      const pricePrecision = market.pricePrecision ?? 2;
+  
+      const { min, max } = computeVisibleRange(bestBid, bestAsk, pricePrecision);
+  
+      // Update chart scale
+      if (chartRef.current) {
+        (chartRef.current as IChartApi).timeScale().setVisibleLogicalRange({
+          from: min,
+          to: max,
+        });
+      }
+    };
+  
+    window.addEventListener('depth:autoZoom', handler);
+    // Initial zoom
+    handler();
+  
+    return () => window.removeEventListener('depth:autoZoom', handler);
+  }, [market]);
+  
 
   return (
     <div

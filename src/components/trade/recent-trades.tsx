@@ -1,42 +1,14 @@
+"use client";
 
-'use client';
-
-import React, { useEffect, useRef } from 'react';
-import { useMarketDataStore } from '@/lib/market-data-service';
+import React from 'react';
 
 export function RecentTrades({ marketId }: { marketId: string }) {
-  const trades = useMarketDataStore((s) => s.trades);
-  const containerRef = useRef<HTMLDivElement | null>(null);
-
-  // only auto-scroll if user is already at bottom
-  useEffect(() => {
-    const node = containerRef.current;
-    if (!node) return;
-
-    // disable browser scroll anchoring for this container
-    node.style.overflowAnchor = 'none';
-
-    const isAtBottom = Math.abs(node.scrollHeight - node.clientHeight - node.scrollTop) < 6;
-    if (isAtBottom) {
-      // use scrollTop (avoid smooth scroll behaviors)
-      node.scrollTop = node.scrollHeight;
-    }
-  }, [trades]);
-
-  return (
-    <div className="trading-panel h-full">
-      <div className="trading-panel-header">Recent Trades</div>
-      <div ref={containerRef} className="trading-panel-body p-0 h-full overflow-y-auto">
-        <ul className="space-y-1 py-2">
-          {trades?.map((t: any, i: number) => (
-            <li key={i} className="text-sm text-[#9aa3ad] flex justify-between px-2">
-              <span className={t.m ? 'text-red-400' : 'text-green-400'}>{parseFloat(t.p).toFixed(2)}</span>
-              <span className="opacity-80">{parseFloat(t.q).toFixed(4)}</span>
-              <span className="text-xs opacity-60">{new Date(t.T).toLocaleTimeString()}</span>
-            </li>
-          ))}
-        </ul>
-      </div>
+ return (
+    <div className="bg-transparent p-2 h-full flex flex-col">
+      <h2 className="text-sm text-gray-400 mb-2">Recent Trades</h2>
+       <div className="flex-1 flex items-center justify-center text-sm text-neutral-500">
+        Trades loading...
+       </div>
     </div>
   );
 }

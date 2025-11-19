@@ -22,11 +22,9 @@ export default function TradePageClient({ marketId }: Props) {
   const [showOrderPanel, setShowOrderPanel] = useState(true);
 
   useEffect(() => {
-    const symbol = marketId.replace('-', '').toLowerCase();
-    const service = marketDataService.get(symbol);
-    service.connect();
+    marketDataService.connect(marketId);
     return () => {
-      service.kill();
+      marketDataService.kill();
     };
   }, [marketId]);
 

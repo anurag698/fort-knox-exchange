@@ -8,25 +8,27 @@ import { adaptDepth, adaptKline, adaptTicker, adaptTrades } from "@/services/dat
 
 interface MarketDataState {
   symbol: string;
-
+  isConnected: boolean;
+  error: string | null;
   ticker: any;
   depth: { bids: any[]; asks: any[] };
   trades: any[];
   klines: any[];
 
   setSymbol: (s: string) => void;
-
-  applyTicker: (d: any) => void;
-  applyDepth: (d: any) => void;
-  applyTrades: (arr: any[]) => void;
+  setTicker: (d: any) => void;
+  setDepth: (bids: any[], asks: any[]) => void;
+  pushTrade: (trade: any) => void;
   applyKline: (d: any) => void;
-
+  setConnected: (status: boolean) => void;
+  setError: (error: string | null) => void;
   reset: () => void;
 }
 
 export const useMarketDataStore = create<MarketDataState>((set, get) => ({
-  symbol: "BTCUSDT",
-
+  symbol: "BTC-USDT",
+  isConnected: false,
+  error: null,
   ticker: null,
   depth: { bids: [], asks: [] },
   trades: [],
@@ -39,24 +41,25 @@ export const useMarketDataStore = create<MarketDataState>((set, get) => ({
       trades: [],
       klines: [],
       ticker: null,
+      isConnected: false,
+      error: null,
     }),
 
-  applyTicker: (d) => set({ ticker: adaptTicker(d) }),
+  setTicker: (d) => set({ ticker: d }),
+  
+  pushTrade: (trade) => set((state) => ({
+      trades: [trade, ...state.trades].slice(0, 100),
+  })),
 
-  applyDepth: (d) =>
-    set({
-      depth: adaptDepth(d),
-    }),
-
-  applyTrades: (arr) =>
-    set({
-      trades: adaptTrades(arr),
-    }),
+  setDepth: (bids, asks) => set({ depth: {bids, asks} }),
 
   applyKline: (k) =>
     set((state) => ({
       klines: [...state.klines, adaptKline(k)].slice(-500),
     })),
+    
+  setConnected: (status) => set({ isConnected: status }),
+  setError: (error) => set({ error }),
 
   reset: () =>
     set({
@@ -64,5 +67,9 @@ export const useMarketDataStore = create<MarketDataState>((set, get) => ({
       depth: { bids: [], asks: [] },
       trades: [],
       klines: [],
+      isConnected: false,
+      error: null,
     }),
 }));
+
+export const marketDataStore = useMarketDataStore;

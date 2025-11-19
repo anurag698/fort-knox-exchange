@@ -1,94 +1,93 @@
-// src/services/market-data-service.ts
 "use client";
 
-import { useMarketDataStore } from "@/state/market-data-store";
-import { engineBus } from "@/lib/chart-engine/engine-core"; 
-// engineBus is exported in 13.7-A so we can emit global events
+import { marketDataStore } from "@/state/market-data-store";
+import { ChartEventBus } from "@/components/trade/chart/chart-event-bus"; 
 
-export class MarketDataService {
-  private static instance: MarketDataService;
+// --------------------------------------------------
+// FIXED SINGLETON + CORRECT EXPORT SHAPE
+// --------------------------------------------------
 
+class _MarketDataService {
   private ws: WebSocket | null = null;
-  private reconnectTimer: NodeJS.Timeout | null = null;
   private symbol: string = "";
-  private baseUrl = "wss://wbs.mexc.com/ws";
+  private reconnectTimer: any = null;
 
-  private constructor() {}
-
-  static getInstance() {
-    if (!this.instance) {
-      this.instance = new MarketDataService();
-    }
-    return this.instance;
-  }
-
-  // ----------------------------------------------------------
-  // Connect to MEXC depth + trades (kline handled in chart-engine.tsx)
-  // ----------------------------------------------------------
   connect(symbol: string) {
-    this.symbol = symbol.toUpperCase().replace("-", "");
+    this.symbol = symbol.replace("-", "").toUpperCase();
 
-    // Cleanup previous WS
+    // Close existing connection
     if (this.ws) {
-      try {
-        this.ws.close();
-      } catch {}
+      try { this.ws.close(); } catch {}
+      this.ws = null;
     }
+
+    const url = "wss://wbs.mexc.com/ws";
 
     try {
-      this.ws = new WebSocket(this.baseUrl);
-    } catch (e) {
-      console.error("MarketDataService: WebSocket creation failed", e);
-      useMarketDataStore.getState().setError("WS failed");
+      this.ws = new WebSocket(url);
+    } catch (err) {
+      console.error("WS creation failed:", err);
+      marketDataStore.setState({ error: "WebSocket creation failed" });
       return;
     }
 
     this.ws.onopen = () => {
-      console.log("[MEXC-Depth] Connected");
-      useMarketDataStore.getState().setConnected(true);
+      console.log("MEXC WS connected:", this.symbol);
 
-      // Subscribe only to depth + trades
-      const sub = {
-        method: "SUBSCRIPTION",
-        params: [
-          `spot@public.bookTicker.v3.api@${this.symbol}`,
-          `spot@public.deal.v3.api@${this.symbol}`,
-          `spot@public.depth.v3.api@${this.symbol}@0`
-        ],
-        id: 11,
-      };
+      marketDataStore.setState({ isConnected: true, error: null });
 
-      try {
-        this.ws?.send(JSON.stringify(sub));
-      } catch {}
+      this.subscribe();
+    };
 
-      if (this.reconnectTimer) {
-        clearTimeout(this.reconnectTimer);
-        this.reconnectTimer = null;
+    this.ws.onmessage = (msg) => {
+      this.handleMessage(msg.data);
+    };
+
+    this.ws.onerror = (e) => {
+      console.error("WS error:", e);
+      marketDataStore.setState({ error: "WebSocket error" });
+    };
+
+    this.ws.onclose = (event) => {
+      console.warn("WS closed:", event.code, event.reason);
+      marketDataStore.setState({ isConnected: false });
+
+      if (event.code === 1006) {
+        // Firebase Studio sandbox block
+        marketDataStore.setState({
+          error: "WS blocked by Firebase Preview — test on localhost or live hosting.",
+        });
+        return;
       }
-    };
 
-    this.ws.onmessage = (event) => this.handle(event.data);
-
-    this.ws.onerror = (err) => {
-      console.warn("[MEXC-Depth] WS error", err);
-    };
-
-    this.ws.onclose = (ev) => {
-      console.warn("[MEXC-Depth] Closed", ev.code, ev.reason);
-      useMarketDataStore.getState().setConnected(false);
-
+      // Attempt reconnect
       if (!this.reconnectTimer) {
-        this.reconnectTimer = setTimeout(() => this.connect(this.symbol), 5000);
+        this.reconnectTimer = setTimeout(() => {
+          this.connect(symbol);
+        }, 3000);
       }
     };
   }
 
-  // ----------------------------------------------------------
-  // Handle incoming messages
-  // ----------------------------------------------------------
-  private handle(raw: string) {
-    let msg: any;
+  subscribe() {
+    if (!this.ws || this.ws.readyState !== 1) return;
+
+    const msg = {
+      method: "SUBSCRIPTION",
+      params: [
+        `spot@public.bookTicker.v3.api@${this.symbol}`,
+        `spot@public.deal.v3.api@${this.symbol}`,
+        `spot@public.kline.v3.api@${this.symbol}@Min1`,
+        `spot@public.depth.v3.api@${this.symbol}@0`,
+      ],
+      id: 1,
+    };
+
+    this.ws.send(JSON.stringify(msg));
+  }
+
+  handleMessage(raw: string) {
+    let msg: any = null;
     try {
       msg = JSON.parse(raw);
     } catch {
@@ -97,85 +96,91 @@ export class MarketDataService {
 
     if (!msg.c) return;
 
-    // ---------------------------
-    // BOOK TICKER (ticker)
-    // ---------------------------
+    // ---------------- 1) TICKER ----------------
     if (msg.c.includes("bookTicker")) {
       const d = msg.d;
-      const adapted = {
-        s: d.symbol,
-        c: d.askPrice,
-        P: "0.0",
-        h: "0",
-        l: "0",
-        v: "0",
+      const ticker = {
+        price: parseFloat(d.a), // Use ask price for ticker
+        change: 0, // Not provided in this stream, would need another
+        high: 0,
+        low: 0,
+        volume: 0,
+        s: d.s,
       };
-
-      useMarketDataStore.getState().setTicker(adapted);
+      marketDataStore.setState({ ticker });
 
       // Forward to chart overlays
-      engineBus.emit("ticker", adapted);
+      ChartEventBus.emit("ticker", ticker);
       return;
     }
 
-    // ---------------------------
-    // RECENT TRADES STREAM
-    // ---------------------------
+    // ---------------- 2) TRADES ----------------
     if (msg.c.includes("deal")) {
-      if (Array.isArray(msg.d)) {
-        msg.d.forEach((t: any) => {
+      if (Array.isArray(msg.d?.d)) {
+        msg.d.d.forEach((t: any) => {
           const trade = {
-            price: parseFloat(t.p),
-            size: parseFloat(t.v),
-            side: t.S === "buy" ? "buy" : "sell",
-            ts: t.t,
+            p: t.p,
+            q: t.v,
+            T: t.t,
+            m: t.S === 2, // 1 for BUY, 2 for SELL in this payload
           };
 
-          // Zustand state
-          useMarketDataStore.getState().pushTrade(trade);
+          marketDataStore.getState().pushTrade(trade);
 
-          // Chart trade marker
-          engineBus.emit("trade", trade);
+          // Forward to chart trade markers
+          ChartEventBus.emit("trade", trade);
         });
       }
       return;
     }
 
-    // ---------------------------
-    // DEPTH STREAM
-    // ---------------------------
+    // ---------------- 3) DEPTH ----------------
     if (msg.c.includes("depth")) {
-      if (!msg.d) return;
+      const { bids, asks } = msg.d || {};
+      if (bids && asks) {
+        marketDataStore.getState().setDepth(bids, asks);
 
-      const bids = msg.d.bids || [];
-      const asks = msg.d.asks || [];
+        // Forward to heatmap
+        ChartEventBus.emit("depth", { bids, asks });
+      }
+      return;
+    }
 
-      // Zustand state
-      useMarketDataStore.getState().setDepth(bids, asks);
+    // ---------------- 4) KLINE ----------------
+    if (msg.c.includes("kline")) {
+      const k = msg.d?.k;
+      if (!k) return;
 
-      // Chart depth overlay
-      engineBus.emit("internal-depth", {
-        bids: bids.map((b: any) => ({
-          price: parseFloat(b[0]),
-          size: parseFloat(b[1]),
-        })),
-        asks: asks.map((a: any) => ({
-          price: parseFloat(a[0]),
-          size: parseFloat(a[1]),
-        })),
-      });
+      const candle = {
+        t: k.t * 1000, // convert to ms
+        o: k.o,
+        h: k.h,
+        l: k.l,
+        c: k.c,
+        v: k.v,
+      };
+
+      // Send to the Unified Chart Engine
+      ChartEventBus.emit("kline", candle);
+      return;
     }
   }
 
   kill() {
-    if (this.reconnectTimer) {
-      clearTimeout(this.reconnectTimer);
+    if (this.reconnectTimer) clearTimeout(this.reconnectTimer);
+    this.reconnectTimer = null;
+
+    if (this.ws) {
+      try { this.ws.close(); } catch {}
+      this.ws = null;
     }
-    this.ws?.close();
+
+    marketDataStore.setState({ isConnected: false });
   }
 }
 
-// ---------------------------------------------
-// Export the singleton instance (fixes your error)
-// ---------------------------------------------
-export const marketDataService = MarketDataService.getInstance();
+// --------------------------------------------------
+// CORRECTED EXPORT — FIXES .get() ERROR
+// --------------------------------------------------
+
+export const marketDataService = new _MarketDataService();

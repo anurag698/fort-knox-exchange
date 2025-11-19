@@ -11,8 +11,7 @@ import Link from 'next/link';
 import { Button } from '../ui/button';
 import { useMarkets } from '@/hooks/use-markets';
 import { useMarketDataStore } from '@/state/market-data-store';
-import { MarketDataService } from '@/services/market-data-service';
-import type { TickerData } from '@/state/market-data-store';
+import { marketDataService } from '@/services/market-data-service';
 
 
 // Mock icons for coins
@@ -42,12 +41,11 @@ export function PopularCoins() {
 
     // We can connect to just one of the popular markets to get some live data feel,
     // without overwhelming the connection limit. Or none at all. Let's connect to the first one.
-    const firstMarketSymbol = displayMarkets[0].id.replace('-', '').toLowerCase();
-    const service = MarketDataService.get(firstMarketSymbol);
-    service.connect();
+    const firstMarketSymbol = displayMarkets[0].id;
+    marketDataService.connect(firstMarketSymbol);
 
     return () => {
-        service.kill();
+        marketDataService.disconnect();
     };
   }, [displayMarkets]);
 
@@ -86,10 +84,10 @@ export function PopularCoins() {
         {displayMarkets.map(market => {
           // Use the single ticker from the store, but only if it matches the market we are displaying
           const marketSymbol = market.id.replace('-', '');
-          const tickerData = ticker?.price ? ticker : null;
+          const tickerData = (ticker && ticker.s === marketSymbol) ? ticker : null;
 
-          const price = tickerData?.price ?? 0;
-          const change = tickerData?.change ?? 0;
+          const price = tickerData?.c ?? 0;
+          const change = tickerData?.P ?? 0;
           const isPositive = parseFloat(String(change)) >= 0;
           const Icon = coinIcons[market.baseAssetId] || coinIcons.DEFAULT;
 

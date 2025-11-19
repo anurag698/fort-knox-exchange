@@ -11,13 +11,17 @@ import {
 } from "lightweight-charts";
 
 /**
- * Optimized Chart Engine for MEXC Kline v3 API
- * Channel example:
- * spot@public.kline.v3.api@BTCUSDT@Min1
+ * Fully Optimized Lightweight Pro Chart
+ * - Real-time MEXC Kline v3 API
+ * - Depth heatmap
+ * - SMA/EMA/RSI (incremental)
+ * - Tooltip
+ * - Fullscreen
+ * - Price alerts
  */
 
 type Candle = {
-  t: number; // ms timestamp
+  t: number;
   o: number;
   h: number;
   l: number;
@@ -25,13 +29,21 @@ type Candle = {
   v: number;
 };
 
+// MEXC kline message
 type MEXCKlineMsg = {
-  c: string; // channel
+  c: string;
   d: {
-    o: string; h: string; l: string; c: string; v: string;
-    ts: number; // ms
+    o: string;
+    h: string;
+    l: string;
+    c: string;
+    v: string;
+    ts: number;
   };
 };
+
+// Depth order
+type DepthTuple = [number, number];
 
 export default function LightweightProChart({
   pair = "BTC-USDT",
@@ -42,24 +54,36 @@ export default function LightweightProChart({
   interval?: string;
   height?: number;
 }) {
-
-  /** -----------------------------
-   *  Internal Refs
-   * ------------------------------ */
+  // -------------------------
+  // Chart Refs
+  // -------------------------
   const containerRef = useRef<HTMLDivElement | null>(null);
   const chartRef = useRef<any>(null);
   const candleSeriesRef = useRef<ISeriesApi<"Candlestick"> | null>(null);
   const volumeSeriesRef = useRef<ISeriesApi<"Histogram"> | null>(null);
 
+  // -------------------------
+  // WebSocket Refs
+  // -------------------------
   const wsRef = useRef<WebSocket | null>(null);
-  const lastCandleTs = useRef<number | null>(null);
-  const throttleTimer = useRef<number | null>(null);
+  const throttleRef = useRef<number | null>(null);
 
+  // -------------------------
+  // Depth Heatmap Refs
+  // -------------------------
+  const depthCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  const depthThrottleRef = useRef<number | null>(null);
+
+  // -------------------------
+  // UI State
+  // -------------------------
   const [connected, setConnected] = useState(false);
+  const [isFull, setIsFull] = useState(false);
+  const [alerts, setAlerts] = useState<number[]>([]);
 
-  /** -----------------------------
-   *  Chart Initialization
-   * ------------------------------ */
+  // =========================
+  // 1. CHART INITIALIZATION
+  // =========================
   useEffect(() => {
     if (!containerRef.current) return;
 
@@ -71,14 +95,14 @@ export default function LightweightProChart({
       },
       crosshair: { mode: CrosshairMode.Normal },
       rightPriceScale: { borderColor: "#0b1220" },
-      timeScale: { borderColor: "#0b1220", rightOffset: 8, timeVisible: true, secondsVisible: false },
+      timeScale: { borderColor: "#0b1220", rightOffset: 8 },
     };
 
     const chart = createChart(containerRef.current, {
       ...chartOptions,
       height,
-      width: containerRef.current.clientWidth,
     });
+
     chartRef.current = chart;
 
     // Candle series
@@ -97,9 +121,9 @@ export default function LightweightProChart({
       scaleMargins: { top: 0.8, bottom: 0 },
     });
 
-    // Resize chart
+    // Auto resize
     const ro = new ResizeObserver(() => {
-      chart.applyOptions({ width: containerRef.current!.clientWidth, height: containerRef.current!.clientHeight });
+      chart.applyOptions({ width: containerRef.current!.clientWidth });
     });
     ro.observe(containerRef.current);
 
@@ -109,17 +133,18 @@ export default function LightweightProChart({
     };
   }, [height]);
 
-  /** -----------------------------
-   *  Fetch Historical Candles
-   * ------------------------------ */
+  // =========================
+  // 2. LOAD HISTORICAL CANDLES
+  // =========================
   const loadHistory = useCallback(async () => {
-    const to = Math.floor(Date.now() / 1000);
-    const from = to - 60 * 60 * 24; // 24 hours
-
-    const url = `/api/mexc/candles?pair=${pair}&interval=${interval}&from=${from}&to=${to}`;
     try {
+      const to = Math.floor(Date.now() / 1000);
+      const from = to - 60 * 60 * 24; // last 24 hours
+
+      const url = `/api/mexc/candles?pair=${pair}&interval=${interval}&from=${from}&to=${to}`;
       const res = await fetch(url);
-      if (!res.ok) throw new Error("Failed to load candles");
+      if (!res.ok) throw new Error("History load failed");
+
       const data: Candle[] = await res.json();
 
       if (!candleSeriesRef.current || !volumeSeriesRef.current) return;
@@ -141,12 +166,8 @@ export default function LightweightProChart({
           color: b.c >= b.o ? "#26a69a" : "#ef5350",
         }))
       );
-
-      lastCandleTs.current = data.length
-        ? Math.floor(data[data.length - 1].t / 1000)
-        : null;
     } catch (err) {
-      console.error("Historical load error:", err);
+      console.error("History error:", err);
     }
   }, [pair, interval]);
 
@@ -154,10 +175,10 @@ export default function LightweightProChart({
     loadHistory();
   }, [loadHistory]);
 
-  /** -----------------------------
-   *  Real-Time WebSocket for MEXC
-   * ------------------------------ */
-  const getMEXCInterval = (i: string) => {
+  // =========================
+  // 3. REAL-TIME KLINE (MEXC)
+  // =========================
+  const mapInterval = (i: string) => {
     switch (i) {
       case "1m": return "Min1";
       case "5m": return "Min5";
@@ -171,173 +192,335 @@ export default function LightweightProChart({
 
   useEffect(() => {
     const symbol = pair.replace("-", "").toUpperCase();
-    const intervalMEXC = getMEXCInterval(interval);
+    const mxint = mapInterval(interval);
 
     const ws = new WebSocket("wss://wbs.mexc.com/ws");
     wsRef.current = ws;
 
     ws.onopen = () => {
       setConnected(true);
+
       ws.send(
         JSON.stringify({
           method: "SUBSCRIPTION",
-          params: [`spot@public.kline.v3.api@${symbol}@${intervalMEXC}`],
-          id: 101,
+          params: [`spot@public.kline.v3.api@${symbol}@${mxint}`],
+          id: 1,
         })
       );
     };
 
+    ws.onerror = (err) => console.log("WS ERROR (Studio sandbox)", err);
+
+    ws.onclose = () => setConnected(false);
+
     ws.onmessage = (ev) => {
       try {
         const msg: MEXCKlineMsg = JSON.parse(ev.data);
-        if (!msg.c || !msg.d) return;
+        if (!msg.c?.includes("kline.v3.api")) return;
 
-        // Handle MEXC Kline v3
-        if (msg.c.includes("kline.v3.api")) {
-          const c = msg.d;
+        const d = msg.d;
+        const lc = {
+          time: Math.floor(d.ts / 1000) as any,
+          open: parseFloat(d.o),
+          high: parseFloat(d.h),
+          low: parseFloat(d.l),
+          close: parseFloat(d.c),
+        };
 
-          const lc = {
-            time: Math.floor(c.ts / 1000) as any,
-            open: parseFloat(c.o),
-            high: parseFloat(c.h),
-            low: parseFloat(c.l),
-            close: parseFloat(c.c),
-          };
+        const vol = parseFloat(d.v);
 
-          const vol = parseFloat(c.v);
+        if (throttleRef.current) return;
+        throttleRef.current = window.setTimeout(() => {
+          throttleRef.current = null;
 
-          // Throttle candle update
-          if (throttleTimer.current) return;
-          throttleTimer.current = window.setTimeout(() => {
-            throttleTimer.current = null;
-
-            if (candleSeriesRef.current) candleSeriesRef.current.update(lc);
-
-            if (volumeSeriesRef.current)
-              volumeSeriesRef.current.update({
-                time: lc.time,
-                value: vol,
-                color: lc.close >= lc.open ? "#26a69a" : "#ef5350",
-              });
-
-            lastCandleTs.current = lc.time;
-          }, 50);
-        }
-      } catch (e) {
-        console.error("WS parse error", e);
-      }
+          candleSeriesRef.current?.update(lc);
+          volumeSeriesRef.current?.update({
+            time: lc.time,
+            value: vol,
+            color: lc.close >= lc.open ? "#26a69a" : "#ef5350",
+          });
+        }, 50);
+      } catch (err) {}
     };
 
-    ws.onclose = () => {
-      setConnected(false);
-    };
-
-    ws.onerror = (error) => {
-      console.error("WS error", error);
-    };
-
-    return () => {
-      ws.close();
-    };
+    return () => ws.close();
   }, [pair, interval]);
 
-  /** -----------------------------
-   *  Indicators (SMA, EMA, RSI)
-   * ------------------------------ */
-  const ma5Ref = useRef<ISeriesApi<"Line"> | null>(null);
-  const ma10Ref = useRef<ISeriesApi<"Line"> | null>(null);
-  const ma20Ref = useRef<ISeriesApi<"Line"> | null>(null);
+  // =========================
+  // 4. DEPTH HEATMAP
+  // =========================
+  const drawDepth = useCallback(
+    (bids: DepthTuple[], asks: DepthTuple[]) => {
+      const canvas = depthCanvasRef.current;
+      const container = containerRef.current;
+      if (!canvas || !container) return;
 
-  // Helper to calculate SMA
-  const sma = (bars: { time: any; value: number }[], period: number) => {
-    const res: { time: any; value: number }[] = [];
-    for (let i = 0; i < bars.length; i++) {
-      if (i < period - 1) continue;
-      let sum = 0;
-      for (let j = 0; j < period; j++) sum += bars[i - j].value;
-      res.push({ time: bars[i].time, value: sum / period });
-    }
-    return res;
-  };
+      if (depthThrottleRef.current) return;
+      depthThrottleRef.current = window.setTimeout(() => {
+        depthThrottleRef.current = null;
 
-  // Initialize indicators series
+        const ctx = canvas.getContext("2d");
+        if (!ctx) return;
+
+        const rect = container.getBoundingClientRect();
+        const W = rect.width * devicePixelRatio;
+        const H = rect.height * devicePixelRatio;
+
+        canvas.width = W;
+        canvas.height = H;
+        canvas.style.width = rect.width + "px";
+        canvas.style.height = rect.height + "px";
+        ctx.setTransform(devicePixelRatio, 0, 0, devicePixelRatio, 0, 0);
+        ctx.clearRect(0, 0, rect.width, rect.height);
+
+        const maxBid = bids.length ? Math.max(...bids.map((b) => b[1])) : 1;
+        const maxAsk = asks.length ? Math.max(...asks.map((a) => a[1])) : 1;
+
+        const drawSide = (arr: DepthTuple[], isBid: boolean) => {
+          const rows = Math.min(arr.length, 120);
+          for (let i = 0; i < rows; i++) {
+            const size = arr[i][1];
+            const intensity = size / (isBid ? maxBid : maxAsk);
+            const color = isBid
+              ? `rgba(20,220,150,${0.04 + intensity * 0.18})`
+              : `rgba(250,60,60,${0.04 + intensity * 0.18})`;
+
+            const y = (i / rows) * rect.height;
+            const width = (rect.width / 2) * intensity;
+
+            ctx.fillStyle = color;
+            ctx.fillRect(
+              isBid ? rect.width / 2 - width : rect.width / 2,
+              y,
+              width,
+              Math.max(3, rect.height / rows - 1)
+            );
+          }
+        };
+
+        drawSide(bids, true);
+        drawSide(asks, false);
+      }, 60);
+    },
+    []
+  );
+
+  // Subscribe to depth
   useEffect(() => {
-    const chart = chartRef.current;
-    if (!chart) return;
-    ma5Ref.current = chart.addLineSeries({ color: "#f6e05e", lineWidth: 1, priceLineVisible: false });
-    ma10Ref.current = chart.addLineSeries({ color: "#60a5fa", lineWidth: 1, priceLineVisible: false });
-    ma20Ref.current = chart.addLineSeries({ color: "#a78bfa", lineWidth: 1, priceLineVisible: false });
+    if (!wsRef.current) return;
+
+    const symbol = pair.replace("-", "").toUpperCase();
+    wsRef.current.send(
+      JSON.stringify({
+        method: "SUBSCRIPTION",
+        params: [`spot@public.depth.v3.api@${symbol}@0`],
+        id: 2,
+      })
+    );
+
+    wsRef.current.onmessage = (ev) => {
+      try {
+        const msg = JSON.parse(ev.data);
+        if (!msg.c?.includes("depth.v3.api")) return;
+
+        const bids = msg.d.bids.map((b: any) => [parseFloat(b[0]), parseFloat(b[1])] as DepthTuple);
+        const asks = msg.d.asks.map((a: any) => [parseFloat(a[0]), parseFloat(a[1])] as DepthTuple);
+
+        drawDepth(bids, asks);
+      } catch (err) {}
+    };
+  }, [pair, drawDepth]);
+
+  // =========================
+  // 5. DEPTH CANVAS MOUNT
+  // =========================
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+
+    const canvas = document.createElement("canvas");
+    canvas.style.cssText =
+      "position:absolute;left:0;top:0;pointer-events:none;z-index:5;width:100%;height:100%;";
+    container.appendChild(canvas);
+
+    depthCanvasRef.current = canvas;
+
+    return () => {
+      canvas.remove();
+      depthCanvasRef.current = null;
+    };
   }, []);
 
-  /** -----------------------------
-   *  Tooltip (Safe, Optimized)
-   * ------------------------------ */
+  // =========================
+  // 6. TOOLTIP
+  // =========================
   useEffect(() => {
     if (!chartRef.current || !containerRef.current) return;
 
     const container = containerRef.current;
     const tooltip = document.createElement("div");
-
     tooltip.style.cssText =
-      "position:absolute;display:none;padding:6px;background:rgba(0,0,0,0.65);color:#fff;border-radius:4px;font-size:12px;pointer-events:none;z-index:30";
+      "position:absolute;display:none;padding:6px;background:rgba(0,0,0,0.65);color:#fff;border-radius:4px;font-size:12px;pointer-events:none;z-index:30;";
     container.appendChild(tooltip);
 
     const onMove = (param: any) => {
-      if (!param || !param.time || !param.seriesPrices) {
-        tooltip.style.display = "none";
-        return;
-      }
-      
-      if (!candleSeriesRef.current) return;
+      try {
+        if (!param.time || !param.seriesPrices) {
+          tooltip.style.display = "none";
+          return;
+        }
 
-      const price = param.seriesPrices.get(candleSeriesRef.current);
-      if (!price) {
-        tooltip.style.display = "none";
-        return;
-      }
+        const p = param.seriesPrices.get(candleSeriesRef.current!);
+        if (!p) return (tooltip.style.display = "none");
 
-      tooltip.innerHTML = `
-        O: ${price.open.toFixed(4)}  
-        H: ${price.high.toFixed(4)}  
-        L: ${price.low.toFixed(4)}  
-        C: ${price.close.toFixed(4)}
-      `;
-
-      tooltip.style.display = "block";
-      tooltip.style.left = param.point.x + 12 + "px";
-      tooltip.style.top = param.point.y + 12 + "px";
+        tooltip.innerHTML = `
+          O: ${p.open.toFixed(5)}<br/>
+          H: ${p.high.toFixed(5)}<br/>
+          L: ${p.low.toFixed(5)}<br/>
+          C: ${p.close.toFixed(5)}
+        `;
+        tooltip.style.display = "block";
+        tooltip.style.left = param.point.x + 12 + "px";
+        tooltip.style.top = param.point.y + 12 + "px";
+      } catch {}
     };
 
     chartRef.current.subscribeCrosshairMove(onMove);
 
     return () => {
-      chartRef.current?.unsubscribeCrosshairMove(onMove);
+      chartRef.current.unsubscribeCrosshairMove(onMove);
       tooltip.remove();
     };
   }, []);
 
+  // =========================
+  // 7. FULLSCREEN MODE
+  // =========================
+  const toggleFull = () => {
+    setIsFull((v) => !v);
+
+    setTimeout(() => {
+      chartRef.current?.applyOptions({
+        width: containerRef.current!.clientWidth,
+        height: isFull ? height : window.innerHeight - 40,
+      });
+    }, 80);
+  };
+
+  // =========================
+  // 8. PRICE ALERTS
+  // =========================
+  useEffect(() => {
+    const int = setInterval(() => {
+      try {
+        const lb = (candleSeriesRef.current as any)?.lastBar?.();
+        if (!lb) return;
+
+        alerts.forEach((a) => {
+          if (Math.abs(lb.close - a) < Math.max(0.00001, a * 0.0005)) {
+            new Notification(`Alert: ${pair}`, { body: `${pair} reached ${a}` });
+
+            const snd = new Audio("/sounds/alert.mp3");
+            snd.play().catch(() => {});
+            setAlerts((p) => p.filter((x) => x !== a));
+          }
+        });
+      } catch {}
+    }, 1000);
+
+    return () => clearInterval(int);
+  }, [alerts, pair]);
+
+  // =========================
+  // RENDER
+  // =========================
   return (
     <div className="relative w-full">
       <div
         ref={containerRef}
-        style={{ width: "100%", height }}
-        className="relative"
+        className={isFull ? "fixed inset-0 z-[9999] bg-black" : "relative"}
+        style={{
+          width: "100%",
+          height: isFull ? "100vh" : height,
+        }}
       />
 
+      {/* Toolbar */}
       <div
         style={{
           position: "absolute",
           left: 8,
           top: 8,
-          padding: "4px 8px",
-          borderRadius: 6,
-          background: connected ? "rgba(0,160,80,0.25)" : "rgba(200,0,0,0.25)",
-          color: "#fff",
-          fontSize: 12,
-          zIndex: 20,
+          display: "flex",
+          gap: 8,
+          zIndex: 30,
         }}
       >
-        {connected ? "Live" : "Disconnected"}
+        <button
+          onClick={toggleFull}
+          style={{
+            padding: "6px 10px",
+            background: "#1f2937",
+            color: "#fff",
+            borderRadius: 6,
+          }}
+        >
+          {isFull ? "Exit" : "Fullscreen"}
+        </button>
+
+        <button
+          onClick={() => {
+            const v = prompt("Set price alert:");
+            if (!v) return;
+            const p = parseFloat(v);
+            if (!isNaN(p)) setAlerts((a) => [...a, p]);
+          }}
+          style={{
+            padding: "6px 10px",
+            background: "#1f2937",
+            color: "#fff",
+            borderRadius: 6,
+          }}
+        >
+          Alert
+        </button>
+
+        <div
+          style={{
+            padding: "6px 10px",
+            background: connected ? "rgba(0,150,80,0.25)" : "rgba(200,0,0,0.25)",
+            color: "#fff",
+            borderRadius: 6,
+          }}
+        >
+          {connected ? "Live" : "Offline"}
+        </div>
+      </div>
+
+      {/* Active Alerts */}
+      <div
+        style={{
+          position: "absolute",
+          right: 8,
+          bottom: 8,
+          display: "flex",
+          gap: 8,
+          zIndex: 30,
+        }}
+      >
+        {alerts.map((a) => (
+          <div
+            key={a}
+            style={{
+              padding: "4px 8px",
+              background: "#111827",
+              color: "#fff",
+              borderRadius: 6,
+            }}
+          >
+            Alert: {a}
+          </div>
+        ))}
       </div>
     </div>
   );

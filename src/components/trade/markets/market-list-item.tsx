@@ -1,59 +1,51 @@
-// src/components/trade/markets/market-list-item.tsx
+
 "use client";
 
 import React from "react";
+import { Star } from "lucide-react";
 import { cn } from "@/lib/utils";
-import type { Market } from "@/lib/types";
-import { useMarketDataStore } from '@/lib/market-data-service';
-import { useEffect } from 'react';
 
-interface Props {
-  market: Market;
-  active?: boolean;
-  onClick?: () => void;
-}
-
-export default function MarketListItem({ market, active, onClick }: Props) {
-  const ticker = useMarketDataStore(state => state.ticker);
-  
-  const marketSymbol = market.id.replace('-', '');
-  
-  // Determine if this item's ticker is the one currently in the store
-  const isCurrentTicker = ticker && ticker.s === marketSymbol;
-  
-  const lastPrice = isCurrentTicker ? parseFloat(ticker.c).toFixed(market.pricePrecision) : '...';
-  const priceChangePercent = isCurrentTicker ? parseFloat(ticker.P) : 0;
-  
-  const priceChangeColor = priceChangePercent >= 0 ? "text-[#1AC186]" : "text-[#F54E5D]";
+export default function MarketListItem({ market, ticker, onClick }) {
+  const price = ticker?.c ?? "--";
+  const percent = ticker?.P ?? "--";
+  const isUp = percent !== "--" && parseFloat(percent) >= 0;
 
   return (
     <button
       onClick={onClick}
       className={cn(
-        "w-full px-3 py-2 flex items-center justify-between rounded-md transition-colors",
-        active ? "bg-[#131D2E]/70" : "hover:bg-[#131D2E]/40"
+        "w-full px-3 py-2 flex items-center justify-between rounded-md transition",
+        "hover:bg-[var(--bg-primary)]"
       )}
     >
+      {/* Left Side: Symbol + Favorite */}
       <div className="flex flex-col text-left">
-        <span className="text-sm font-medium text-white">
-          {market.baseAssetId}/{market.quoteAssetId}
-        </span>
-        <span className="text-xs text-[#A9B1C6]">
-          Vol: ...
+        <div className="flex items-center gap-1">
+          <span className="font-medium text-[var(--text-primary)]">
+            {market.symbol}
+          </span>
+          {market.isFavorite && (
+            <Star size={12} className="text-[var(--brand-gold)]" />
+          )}
+        </div>
+
+        <span className="text-xs text-[var(--text-secondary)]">
+          {market.baseAsset}/{market.quoteAsset}
         </span>
       </div>
 
+      {/* Right Side: Prices */}
       <div className="flex flex-col text-right">
-        <span className="text-sm font-semibold text-white">
-          {lastPrice}
+        <span className="text-sm font-semibold text-[var(--text-primary)]">
+          {price}
         </span>
         <span
           className={cn(
             "text-xs font-medium",
-            priceChangeColor
+            isUp ? "text-[#1AC186]" : "text-[#F54E5D]"
           )}
         >
-          {priceChangePercent.toFixed(2)}%
+          {percent === "--" ? "--" : `${percent}%`}
         </span>
       </div>
     </button>

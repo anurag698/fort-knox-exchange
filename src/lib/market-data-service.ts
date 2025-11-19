@@ -1,4 +1,3 @@
-
 'use client';
 
 import { create } from 'zustand';
@@ -230,5 +229,3 @@ export class MarketDataService {
 }
 
 export const marketDataService = MarketDataService;
-
-    

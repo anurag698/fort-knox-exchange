@@ -11,6 +11,7 @@ import {
   Square,
 } from "lucide-react";
 import { useChartIndicator } from "@/hooks/useChartIndicator";
+import { useDrawingTool } from "@/hooks/useDrawingTool";
 
 type Props = {
   interval: string;
@@ -37,6 +38,28 @@ const Toggle = ({ label, keyName }: any) => {
   );
 };
 
+const DrawToggle = ({ tool, label }: any) => {
+  const [current, setCurrent] = useDrawingTool();
+  return (
+    <div
+      onClick={() => setCurrent(tool)}
+      className="flex justify-between cursor-pointer hover:text-accent"
+    >
+      <span>{label}</span>
+      <span
+        className={
+          current === tool
+            ? "text-accent font-semibold"
+            : "text-[var(--text-secondary)]"
+        }
+      >
+        {current === tool ? "●" : "○"}
+      </span>
+    </div>
+  );
+};
+
+
 export default function ChartToolbar({
   interval,
   setInterval,
@@ -45,6 +68,7 @@ export default function ChartToolbar({
   onReset,
 }: Props) {
   const [indOpen, setIndOpen] = useState(false);
+  const [drawOpen, setDrawOpen] = useState(false);
 
   const TIMEFRAMES = ["1m", "5m", "15m", "1h", "4h", "1d"];
 
@@ -89,6 +113,27 @@ export default function ChartToolbar({
           </div>
         )}
       </div>
+      
+        {/* ---------------- DRAWING TOOLS ---------------- */}
+        <div className="relative">
+        <button
+            onClick={() => setDrawOpen((v) => !v)}
+            className="flex items-center gap-1 px-2 py-1 text-xs rounded-md text-[var(--text-secondary)] hover:text-accent"
+        >
+            ✏️ Draw <ChevronDown size={12} />
+        </button>
+
+        {drawOpen && (
+            <div className="absolute left-0 top-8 bg-surface3 border border-[var(--border-color)] rounded-lg p-3 text-xs w-48 z-50 flex flex-col gap-2">
+            <DrawToggle tool="trendline" label="Trend Line" />
+            <DrawToggle tool="ray" label="Ray" />
+            <DrawToggle tool="hline" label="Horizontal Line" />
+            <DrawToggle tool="rectangle" label="Rectangle" />
+            <DrawToggle tool="none" label="Disable Drawing" />
+            </div>
+        )}
+        </div>
+
 
       {/* ---------------- CHART TYPE ---------------- */}
       <div className="flex items-center gap-1 ml-2">

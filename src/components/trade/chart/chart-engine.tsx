@@ -5,10 +5,10 @@ import {
   createChart,
   CrosshairMode,
   ISeriesApi,
-  Time,
 } from "lightweight-charts";
 import { getIndicatorState } from "@/hooks/useChartIndicator";
 import { smaCalc, emaCalc, rsiCalc, bollingerBands } from "@/lib/indicators";
+import { getDrawingTool } from "@/hooks/useDrawingTool";
 
 type Candle = {
   t: number;
@@ -48,6 +48,9 @@ export default function ChartEngine({
   const candleSeriesRef = useRef<ISeriesApi<"Candlestick"> | null>(null);
   const volumeSeriesRef = useRef<ISeriesApi<"Histogram"> | null>(null);
 
+  const wsRef = useRef<WebSocket | null>(null);
+  const [ready, setReady] = useState(false);
+
   const sma5SeriesRef = useRef<any>(null);
   const sma20SeriesRef = useRef<any>(null);
   const ema20SeriesRef = useRef<any>(null);
@@ -57,13 +60,51 @@ export default function ChartEngine({
   const bbLowerSeries = useRef<any>(null);
   const rsiSeries = useRef<any>(null);
 
-  const wsRef = useRef<WebSocket | null>(null);
-  const [ready, setReady] = useState(false);
+  const shapes = useRef<any[]>([]);
 
   /* ---------------------------------------------------------
      1. Block WS if Firebase Studio is detected
 --------------------------------------------------------- */
   const BLOCK_WS = isFirebaseStudio();
+
+  function createShape(tool: string, p1: any, p2: any) {
+    const chart = chartRef.current;
+  
+    if (tool === "trendline") {
+      return chart.addLineTool({
+        points: [p1, p2],
+        color: "#4ea3f1",
+        lineWidth: 2,
+      });
+    }
+  
+    if (tool === "ray") {
+      return chart.addRayTool({
+        points: [p1, p2],
+        color: "#ffb703",
+        lineWidth: 2,
+      });
+    }
+  
+    if (tool === "hline") {
+      return chart.addHorizontalLine({
+        price: p1.price,
+        color: "#d62828",
+        lineWidth: 2,
+      });
+    }
+  
+    if (tool === "rectangle") {
+      return chart.addBoxTool({
+        points: [p1, p2],
+        borderColor: "#bb86fc",
+        borderWidth: 2,
+        backgroundColor: "rgba(187, 134, 252, 0.15)",
+      });
+    }
+  
+    return null;
+  }
 
   /* ---------------------------------------------------------
      2. INITIALIZE CHART
@@ -130,9 +171,63 @@ export default function ChartEngine({
       chart.applyOptions({ width: containerRef.current!.clientWidth });
     });
     obs.observe(containerRef.current);
+    
+    let startPoint: any = null;
+
+    const handlePointerDown = (e: PointerEvent) => {
+      const tool = getDrawingTool();
+      if (tool === "none") return;
+
+      const chart = chartRef.current;
+      const series = candleSeriesRef.current;
+
+      if (!chart || !series) return;
+
+      const rect = containerRef.current!.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const y = e.clientY - rect.top;
+
+      const time = chart.timeScale().coordinateToTime(x);
+      const price = series.coordinateToPrice(y);
+
+      if (!time || !price) return;
+
+      startPoint = { time, price };
+    };
+
+    const handlePointerUp = (e: PointerEvent) => {
+      if (!startPoint) return;
+
+      const tool = getDrawingTool();
+      const chart = chartRef.current;
+      const series = candleSeriesRef.current;
+
+      if (!chart || !series) return;
+
+      const rect = containerRef.current!.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const y = e.clientY - rect.top;
+
+      const time2 = chart.timeScale().coordinateToTime(x);
+      const price2 = series.coordinateToPrice(y);
+
+      if (!time2 || !price2) return;
+
+      const shape = createShape(tool, startPoint, { time: time2, price: price2 });
+      if (shape) shapes.current.push(shape);
+
+      startPoint = null;
+    };
+    
+    const el = containerRef.current;
+    el.addEventListener("pointerdown", handlePointerDown);
+    el.addEventListener("pointerup", handlePointerUp);
+
 
     return () => {
       obs.disconnect();
+      el.removeEventListener("pointerdown", handlePointerDown);
+      el.removeEventListener("pointerup", handlePointerUp);
       chart.remove();
       chartRef.current = null;
     };

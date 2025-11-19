@@ -209,19 +209,29 @@ export default function LightweightProChart({
     container.appendChild(tooltip);
 
     const handleCrosshairMove = (param: any) => {
-        if (!param || !param.time || !candleSeriesRef.current) {
+        if (!param || !param.time || !chartRef.current || !candleSeriesRef.current) {
             tooltip.style.display = 'none';
             return;
         }
 
-        const range = candleSeriesRef.current.logicalRange();
-
-        if (!range || range.from == null || range.to == null || range.to < range.from || isNaN(range.from) || isNaN(range.to)) {
-            return;
+        const range = chartRef.current.timeScale().getVisibleLogicalRange();
+        
+        if (
+            !range ||
+            range.from == null ||
+            range.to == null ||
+            range.to < range.from ||
+            isNaN(range.from) ||
+            isNaN(range.to)
+        ) {
+            return; 
         }
         
         const bars = candleSeriesRef.current.barsInLogicalRange(range);
-        if (!bars) return;
+        if (!bars) {
+            tooltip.style.display = 'none';
+            return;
+        };
 
         const price = param.seriesPrices.get(candleSeriesRef.current);
         if (!price) {

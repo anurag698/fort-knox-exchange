@@ -11,7 +11,7 @@ import Link from 'next/link';
 import { Button } from '../ui/button';
 import { useMarkets } from '@/hooks/use-markets';
 import { useMarketDataStore } from '@/state/market-data-store';
-import { MarketDataService } from '@/services/market-data-service';
+import { marketDataService } from '@/services/market-data-service';
 
 
 // Mock icons for coins
@@ -39,12 +39,13 @@ export function PopularCoins() {
   useEffect(() => {
     if (!displayMarkets || displayMarkets.length === 0) return;
 
-    const firstMarketSymbol = displayMarkets[0].id.replace('-', '');
-    const feed = MarketDataService.get(firstMarketSymbol, "1m");
-    feed.start();
+    const symbol = displayMarkets[0].id;
+
+    // NEW API (Part 13.7-C upgraded architecture)
+    marketDataService.startFeed(symbol);
 
     return () => {
-      feed.stop();
+        marketDataService.stopFeed();
     };
   }, [displayMarkets]);
 

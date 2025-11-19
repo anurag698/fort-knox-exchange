@@ -7,7 +7,7 @@ import TimeframeSwitcher from "./timeframe-switcher";
 import MarketSwitcher from "./market-switcher";
 import TpSlPanel from "./tp-sl-panel";
 import PositionPanel from "./position-panel";
-import { MarketDataService } from "@/services/market-data-service";
+import { marketDataService } from "@/services/market-data-service";
 
 export default function ChartShell({
   initialSymbol = "BTC-USDT",
@@ -33,20 +33,16 @@ export default function ChartShell({
 
   // start the hybrid feed whenever user switches market/timeframe
   const startFeed = useCallback((s: string, i: string) => {
-    const normalizedSymbol = s.replace("-", "").toUpperCase();
-    // MarketDataService.get returns a HybridFeed instance (Part 13.7-E)
-    const feed = MarketDataService.get(normalizedSymbol, i);
-    feed.start();
+    marketDataService.startFeed(s, i);
   }, []);
 
   // call when mounting / when symbol or interval changes
   React.useEffect(() => {
-    // stop any old feeds for same page? optional: MarketDataService.stop(...)
     startFeed(symbol, interval);
 
     // cleanup on unmount
     return () => {
-      MarketDataService.stop(symbol, interval);
+      marketDataService.stopFeed();
     };
   }, [symbol, interval, startFeed]);
 

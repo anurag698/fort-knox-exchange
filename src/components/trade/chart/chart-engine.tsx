@@ -4,7 +4,7 @@ import React, { useEffect, useRef, useState, useCallback } from "react";
 import { createChart, IChartApi } from "lightweight-charts";
 
 // Engine modules (from Part 13.7-A)
-import { ChartEngineCore as ChartEngine } from "@/lib/chart-engine/engine-core";
+import { ChartEngine } from "@/lib/chart-engine/engine-core";
 import {
   IndicatorManager,
 } from "@/lib/chart-engine/engine-indicators";
@@ -12,8 +12,8 @@ import {
   DrawingManager,
 } from "@/lib/chart-engine/engine-drawings";
 import {
-  ChartEngineOverlay,
-} from "@/lib/chart-engine/engine-overlay";
+  OverlayManager,
+} from "@/lib/chart-engine/engine-overlays";
 
 interface ChartEngineProps {
   symbol: string;        // e.g. BTCUSDT
@@ -24,7 +24,7 @@ interface ChartEngineProps {
     engine: ChartEngine;
     indicators: IndicatorManager;
     drawings: DrawingManager;
-    overlays: ChartEngineOverlay;
+    overlays: OverlayManager;
   }) => void;
 }
 
@@ -41,7 +41,7 @@ export default function ChartEngineComponent({
   const engineRef = useRef<ChartEngine | null>(null);
   const indicatorsRef = useRef<IndicatorManager | null>(null);
   const drawingsRef = useRef<DrawingManager | null>(null);
-  const overlaysRef = useRef<ChartEngineOverlay | null>(null);
+  const overlaysRef = useRef<OverlayManager | null>(null);
 
   // Theme adaptation
   const [theme, setTheme] = useState<"light" | "dark">("dark");
@@ -81,13 +81,13 @@ export default function ChartEngineComponent({
     chartRef.current = chart;
 
     // 2. Engine Instance
-    const engine = new ChartEngine();
+    const engine = new ChartEngine(chart);
     engineRef.current = engine;
 
     // 3. Indicators / Drawings / Overlays Managers
     const indicators = new IndicatorManager(chart, engine);
     const drawings = new DrawingManager(chart, engine);
-    const overlays = new ChartEngineOverlay(engine);
+    const overlays = new OverlayManager(chart, engine);
     overlays.init(container); 
 
     indicatorsRef.current = indicators;
@@ -117,8 +117,11 @@ export default function ChartEngineComponent({
       resizeObserver.current?.disconnect();
       resizeObserver.current = null;
 
+      engine.destroy();
+      indicators.destroy();
+      drawings.destroy();
       overlays.destroy();
-      
+
       chart.remove();
       chartRef.current = null;
       engineRef.current = null;
@@ -315,6 +318,211 @@ export default function ChartEngineComponent({
       stopOfflineFallback();
     };
   }, [symbol, interval]);
+
+  // -----------------------------
+  // Part 13.7-B (3/3) — Indicators, Drawings, Overlays, API
+  // Paste this AFTER the Hybrid WS effect and BEFORE the return in chart-engine.tsx
+  // -----------------------------
+  useEffect(() => {
+    const engine = engineRef.current;
+    const indicators = indicatorsRef.current;
+    const drawings = drawingsRef.current;
+    const overlays = overlaysRef.current;
+    const chart = chartRef.current;
+
+    if (!engine || !indicators || !drawings || !overlays || !chart) return;
+
+    // -------------------------
+    // Helper: safe caller
+    // -------------------------
+    const safe = <T extends (...args: any[]) => any>(fn?: T) => {
+      return (...args: Parameters<T>) => {
+        try {
+          return fn && fn(...(args as any));
+        } catch (e) {
+          console.warn("Chart API call failed", e);
+        }
+      };
+    };
+
+    // -------------------------
+    // Indicators API
+    // -------------------------
+    const addSMA = safe((period = 20, color = "#f6e05e") => {
+      if (!indicators) return;
+      indicators.addSMA(period, color);
+    });
+
+    const removeSMA = safe((period = 20) => {
+      indicators?.removeSMA(period);
+    });
+
+    const addEMA = safe((period = 20, color = "#fb7185") => {
+      indicators?.addEMA(period, color);
+    });
+
+    const addRSI = safe((period = 14, panelId = "rsi") => {
+      indicators?.addRSI(period, panelId);
+    });
+
+    const addVWAP = safe((session = "today") => {
+      indicators?.addVWAP(session);
+    });
+
+    // -------------------------
+    // Drawing Tools API
+    // -------------------------
+    const enableFreeDraw = safe(() => {
+      drawings?.enableFreeDraw();
+    });
+
+    const enableTrendTool = safe(() => {
+      drawings?.enableTrendTool();
+    });
+
+    const addTrendLine = safe((p1: any, p2: any) => {
+      drawings?.addTrend(p1, p2);
+    });
+
+    const addFib = safe((high: any, low: any) => {
+      drawings?.addFib(high, low);
+    });
+
+    const clearDrawings = safe(() => {
+      drawings?.clearAll();
+    });
+
+    // -------------------------
+    // TP / SL and Multi-entry
+    // -------------------------
+    const setTPSL = safe((list: { price: number; type: "tp" | "sl" }[]) => {
+      overlays?.setTPSL(list);
+    });
+
+    const setEntries = safe((entries: { price: number; size: number }[]) => {
+      overlays?.setEntries(entries);
+    });
+
+    // -------------------------
+    // Trade markers (recent trades)
+    // -------------------------
+    const setTradeMarkers = safe((markers: { price: number; size: number; side: "buy" | "sell"; ts?: number }[]) => {
+      overlays?.setTradeMarkers(markers);
+    });
+
+    // -------------------------
+    // PnL overlay updater
+    // -------------------------
+    const updatePositionPnl = safe((position: { avgEntry: number; size: number; side?: "long" | "short" }) => {
+      // compute unrealized pnl and display via overlays manager
+      try {
+        const last = engine.getLastCandle();
+        if (!last) return;
+        const lastPrice = last.c;
+        const side = position.side ?? (position.size >= 0 ? "long" : "short");
+        const pnl = side === "long" ? (lastPrice - position.avgEntry) * Math.abs(position.size) : (position.avgEntry - lastPrice) * Math.abs(position.size);
+        overlays?.setPositionOverlay({
+          avgEntry: position.avgEntry,
+          size: position.size,
+          pnl,
+          side,
+        });
+      } catch (e) {
+        console.warn("updatePositionPnl failed", e);
+      }
+    });
+
+    // -------------------------
+    // Expose UI API for toolbar and parent components
+    // -------------------------
+    // already passed via onEngineReady once on mount — add a second guard store on engine object
+    (engine as any).ui = {
+      addSMA,
+      removeSMA,
+      addEMA,
+      addRSI,
+      addVWAP,
+      enableFreeDraw,
+      enableTrendTool,
+      addTrendLine,
+      addFib,
+      clearDrawings,
+      setTPSL,
+      setEntries,
+      setTradeMarkers,
+      updatePositionPnl,
+      zoomIn: () => chart.timeScale().zoomIn(),
+      zoomOut: () => chart.timeScale().zoomOut(),
+      resetZoom: () => chart.timeScale().fitContent(),
+    };
+
+    // -------------------------
+    // Auto-sync some widgets:
+    // - When engine emits 'trade', add marker
+    // - When new internal-depth arrives, update depth overlay
+    // - When a final candle arrives, recompute VWAP/indicators
+    // -------------------------
+    const onTrade = (t: any) => {
+      setTradeMarkers([
+        {
+          price: t.price,
+          size: t.size,
+          side: t.side,
+          ts: t.ts,
+        },
+      ]);
+    };
+
+    const onInternalDepth = (d: any) => {
+      const bids = d.bids.map((b: any) => [b.price, b.size]);
+      const asks = d.asks.map((a: any) => [a.price, a.size]);
+      overlays?.setDepth(bids, asks, engine.getLastCandle()?.c ?? 0);
+    };
+
+    const onFinalCandle = (c: any) => {
+      // Recompute VWAP and indicators lightly
+      safe(() => indicators?.recalculateAll())();
+      // Update PnL overlays if any
+      safe(() => overlays?.refreshPositionOverlays())();
+    };
+
+    engine.eventBus.on("trade", onTrade);
+    engine.eventBus.on("internal-depth", onInternalDepth);
+    engine.eventBus.on("candle-final", onFinalCandle);
+
+    // -------------------------
+    // Cleanup
+    // -------------------------
+    return () => {
+      engine.eventBus.off("trade", onTrade);
+      engine.eventBus.off("internal-depth", onInternalDepth);
+      engine.eventBus.off("candle-final", onFinalCandle);
+      // detach ui object
+      try {
+        delete (engine as any).ui;
+      } catch {}
+    };
+  }, [symbol, interval]);
+
+  // -----------------------------
+  // OPTIONAL: short helper export for dev console
+  // -----------------------------
+  useEffect(() => {
+    // attach to window for debugging in dev
+    if (process.env.NODE_ENV === "development") {
+      (window as any).__FK_CHART__ = {
+        engine: engineRef.current,
+        chart: chartRef.current,
+        indicators: indicatorsRef.current,
+        drawings: drawingsRef.current,
+        overlays: overlaysRef.current,
+      };
+    }
+    return () => {
+      if ((window as any).__FK_CHART__) delete (window as any).__FK_CHART__;
+    };
+  }, []);
+
 
   // ------------------------------------------------------------------------
   // THEME LISTENER (auto-switch when Fort Knox theme changes)

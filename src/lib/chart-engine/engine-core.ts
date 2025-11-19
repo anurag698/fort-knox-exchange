@@ -253,7 +253,7 @@ export function applyAdaptiveScaling(
 // -------------------------
 // Base Chart Engine Class
 // -------------------------
-export class ChartEngineCore {
+export class ChartEngine {
   container: HTMLElement | null = null;
   chart: IChartApi | null = null;
   candleSeries: ISeriesApi<"Candlestick"> | null = null;
@@ -270,11 +270,11 @@ export class ChartEngineCore {
   mtf: MTFState = {
     primary: "1m",
     overlays: [],
-    buffers: {} as Record<Timeframe, Candle[]>,
+    buffers: {} as any,
   };
 
-  constructor() {
-    // empty
+  constructor(chart: IChartApi) {
+    this.chart = chart;
   }
 
   setContainer(el: HTMLElement) {
@@ -299,7 +299,7 @@ export class ChartEngineCore {
     return this.candles[this.candles.length - 1];
   }
 
-  applyRealtimeCandle(c: Candle, interval: Timeframe) {
+  applyRealtimeCandle(c: Candle, interval: string) {
     if (this.mtf.primary !== interval) return; // Ignore updates for other timeframes
 
     const last = this.getLastCandle();
@@ -312,6 +312,10 @@ export class ChartEngineCore {
       this.candles.push(c);
     }
     this.eventBus.emit("candles-updated", this.candles);
+
+    if (c.final) {
+        this.eventBus.emit("candle-final", c);
+    }
   }
 
 

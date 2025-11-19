@@ -23,7 +23,6 @@ const RecentTrades = dynamic(
 // Layout Wrapper
 export default function ProTradingLayout({
   pair,
-  wsUrl,
 }: {
   pair: string;
   wsUrl: string;
@@ -51,6 +50,8 @@ export default function ProTradingLayout({
       window.removeEventListener("mouseup", up);
     };
   }, [obHeight, rtHeight]);
+  
+  const wsUrl = `wss://stream.binance.com:9443/ws/${pair.toLowerCase().replace('-','')}@depth_fast@100ms/${pair.toLowerCase().replace('-','')}@trade`;
 
   return (
     <div className="w-full h-full flex overflow-hidden">

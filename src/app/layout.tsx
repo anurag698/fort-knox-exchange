@@ -1,4 +1,3 @@
-
 import type { Metadata } from 'next';
 import './globals.css';
 import { Toaster } from '@/components/ui/toaster';
@@ -62,12 +61,7 @@ export default function RootLayout({
         <ThemeProvider>
           <FirebaseClientProvider>
             <div className="flex flex-1 flex-col min-h-svh">
-              <Header />
-              <main className="flex-1">
-                <div className="container mx-auto p-4 md:p-6 lg:p-8">
-                  {children}
-                </div>
-              </main>
+              {children}
             </div>
           </FirebaseClientProvider>
           <Toaster />

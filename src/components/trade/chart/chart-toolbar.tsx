@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState } from "react";
@@ -19,6 +20,8 @@ type Props = {
   chartType: "candles" | "line" | "area";
   setChartType: (t: "candles" | "line" | "area") => void;
   onReset?: () => void;
+  setTP: (price: number) => void;
+  setSL: (price: number) => void;
 };
 
 const Toggle = ({ label, keyName }: any) => {
@@ -66,6 +69,8 @@ export default function ChartToolbar({
   chartType,
   setChartType,
   onReset,
+  setTP,
+  setSL,
 }: Props) {
   const [indOpen, setIndOpen] = useState(false);
   const [drawOpen, setDrawOpen] = useState(false);
@@ -173,6 +178,28 @@ export default function ChartToolbar({
           <Square size={16} />
         </button>
       </div>
+
+       <button
+        onClick={() => {
+          const p = prompt("Set Take-Profit at price:");
+          if (!p) return;
+          setTP(parseFloat(p));
+        }}
+        className="px-2 py-1 text-xs rounded bg-surface2 hover:bg-surface3"
+      >
+        Set TP
+      </button>
+
+      <button
+        onClick={() => {
+          const p = prompt("Set Stop-Loss at price:");
+          if (!p) return;
+          setSL(parseFloat(p));
+        }}
+        className="px-2 py-1 text-xs rounded bg-surface2 hover:bg-surface3"
+      >
+        Set SL
+      </button>
 
       {/* ---------------- RESET CHART ---------------- */}
       <div className="flex-1 flex justify-end">

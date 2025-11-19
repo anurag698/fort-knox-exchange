@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useEffect, useRef, useState } from "react";
@@ -31,6 +32,11 @@ const positionRef = {
   side: "long" as "long" | "short" | null,
   size: 1.2,
   entry: 24586.0,
+};
+
+const tpSlRef = {
+  tp: null as number | null,
+  sl: null as number | null,
 };
 
 
@@ -151,15 +157,8 @@ export default function ChartEngine({
 
     const lineColor = pos.side === "long" ? "#4ea3f1" : "#ff4668";
 
-    // ENTRY LINE — stays fixed
-    chart.createPriceLine({
-      price: pos.entry,
-      color: lineColor,
-      lineWidth: 2,
-      lineStyle: 2,
-      axisLabelVisible: true,
-      title: `Entry • ${pos.entry.toFixed(2)} (${pos.size} BTC)`,
-    });
+    // Re-render TP/SL lines along with entry
+    renderTpSlLines();
 
     // PnL calculation
     const diff = pos.side === "long"
@@ -210,7 +209,7 @@ export default function ChartEngine({
   
     const chart = chartRef.current;
     const priceToY = (p: number) =>
-      chart.priceScale("right").priceToCoordinate(p) ?? 0;
+      chart.priceScale("right").coordinateToPrice(p) ?? 0;
   
     const yEntry = priceToY(entry);
     const yLast = priceToY(last);
@@ -225,6 +224,65 @@ export default function ChartEngine({
     const height = Math.abs(yEntry - yLast);
   
     ctx.fillRect(0, top, rect.width, height);
+  }
+
+  function renderTpSlLines() {
+    if (!chartRef.current) return;
+    const chart = chartRef.current;
+
+    // This is a temporary solution; a more robust line management system is better
+    if (chart.removeAllPriceLines) {
+      chart.removeAllPriceLines();
+    }
+
+    const { tp, sl } = tpSlRef;
+
+    // Re-render entry
+    const pos = positionRef;
+    if (pos.entry) {
+      chart.createPriceLine({
+        price: pos.entry,
+        color: pos.side === "long" ? "#4ea3f1" : "#ff4668",
+        lineWidth: 2,
+        lineStyle: 2, // Dotted
+        axisLabelVisible: true,
+        title: `Entry ${pos.entry.toFixed(2)} (${pos.size} BTC)`,
+      });
+    }
+
+    // Take Profit
+    if (tp) {
+      chart.createPriceLine({
+        price: tp,
+        color: "#00ffbf",
+        lineWidth: 2,
+        lineStyle: 0, // Solid
+        axisLabelVisible: true,
+        title: `TP ${tp.toFixed(2)}`,
+      });
+    }
+
+    // Stop Loss
+    if (sl) {
+      chart.createPriceLine({
+        price: sl,
+        color: "#ff4668",
+        lineWidth: 2,
+        lineStyle: 0, // Solid
+        axisLabelVisible: true,
+        title: `SL ${sl.toFixed(2)}`,
+      });
+    }
+  }
+
+  function setTP(price: number) {
+    tpSlRef.tp = price;
+    renderTpSlLines();
+  }
+
+  function setSL(price: number) {
+    tpSlRef.sl = price;
+    renderTpSlLines();
   }
 
   /* ---------------------------------------------------------
@@ -322,8 +380,7 @@ export default function ChartEngine({
       const tool = getDrawingTool();
       const chart = chartRef.current;
       const series = candleSeriesRef.current;
-
-      if (!chart || !series) return;
+      if(!chart || !series) return;
 
       const rect = containerRef.current!.getBoundingClientRect();
       const x = e.clientX - rect.left;
@@ -340,9 +397,63 @@ export default function ChartEngine({
       startPoint = null;
     };
     
+    let draggingTp = false;
+    let draggingSl = false;
+
+    const onPointerMove = (e: PointerEvent) => {
+      const tool = getDrawingTool();
+      if (tool !== "none") return; // drawing tools take priority
+
+      const chart = chartRef.current;
+      if (!chart || !candleSeriesRef.current) return;
+
+      const rect = containerRef.current!.getBoundingClientRect();
+      const price = candleSeriesRef.current.coordinateToPrice(e.clientY - rect.top);
+
+      if (!price) return;
+
+      if (draggingTp) {
+        tpSlRef.tp = price;
+        renderTpSlLines();
+      }
+
+      if (draggingSl) {
+        tpSlRef.sl = price;
+        renderTpSlLines();
+      }
+    };
+    
+    const onPointerDown = (e: PointerEvent) => {
+      const { tp, sl } = tpSlRef;
+      if (!containerRef.current || !candleSeriesRef.current) return;
+      
+      const rect = containerRef.current.getBoundingClientRect();
+      const y = e.clientY - rect.top;
+
+      const tpY = tp ? candleSeriesRef.current.priceToCoordinate(tp) : null;
+      const slY = sl ? candleSeriesRef.current.priceToCoordinate(sl) : null;
+
+      if (tpY && Math.abs(tpY - y) < 8) {
+        draggingTp = true;
+      }
+      if (slY && Math.abs(slY - y) < 8) {
+        draggingSl = true;
+      }
+    };
+    
+    const onPointerUp = () => {
+      draggingTp = false;
+      draggingSl = false;
+    };
+
+
     const el = containerRef.current;
     el.addEventListener("pointerdown", handlePointerDown);
     el.addEventListener("pointerup", handlePointerUp);
+    el.addEventListener("pointerdown", onPointerDown);
+    el.addEventListener("pointermove", onPointerMove);
+    el.addEventListener("pointerup", onPointerUp);
+
 
     // Depth Canvas for PnL Zone
     const canvas = document.createElement("canvas");
@@ -359,6 +470,9 @@ export default function ChartEngine({
       obs.disconnect();
       el.removeEventListener("pointerdown", handlePointerDown);
       el.removeEventListener("pointerup", handlePointerUp);
+      el.removeEventListener("pointerdown", onPointerDown);
+      el.removeEventListener("pointermove", onPointerMove);
+      el.removeEventListener("pointerup", onPointerUp);
       chart.remove();
       chartRef.current = null;
       if (depthCanvasRef.current) depthCanvasRef.current.remove();
@@ -457,15 +571,16 @@ export default function ChartEngine({
         }
 
         if (msg.c.includes("spot@public.deal.v3.api")) {
-            const deals = msg.d?.deals || [];
-            deals.forEach((t: any) => {
-              pushTradeMarker({
-                p: Number(t.p),
-                T: Number(t.t),
-                m: t.S === 2, // 1 for BUY, 2 for SELL in MEXC v3 deal
-                v: Number(t.v),
+            if (Array.isArray(msg.d.deals)) {
+              msg.d.deals.forEach((t: any) => {
+                pushTradeMarker({
+                  p: Number(t.p),
+                  T: Number(t.t),
+                  m: t.S === 2, // 1 for BUY, 2 for SELL in MEXC v3 deal
+                  v: Number(t.v),
+                });
               });
-            });
+            }
         }
       } catch (_) {}
     };

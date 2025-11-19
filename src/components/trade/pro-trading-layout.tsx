@@ -1,9 +1,9 @@
+
 "use client";
 
 import React, { useState, useRef, useEffect } from "react";
-import ThemeToggle from "@/components/ui/theme-toggle";
+import ThemeToggle from "@/components/theme/theme-toggle";
 import MarketsSidebar from "./markets/markets-sidebar";
-import TradingChart from "@/components/trade/chart/lightweight-pro-chart";
 import OrderForm from "./orderform/order-form";
 import OrderbookPanel from "./orderbook/orderbook-panel";
 import TradesPanel from "./trades/trades-panel";
@@ -14,11 +14,14 @@ import { LogIn } from "lucide-react";
 import ChartToolbar from "./chart/chart-toolbar";
 import PositionsPanel from "./positions/positions-panel";
 import ChartShell from "./chart/chart-shell";
+import { setTP, setSL } from "./chart/chart-engine";
+
 
 export default function ProTradingLayout({ marketId }: { marketId: string }) {
   const { user, isUserLoading } = useUser();
   const [interval, setInterval] = useState("1m");
   const [chartType, setChartType] = useState<"candles" | "line" | "area">("candles");
+  const chartRef = useRef<any>(null);
 
   return (
     <div className="flex flex-col h-screen w-screen bg-background text-foreground overflow-hidden -m-8">
@@ -31,7 +34,7 @@ export default function ProTradingLayout({ marketId }: { marketId: string }) {
               Fort Knox Exchange
             </span>
           </Link>
-          <div className="hidden md:flex items-center gap-6 text-sm text-secondary">
+          <div className="hidden md:flex items-center gap-6 text-sm text-secondary-foreground">
             <span>24h High: --</span>
             <span>24h Low: --</span>
             <span>24h Volume: --</span>
@@ -71,8 +74,12 @@ export default function ProTradingLayout({ marketId }: { marketId: string }) {
               setInterval={setInterval}
               chartType={chartType}
               setChartType={setChartType}
+              onReset={() => chartRef.current?.reset()}
+              setTP={setTP}
+              setSL={setSL}
             />
             <ChartShell
+              ref={chartRef}
               symbol={marketId}
               interval={interval}
               chartType={chartType}
@@ -82,7 +89,7 @@ export default function ProTradingLayout({ marketId }: { marketId: string }) {
           {/* BOTTOM PANELS — ORDERBOOK + TRADES */}
           <div className="h-[320px] grid grid-cols-2 border-t border-border bg-card">
             <div className="col-span-1 border-r border-border">
-              <OrderbookPanel />
+              <OrderbookPanel pair={marketId} />
             </div>
             <div className="col-span-1">
               <TradesPanel />
@@ -93,7 +100,7 @@ export default function ProTradingLayout({ marketId }: { marketId: string }) {
         {/* ---------------- RIGHT SIDEBAR: ORDER FORM ---------------- */}
         <aside className="w-[310px] min-w-[310px] border-l border-border bg-card p-2 grid grid-rows-2 gap-2">
           <div className="row-span-1">
-            <OrderForm pair={marketId} />
+            <OrderForm marketId={marketId} />
           </div>
           <div className="row-span-1">
              <PositionsPanel />

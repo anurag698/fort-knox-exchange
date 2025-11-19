@@ -6,6 +6,7 @@ import dynamic from "next/dynamic";
 import ResizeHandle from "@/components/ui/resize-handle";
 import ResizeRowHandle from "@/components/ui/resize-row-handle";
 import { useResizable } from "@/hooks/useResizable";
+import { OrderForm } from "./order-form";
 
 const ProChart = dynamic(() => import("./lightweight-pro-chart"), { ssr: false });
 
@@ -15,12 +16,7 @@ const OrderBook = dynamic(
 );
 
 const RecentTrades = dynamic(
-  () => import("./recent-trades").then((mod) => mod.RecentTrades),
-  { ssr: false }
-);
-
-const OrderForm = dynamic(
-  () => import("./order-form").then((mod) => mod.OrderForm),
+  () => import("./recent-trades").then((m) => m.RecentTrades),
   { ssr: false }
 );
 

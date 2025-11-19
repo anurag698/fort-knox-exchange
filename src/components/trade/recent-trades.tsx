@@ -24,16 +24,19 @@ export function RecentTrades({ marketId }: { marketId: string }) {
   }, [trades]);
 
   return (
-    <div ref={containerRef} className="w-full max-h-[320px] overflow-auto bg-transparent">
-      <ul className="space-y-1 py-2">
-        {trades?.map((t: any, i: number) => (
-          <li key={i} className="text-sm text-[#9aa3ad] flex justify-between px-2">
-            <span className={t.m ? 'text-red-400' : 'text-green-400'}>{parseFloat(t.p).toFixed(2)}</span>
-            <span className="opacity-80">{parseFloat(t.q).toFixed(4)}</span>
-            <span className="text-xs opacity-60">{new Date(t.T).toLocaleTimeString()}</span>
-          </li>
-        ))}
-      </ul>
+    <div className="trading-panel h-full">
+      <div className="trading-panel-header">Recent Trades</div>
+      <div ref={containerRef} className="trading-panel-body p-0 h-full overflow-y-auto">
+        <ul className="space-y-1 py-2">
+          {trades?.map((t: any, i: number) => (
+            <li key={i} className="text-sm text-[#9aa3ad] flex justify-between px-2">
+              <span className={t.m ? 'text-red-400' : 'text-green-400'}>{parseFloat(t.p).toFixed(2)}</span>
+              <span className="opacity-80">{parseFloat(t.q).toFixed(4)}</span>
+              <span className="text-xs opacity-60">{new Date(t.T).toLocaleTimeString()}</span>
+            </li>
+          ))}
+        </ul>
+      </div>
     </div>
   );
 }

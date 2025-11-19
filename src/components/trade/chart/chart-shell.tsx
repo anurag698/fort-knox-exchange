@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, forwardRef } from "react";
 import { cn } from "@/lib/utils";
 import ChartEngine from "./chart-engine";
 
@@ -10,17 +10,26 @@ type Props = {
   chartType: "candles" | "line" | "area";
 };
 
+// Helper to detect Firebase Studio environment safely
 function isFirebaseStudio() {
   if (typeof window === "undefined") return false;
-  return window.location.hostname.includes("firebase");
+  try {
+    return window.self !== window.top;
+  } catch (e) {
+    return true; // Assume iframe if access is restricted
+  }
 }
 
-export default function ChartShell({ symbol, interval, chartType }: Props) {
+const ChartShell = forwardRef<any, Props>(({ symbol, interval, chartType }, ref) => {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const [ready, setReady] = useState(false);
-  const BLOCK_WS = isFirebaseStudio();
+  const [BLOCK_WS, setBLOCK_WS] = useState(true); // Default to blocking
 
-  // Simulate async mounting (chart engine loads in part 12)
+  useEffect(() => {
+    setBLOCK_WS(isFirebaseStudio());
+  }, []);
+
+  // Simulate async mounting
   useEffect(() => {
     const t = setTimeout(() => setReady(true), 150);
     return () => clearTimeout(t);
@@ -41,7 +50,12 @@ export default function ChartShell({ symbol, interval, chartType }: Props) {
       )}
 
       {ready && !BLOCK_WS && (
-        <ChartEngine symbol={symbol} interval={interval} chartType={chartType} />
+        <ChartEngine
+          ref={ref}
+          symbol={symbol}
+          interval={interval}
+          chartType={chartType}
+        />
       )}
 
       {ready && BLOCK_WS && (
@@ -51,4 +65,8 @@ export default function ChartShell({ symbol, interval, chartType }: Props) {
       )}
     </div>
   );
-}
+});
+
+ChartShell.displayName = "ChartShell";
+
+export default ChartShell;

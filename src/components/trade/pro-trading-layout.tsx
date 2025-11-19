@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useState, useRef, useEffect } from "react";
@@ -22,23 +21,28 @@ export default function ProTradingLayout({ marketId }: { marketId: string }) {
   const chartRef = useRef<any>(null);
 
   const handleAddEntry = (price: number, size: number) => {
-    // Logic to add an entry to the chart engine's state
-    // This will be passed down to ChartEngine via ChartShell
-    console.log("Add entry:", { price, size });
+    chartRef.current?.addEntry(price, size);
   };
 
   const handleRemoveEntry = (id: string) => {
-    // Logic to remove an entry
-    console.log("Remove entry:", id);
+    chartRef.current?.removeEntry(id);
   };
   
   const handleSetTP = (price: number) => {
-     console.log("Set TP:", price);
+     chartRef.current?.setTP(price);
   }
 
   const handleSetSL = (price: number) => {
-      console.log("Set SL:", price);
+      chartRef.current?.setSL(price);
   }
+
+  const handleAddTP = (price: number, size: number) => {
+    chartRef.current?.addTP(price, size);
+  };
+
+  const handleRemoveTP = (id: string) => {
+    chartRef.current?.removeTP(id);
+  };
 
   return (
     <div className="flex flex-col h-screen w-screen bg-background text-foreground overflow-hidden -m-8">
@@ -96,6 +100,8 @@ export default function ProTradingLayout({ marketId }: { marketId: string }) {
               setSL={handleSetSL}
               onAddEntry={handleAddEntry}
               onRemoveEntry={handleRemoveEntry}
+              addTP={handleAddTP}
+              removeTP={handleRemoveTP}
             />
             <ChartShell
               ref={chartRef}
@@ -108,10 +114,10 @@ export default function ProTradingLayout({ marketId }: { marketId: string }) {
           {/* BOTTOM PANELS — ORDERBOOK + TRADES */}
           <div className="h-[320px] grid grid-cols-2 border-t border-border bg-card">
             <div className="col-span-1 border-r border-border">
-              <OrderbookPanel />
+              <OrderbookPanel pair={marketId} />
             </div>
             <div className="col-span-1">
-              <TradesPanel />
+              <TradesPanel pair={marketId} />
             </div>
           </div>
         </section>

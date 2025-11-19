@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState } from "react";
@@ -24,6 +23,8 @@ type Props = {
   setSL: (price: number) => void;
   onAddEntry: (price: number, size: number) => void;
   onRemoveEntry: (id: string) => void;
+  addTP: (price: number, size: number) => void;
+  removeTP: (id: string) => void;
 };
 
 const Toggle = ({ label, keyName }: any) => {
@@ -75,6 +76,8 @@ export default function ChartToolbar({
   setSL,
   onAddEntry,
   onRemoveEntry,
+  addTP,
+  removeTP,
 }: Props) {
   const [indOpen, setIndOpen] = useState(false);
   const [drawOpen, setDrawOpen] = useState(false);
@@ -226,6 +229,29 @@ export default function ChartToolbar({
         className="px-2 py-1 text-xs rounded bg-surface2 hover:bg-surface3"
       >
         – Remove Entry
+      </button>
+      
+       <button
+        onClick={() => {
+          const price = parseFloat(prompt("TP price:") || "");
+          const size = parseFloat(prompt("TP size %:") || "");
+          if (!price || !size) return;
+          addTP(price, size);
+        }}
+        className="px-2 py-1 text-xs rounded bg-surface2 hover:bg-surface3"
+      >
+        + Add TP Target
+      </button>
+
+      <button
+        onClick={() => {
+          const id = prompt("TP ID to remove:");
+          if (!id) return;
+          removeTP(id);
+        }}
+        className="px-2 py-1 text-xs rounded bg-surface2 hover:bg-surface3"
+      >
+        – Remove TP Target
       </button>
 
 

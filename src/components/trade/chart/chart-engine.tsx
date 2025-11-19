@@ -7,6 +7,8 @@ import {
   ISeriesApi,
   Time,
 } from "lightweight-charts";
+import { getIndicatorState } from "@/hooks/useChartIndicator";
+import { smaCalc, emaCalc, rsiCalc, bollingerBands } from "@/lib/indicators";
 
 type Candle = {
   t: number;
@@ -45,6 +47,15 @@ export default function ChartEngine({
   const chartRef = useRef<any | null>(null);
   const candleSeriesRef = useRef<ISeriesApi<"Candlestick"> | null>(null);
   const volumeSeriesRef = useRef<ISeriesApi<"Histogram"> | null>(null);
+
+  const sma5SeriesRef = useRef<any>(null);
+  const sma20SeriesRef = useRef<any>(null);
+  const ema20SeriesRef = useRef<any>(null);
+  const ema50SeriesRef = useRef<any>(null);
+  const bbUpperSeries = useRef<any>(null);
+  const bbMiddleSeries = useRef<any>(null);
+  const bbLowerSeries = useRef<any>(null);
+  const rsiSeries = useRef<any>(null);
 
   const wsRef = useRef<WebSocket | null>(null);
   const [ready, setReady] = useState(false);
@@ -93,6 +104,25 @@ export default function ChartEngine({
       scaleMargins: { top: 0.8, bottom: 0 },
     });
 
+    // INDICATOR SERIES
+    sma5SeriesRef.current = chart.addLineSeries({ color: "#f6e05e", lineWidth: 1 });
+    sma20SeriesRef.current = chart.addLineSeries({ color: "#60a5fa", lineWidth: 1 });
+    ema20SeriesRef.current = chart.addLineSeries({ color: "#fb7185", lineWidth: 1 });
+    ema50SeriesRef.current = chart.addLineSeries({ color: "#9b5de5", lineWidth: 1 });
+    bbUpperSeries.current = chart.addLineSeries({ color: "#ff6b6b", lineWidth: 1 });
+    bbMiddleSeries.current = chart.addLineSeries({ color: "#ffd166", lineWidth: 1 });
+    bbLowerSeries.current = chart.addLineSeries({ color: "#4ecdc4", lineWidth: 1 });
+    
+    chart.addPriceScale("rsi", {
+      position: "right",
+      scaleMargins: { top: 0.7, bottom: 0 },
+    });
+    rsiSeries.current = chart.addLineSeries({
+      color: "#ffd166",
+      lineWidth: 1,
+      priceScaleId: "rsi",
+    });
+
     setReady(true);
 
     // Resize observer
@@ -122,32 +152,35 @@ export default function ChartEngine({
       if (!Array.isArray(resp)) return;
 
       const mapped: Candle[] = resp.map((c) => ({
-        t: c[0],
-        o: Number(c[1]),
-        h: Number(c[2]),
-        l: Number(c[3]),
-        c: Number(c[4]),
-        v: Number(c[5]),
+        t: c[0], o: Number(c[1]), h: Number(c[2]), l: Number(c[3]), c: Number(c[4]), v: Number(c[5]),
       }));
 
-      // Convert to LWC format
       const data = mapped.map((b) => ({
-        time: Math.floor(b.t / 1000),
-        open: b.o,
-        high: b.h,
-        low: b.l,
-        close: b.c,
+        time: Math.floor(b.t / 1000), open: b.o, high: b.h, low: b.l, close: b.c,
       }));
-
       candleSeriesRef.current?.setData(data);
 
       const vol = mapped.map((b) => ({
-        time: Math.floor(b.t / 1000),
-        value: b.v,
-        color: b.c >= b.o ? "#26a69a" : "#ef5350",
+        time: Math.floor(b.t / 1000), value: b.v, color: b.c >= b.o ? "#26a69a" : "#ef5350",
       }));
-
       volumeSeriesRef.current?.setData(vol);
+
+      // INDICATORS
+      const closeValues = mapped.map((b) => b.c);
+      const times = mapped.map((b) => Math.floor(b.t / 1000));
+
+      if (getIndicatorState("sma5")) sma5SeriesRef.current?.setData(smaCalc(closeValues, 5, times));
+      if (getIndicatorState("sma20")) sma20SeriesRef.current?.setData(smaCalc(closeValues, 20, times));
+      if (getIndicatorState("ema20")) ema20SeriesRef.current?.setData(emaCalc(closeValues, 20, times));
+      if (getIndicatorState("ema50")) ema50SeriesRef.current?.setData(emaCalc(closeValues, 50, times));
+      if (getIndicatorState("bb")) {
+        const bb = bollingerBands(closeValues, 20, times);
+        bbUpperSeries.current?.setData(bb.upper);
+        bbMiddleSeries.current?.setData(bb.middle);
+        bbLowerSeries.current?.setData(bb.lower);
+      }
+      if (getIndicatorState("rsi")) rsiSeries.current?.setData(rsiCalc(closeValues, times));
+      
     } catch (e) {
       console.warn("History load error", e);
     }
@@ -161,8 +194,7 @@ export default function ChartEngine({
      4. CONNECT REAL-TIME KLINE (MEXC)
 --------------------------------------------------------- */
   useEffect(() => {
-    if (!ready) return;
-    if (BLOCK_WS) return; // Firebase Studio safe mode
+    if (!ready || BLOCK_WS) return;
 
     wsRef.current?.close();
 
@@ -171,52 +203,26 @@ export default function ChartEngine({
     wsRef.current = ws;
 
     ws.onopen = () => {
-      ws.send(
-        JSON.stringify({
-          method: "SUBSCRIPTION",
-          params: [`spot@public.kline.v3.api@${symbol}@${interval}`],
-          id: 1001,
-        })
-      );
+      ws.send(JSON.stringify({
+        method: "SUBSCRIPTION",
+        params: [`spot@public.kline.v3.api@${symbol}@${interval}`],
+        id: 1001,
+      }));
     };
 
     ws.onmessage = (ev: MessageEvent) => {
       try {
         const msg = JSON.parse(ev.data);
         if (!msg.c || !msg.c.includes("kline")) return;
-
         const c = msg.d.candle;
-        const last = {
-          time: Math.floor(c.t / 1000),
-          open: Number(c.o),
-          high: Number(c.h),
-          low: Number(c.l),
-          close: Number(c.c),
-        };
-
+        const last = { time: Math.floor(c.t / 1000), open: Number(c.o), high: Number(c.h), low: Number(c.l), close: Number(c.c) };
         candleSeriesRef.current?.update(last);
-
-        volumeSeriesRef.current?.update({
-          time: last.time,
-          value: Number(c.v),
-          color: last.close >= last.open ? "#26a69a" : "#ef5350",
-        });
+        volumeSeriesRef.current?.update({ time: last.time, value: Number(c.v), color: last.close >= last.open ? "#26a69a" : "#ef5350" });
       } catch (_) {}
     };
 
-    ws.onerror = () => {};
-    ws.onclose = () => {};
-
-    return () => {
-      wsRef.current?.close();
-      wsRef.current = null;
-    };
+    return () => wsRef.current?.close();
   }, [ready, symbol, interval, BLOCK_WS]);
 
-  /* ---------------------------------------------------------
-     RENDER
---------------------------------------------------------- */
-  return (
-    <div ref={containerRef} className="w-full h-full relative" />
-  );
+  return <div ref={containerRef} className="w-full h-full relative" />;
 }

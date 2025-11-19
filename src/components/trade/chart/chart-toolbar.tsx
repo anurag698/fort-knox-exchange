@@ -10,15 +10,31 @@ import {
   ChevronDown,
   Square,
 } from "lucide-react";
+import { useChartIndicator } from "@/hooks/useChartIndicator";
 
 type Props = {
   interval: string;
   setInterval: (i: string) => void;
-
   chartType: "candles" | "line" | "area";
   setChartType: (t: "candles" | "line" | "area") => void;
-
   onReset?: () => void;
+};
+
+const Toggle = ({ label, keyName }: any) => {
+  const [enabled, setEnabled] = useChartIndicator(keyName);
+  return (
+    <div
+      className="flex justify-between items-center py-1 cursor-pointer"
+      onClick={() => setEnabled(!enabled)}
+    >
+      <span>{label}</span>
+      <span
+        className={enabled ? "text-accent font-semibold" : "text-[var(--text-secondary)]"}
+      >
+        {enabled ? "ON" : "OFF"}
+      </span>
+    </div>
+  );
 };
 
 export default function ChartToolbar({
@@ -53,7 +69,7 @@ export default function ChartToolbar({
         ))}
       </div>
 
-      {/* ---------------- INDICATORS ---------------- */}
+      {/* ---------------- INDICATORS DROPDOWN ---------------- */}
       <div className="relative">
         <button
           onClick={() => setIndOpen((v) => !v)}
@@ -63,13 +79,13 @@ export default function ChartToolbar({
         </button>
 
         {indOpen && (
-          <div className="absolute left-0 top-8 bg-surface3 border border-[var(--border-color)] rounded-lg p-3 text-xs w-40 z-50">
-            <div className="flex flex-col gap-2">
-              <span className="text-[var(--text-secondary)]">Coming Soon:</span>
-              <span className="text-[var(--text-primary)]">RSI</span>
-              <span className="text-[var(--text-primary)]">EMA</span>
-              <span className="text-[var(--text-primary)]">Bollinger Bands</span>
-            </div>
+          <div className="absolute left-0 top-8 bg-surface3 border border-[var(--border-color)] rounded-lg p-3 text-xs w-48 z-50">
+            <Toggle label="SMA 5" keyName="sma5" />
+            <Toggle label="SMA 20" keyName="sma20" />
+            <Toggle label="EMA 20" keyName="ema20" />
+            <Toggle label="EMA 50" keyName="ema50" />
+            <Toggle label="RSI" keyName="rsi" />
+            <Toggle label="Bollinger Bands" keyName="bb" />
           </div>
         )}
       </div>

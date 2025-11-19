@@ -1,7 +1,7 @@
+// src/components/trade/advanced-layout.tsx
+"use client";
 
-'use client';
-
-import React from 'react';
+import React, { useState } from 'react';
 import CanvasDepthChart from '@/components/trade/canvas-depth-chart';
 import FloatingOrderPanel from '@/components/trade/floating-order-panel';
 import OrderBook from './order-book';

@@ -1,24 +1,23 @@
-
 "use client";
 
 import React, { useState, useRef, useEffect } from "react";
 import ThemeToggle from "@/components/theme/theme-toggle";
-import OrderForm from "./orderform/order-form";
 import { useUser } from "@/firebase";
 import Link from "next/link";
 import { Button } from "../ui/button";
 import { LogIn } from "lucide-react";
-import ChartToolbar from "./chart/chart-toolbar";
-import PositionsPanel from "./positions/positions-panel";
-import ChartShell from "./chart/chart-shell";
 import { MarketHeader } from "./market-header";
 import OrderBook from "./order-book";
 import { RecentTrades } from "./recent-trades";
 import { Balances } from "./balances";
 import { OpenOrdersPanel } from "./open-orders-panel";
-import { marketDataSubscriber } from "@/services/market-data-subscriber";
+import { startMarketDataSubscriber } from "@/services/market-data-subscriber";
 import marketDataService from "@/services/market-data-service";
 import { cn } from "@/lib/utils";
+import ChartShell from "./chart/chart-shell";
+import { OrderForm } from "./order-form";
+import { UserTrades } from "./user-trades";
+
 
 export default function ProTradingLayout({ marketId }: { marketId: string }) {
   const { user, isUserLoading } = useUser();
@@ -27,7 +26,7 @@ export default function ProTradingLayout({ marketId }: { marketId: string }) {
   const chartRef = useRef<any>(null);
   
   useEffect(() => {
-    marketDataSubscriber.init();
+    startMarketDataSubscriber();
     if (marketId) {
       const symbol = marketId.replace("-", "").toUpperCase();
       marketDataService.startFeed(symbol, "1m");
@@ -94,29 +93,29 @@ export default function ProTradingLayout({ marketId }: { marketId: string }) {
       {/* ---------------- CORE TRADING GRID ---------------- */}
        <div className="grid flex-1 grid-cols-12 grid-rows-12 gap-2 p-2 overflow-hidden">
         
-        <div className="col-span-12 row-span-2">
+        <div className="col-span-12 row-span-1 border-b pb-2">
             <MarketHeader marketId={marketId} />
         </div>
 
-        <div className="col-span-12 xl:col-span-2 row-span-10 xl:row-span-10">
+        <div className="col-span-12 xl:col-span-2 row-span-11 xl:row-span-11">
           <OrderBook />
         </div>
 
-        <div className="col-span-12 xl:col-span-7 row-span-6 xl:row-span-7 relative h-full">
+        <div className="col-span-12 xl:col-span-7 row-span-7 xl:row-span-7 relative h-full">
             <ChartShell initialSymbol={marketId} />
         </div>
 
-        <div className="col-span-12 xl:col-span-3 row-span-10 xl:row-span-10 flex flex-col gap-2">
+        <div className="col-span-12 xl:col-span-3 row-span-11 xl:row-span-11 flex flex-col gap-2">
             <RecentTrades marketId={marketId} />
         </div>
 
-        <div className="col-span-12 xl:col-span-4 row-span-3 xl:row-span-3">
+        <div className="col-span-12 xl:col-span-4 row-span-4 xl:row-span-4">
           <OrderForm marketId={marketId} />
         </div>
 
-        <div className="col-span-12 xl:col-span-3 row-span-3 xl:row-span-3 flex flex-col gap-2">
+        <div className="col-span-12 xl:col-span-3 row-span-4 xl:row-span-4 flex flex-col gap-2">
            <Balances marketId={marketId} />
-           <OpenOrdersPanel marketId={marketId} />
+           <UserTrades marketId={marketId} />
         </div>
       </div>
     </div>

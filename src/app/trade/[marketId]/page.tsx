@@ -1,10 +1,11 @@
 // src/app/trade/[marketId]/page.tsx
 import React from "react";
-import ProTradingLayout from "@/components/trade/pro-trading-layout";
+import ProTradingLayout from "@/components/trade/trading-layout";
 
-export default function Page({ params }: { params: { marketId: string } }) {
-  // Next.js 15: params may be a Promise — but in app router page it's okay
-  const pair = (params?.marketId ?? "BTC-USDT") as string;
+export default function Page({ params }: { params: any }) {
+  // Next 15: unwrap params with React.use()
+  const resolvedParams = React.use(params) as { marketId?: string } | undefined;
+  const pair = (resolvedParams?.marketId ?? "BTC-USDT") as string;
 
   return <ProTradingLayout marketId={pair} />;
 }

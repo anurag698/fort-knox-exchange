@@ -37,16 +37,15 @@ export function PopularCoins() {
   const isLoading = marketsLoading || !markets || markets.length === 0;
 
   useEffect(() => {
-    if (displayMarkets.length === 0) return;
+    if (!displayMarkets || displayMarkets.length === 0) return;
 
-    // We can connect to just one of the popular markets to get some live data feel,
-    // without overwhelming the connection limit. Or none at all. Let's connect to the first one.
-    const firstMarketSymbol = displayMarkets[0].id;
-    const marketDataService = MarketDataService.get(firstMarketSymbol);
-    marketDataService.connect();
+    const symbol = displayMarkets[0].id;
+    const marketDataService = MarketDataService.get(symbol, "1m");
+
+    marketDataService.start();
 
     return () => {
-        marketDataService.disconnect();
+        MarketDataService.stop(symbol, "1m");
     };
   }, [displayMarkets]);
 

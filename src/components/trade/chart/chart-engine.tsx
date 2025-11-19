@@ -119,6 +119,23 @@ const ChartEngine = forwardRef<any, ChartEngineProps>(({
     active: false,
   });
 
+  // animation/fills refs
+  const fillsRef = useRef<
+    {
+      id: string;
+      price: number;
+      side: "buy" | "sell";
+      targetSize: number;     // total order size
+      filled: number;         // amount already filled (animated)
+      backendFilled: number;  // amount reported by backend so far
+      startTime: number;      // timestamp when animation started
+      duration: number;       // animation duration for this fill chunk (ms)
+      color: string;
+      completed?: boolean;
+    }[]
+  >([]);
+  const fillAnimationFrame = useRef<number | null>(null);
+
 
   useImperativeHandle(ref, () => ({
       addTP: (price: number, size: number) => addTP(price, size),
@@ -204,19 +221,50 @@ const ChartEngine = forwardRef<any, ChartEngineProps>(({
   }
 
   function renderTpSlLines() {
+    if (!chartRef.current) return;
     const chart = chartRef.current;
-    if (!chart) return;
-
-    if ((chart as any).removeAllPriceLines) {
-        (chart as any).removeAllPriceLines();
-    }
-    
-    renderMultiEntryLines();
-    renderAllTPs(); // Render multiple TP targets
 
     const { tp, sl } = tpSlRef.current;
-    if (tp) chart.createPriceLine({ price: tp, color: "#00ffbf", lineWidth: 2, lineStyle: 0, axisLabelVisible: true, title: `TP ${tp.toFixed(2)}` });
-    if (sl) chart.createPriceLine({ price: sl, color: "#ff4668", lineWidth: 2, lineStyle: 0, axisLabelVisible: true, title: `SL ${sl.toFixed(2)}` });
+
+    // Clear old lines if any - This is handled by renderOrderLines now
+    // chart.removeAllPriceLines?.();
+
+    // Re-render entry
+    const pos = positionRef.current;
+    if (pos.entry) {
+      chart.createPriceLine({
+        price: pos.entry,
+        color: pos.side === "long" ? "#4ea3f1" : "#ff4668",
+        lineWidth: 2,
+        lineStyle: 2,
+        axisLabelVisible: true,
+        title: `Entry ${pos.entry.toFixed(2)} (${pos.size} BTC)`,
+      });
+    }
+
+    // Take Profit
+    if (tp) {
+      chart.createPriceLine({
+        price: tp,
+        color: "#00ffbf",
+        lineWidth: 2,
+        lineStyle: 0,
+        axisLabelVisible: true,
+        title: `TP ${tp.toFixed(2)}`,
+      });
+    }
+
+    // Stop Loss
+    if (sl) {
+      chart.createPriceLine({
+        price: sl,
+        color: "#ff4668",
+        lineWidth: 2,
+        lineStyle: 0,
+        axisLabelVisible: true,
+        title: `SL ${sl.toFixed(2)}`,
+      });
+    }
   }
 
   function renderLiquidationLine() {
@@ -240,7 +288,7 @@ const ChartEngine = forwardRef<any, ChartEngineProps>(({
   
     renderMultiEntryLines();
     renderAllTPs();
-    renderTpSlLines(); // This will now handle the single TP/SL
+    renderTpSlLines();
     renderLiquidationLine();
     renderBracketLines();
   
@@ -266,7 +314,7 @@ const ChartEngine = forwardRef<any, ChartEngineProps>(({
     const chart = chartRef.current;
     const { entry, tp, sl, active } = bracketRef.current;
 
-    // We call removeAllPriceLines in a higher-level render function now
+    // This is now handled by renderOrderLines
     // chart.removeAllPriceLines?.();
 
     if (!active || !entry) return;
@@ -302,12 +350,24 @@ const ChartEngine = forwardRef<any, ChartEngineProps>(({
     }
   }
 
-
   function pushTradeMarker(trade: { p: number; T: number; m: boolean; v: number }) {
     if (!candleSeriesRef.current) return;
-    const marker = { time: Math.floor(trade.T / 1000), position: trade.m ? 'aboveBar' : 'belowBar', shape: trade.m ? 'arrowDown' : 'arrowUp', color: trade.m ? '#ff4668' : '#00ffbf', text: `${trade.v}`, size: 2 };
+    
+    const isSell = trade.m;
+    const marker = {
+      time: Math.floor(trade.T / 1000),
+      position: isSell ? 'aboveBar' : 'belowBar',
+      shape: isSell ? 'arrowDown' : 'arrowUp',
+      color: isSell ? '#ff4668' : '#00ffbf',
+      text: `${trade.v}`,
+      size: 2,
+    };
+
     tradeMarkersRef.current.push(marker);
-    if (tradeMarkersRef.current.length > 300) tradeMarkersRef.current.splice(0, tradeMarkersRef.current.length - 300);
+
+    if (tradeMarkersRef.current.length > 300) {
+      tradeMarkersRef.current.splice(0, tradeMarkersRef.current.length - 300);
+    }
     candleSeriesRef.current.setMarkers([...tradeMarkersRef.current]);
   }
 
@@ -326,11 +386,15 @@ const ChartEngine = forwardRef<any, ChartEngineProps>(({
     if (!canvas || !container || !chartRef.current) return;
     const ctx = canvas.getContext("2d");
     if(!ctx) return;
+    
+    // Defer clearing to a master draw function to avoid flicker
+    // const rect = container.getBoundingClientRect();
+    // canvas.width = rect.width * devicePixelRatio;
+    // canvas.height = rect.height * devicePixelRatio;
+    // ctx.setTransform(devicePixelRatio, 0, 0, devicePixelRatio, 0, 0);
+    // ctx.clearRect(0, 0, rect.width, rect.height);
     const rect = container.getBoundingClientRect();
-    canvas.width = rect.width * devicePixelRatio;
-    canvas.height = rect.height * devicePixelRatio;
-    ctx.setTransform(devicePixelRatio, 0, 0, devicePixelRatio, 0, 0);
-    ctx.clearRect(0, 0, rect.width, rect.height);
+
     const chart = chartRef.current;
     const priceToY = (p: number) => chart.priceScale("right").priceToCoordinate(p) ?? 0;
     const yEntry = priceToY(entry);
@@ -344,17 +408,15 @@ const ChartEngine = forwardRef<any, ChartEngineProps>(({
 
   function drawLiquidationZone(currentPrice: number) {
     const liq = liquidationRef.current.price;
-    if (!liq || !depthCanvasRef.current || !containerRef.current) return;
-    const chart = chartRef.current;
     const canvas = depthCanvasRef.current;
     const container = containerRef.current;
+    if (!liq || !canvas || !container || !chartRef.current) return;
+
     const ctx = canvas.getContext("2d");
     if(!ctx) return;
     const rect = container.getBoundingClientRect();
-    canvas.width = rect.width * devicePixelRatio;
-    canvas.height = rect.height * devicePixelRatio;
-    ctx.setTransform(devicePixelRatio, 0, 0, devicePixelRatio, 0, 0);
-    ctx.clearRect(0, 0, rect.width, rect.height);
+
+    const chart = chartRef.current;
     const yLiq = chart.priceScale("right").priceToCoordinate(liq);
     const yCur = chart.priceScale("right").priceToCoordinate(currentPrice);
     if (!yLiq || !yCur) return;
@@ -367,12 +429,40 @@ const ChartEngine = forwardRef<any, ChartEngineProps>(({
     ctx.fillRect(0, y, rect.width, h);
   }
 
+  function drawOverlays(lastPrice: number) {
+    const canvas = depthCanvasRef.current;
+    const container = containerRef.current;
+    if (!canvas || !container) return;
+    const ctx = canvas.getContext("2d");
+    if(!ctx) return;
+
+    const rect = container.getBoundingClientRect();
+    canvas.width = rect.width * devicePixelRatio;
+    canvas.height = rect.height * devicePixelRatio;
+    ctx.setTransform(devicePixelRatio, 0, 0, devicePixelRatio, 0, 0);
+    ctx.clearRect(0, 0, rect.width, rect.height);
+    
+    // Draw PnL Zone if applicable
+    const entry = blendedEntry();
+    if (entry) {
+        drawPnLZone(entry, lastPrice, positionRef.current.side);
+    }
+    
+    // Draw Liquidation Zone
+    drawLiquidationZone(lastPrice);
+
+    // Draw Fills
+    drawOrderFillsOverlay();
+  }
+
   function renderPositionOverlay(lastPrice: number) {
     const chart = chartRef.current;
     if (!chart || !candleSeriesRef.current) return;
-    const pos = positionRef.current;
+    
     const entry = blendedEntry();
     if (!entry) return;
+
+    const pos = positionRef.current;
     const size = entriesRef.current.reduce((s, e) => s + e.size, 0);
     const diff = pos.side === "long" ? lastPrice - entry : entry - lastPrice;
     const pct = (diff / entry) * 100;
@@ -394,8 +484,133 @@ const ChartEngine = forwardRef<any, ChartEngineProps>(({
     });
 
     candleSeriesRef.current.setMarkers(markers);
-    drawPnLZone(entry, lastPrice, pos.side);
+    drawOverlays(lastPrice);
   }
+
+  function drawOrderFillsOverlay() {
+    const canvas = depthCanvasRef.current;
+    const container = containerRef.current;
+    const chart = chartRef.current;
+    if (!canvas || !container || !chart) return;
+  
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+  
+    const rect = container.getBoundingClientRect();
+    
+    fillsRef.current.forEach((f) => {
+      const y = candleSeriesRef.current?.priceToCoordinate(f.price);
+      if (y == null || Number.isNaN(y)) return;
+  
+      const barHeight = 8;
+      const barWidthMax = Math.min(rect.width * 0.5, 260);
+      const progress = Math.min(1, f.filled / Math.max(1, f.targetSize));
+      const width = progress * barWidthMax;
+  
+      const x = f.side === "buy" ? 8 : rect.width - 8 - width;
+      const barY = Math.round(y - barHeight / 2);
+  
+      ctx.fillStyle = "rgba(255,255,255,0.04)";
+      ctx.fillRect(f.side === "buy" ? 8 : rect.width - 8 - barWidthMax, barY, barWidthMax, barHeight);
+  
+      ctx.fillStyle = f.color || (f.side === "buy" ? "rgba(0,255,191,0.9)" : "rgba(255,70,104,0.9)");
+      ctx.fillRect(x, barY, width, barHeight);
+  
+      if (f.completed) {
+        ctx.strokeStyle = "rgba(255,255,255,0.08)";
+        ctx.lineWidth = 1;
+        ctx.strokeRect(x - 1, barY - 1, width + 2, barHeight + 2);
+      }
+  
+      ctx.font = "11px Inter, Arial";
+      ctx.textBaseline = "middle";
+      ctx.fillStyle = "rgba(255,255,255,0.95)";
+      const pctText = `${((progress) * 100).toFixed(1)}%`;
+      const volText = `${f.filled.toFixed(4)}/${f.targetSize.toFixed(4)}`;
+      const label = `${pctText} ${volText} @ ${f.price}`;
+      const labelX = f.side === "buy" ? x + width + 8 : x - ctx.measureText(label).width - 8;
+      ctx.fillText(label, Math.max(4, labelX), barY + barHeight / 2);
+    });
+  }
+
+  function animateFillsLoop() {
+    if (fillAnimationFrame.current) {
+      cancelAnimationFrame(fillAnimationFrame.current);
+      fillAnimationFrame.current = null;
+    }
+  
+    const tick = (time: number) => {
+      let needNext = false;
+      const now = performance.now();
+  
+      fillsRef.current.forEach((f) => {
+        if (f.completed) return;
+        const elapsed = now - f.startTime;
+        const ratio = Math.min(1, elapsed / Math.max(1, f.duration || 600));
+        const target = f.backendFilled;
+        const prev = f.filled;
+        const targetFilled = prev + (target - prev) * Math.min(0.6, ratio);
+        f.filled = Math.min(target, targetFilled);
+  
+        if (f.backendFilled >= f.targetSize && Math.abs(f.targetSize - f.filled) < 1e-8) {
+          f.completed = true;
+        }
+  
+        if (!f.completed) needNext = true;
+      });
+  
+      drawOverlays(lastPriceRef.current);
+  
+      if (needNext) {
+        fillAnimationFrame.current = requestAnimationFrame(tick);
+      } else {
+        fillAnimationFrame.current = null;
+      }
+    };
+  
+    fillAnimationFrame.current = requestAnimationFrame(tick);
+  }
+
+  function startFillAnimation(
+    orderId: string,
+    filledAmount: number,
+    targetSize: number,
+    side: "buy" | "sell",
+    price: number,
+    duration = 700
+  ) {
+    let f = fillsRef.current.find((x) => x.id === orderId);
+    if (!f) {
+      f = {
+        id: orderId,
+        price,
+        side,
+        targetSize,
+        filled: 0,
+        backendFilled: 0,
+        startTime: performance.now(),
+        duration,
+        color: side === "buy" ? "rgba(0,255,191,0.95)" : "rgba(255,70,104,0.95)",
+      };
+      fillsRef.current.push(f);
+    }
+  
+    f.backendFilled = Math.min(targetSize, filledAmount);
+    f.startTime = performance.now();
+    f.duration = duration;
+    f.completed = f.backendFilled >= targetSize;
+  
+    animateFillsLoop();
+  }
+  
+  useEffect(() => {
+    return () => {
+      if (fillAnimationFrame.current) {
+        cancelAnimationFrame(fillAnimationFrame.current);
+      }
+    };
+  }, []);
+
 
   useEffect(() => {
     if (!containerRef.current) return;
@@ -423,7 +638,7 @@ const ChartEngine = forwardRef<any, ChartEngineProps>(({
     let draggingTP: string | null = null;
     let draggingBracket: "entry" | "tp" | "sl" | null = null;
     
-    const handlePointerDown = (e: PointerEvent) => {
+    const onPointerDown = (e: PointerEvent) => {
         if (!containerRef.current) return;
         const rect = containerRef.current.getBoundingClientRect();
         const y = e.clientY - rect.top;
@@ -433,24 +648,23 @@ const ChartEngine = forwardRef<any, ChartEngineProps>(({
 
         if (!time || !price) return;
         
-        // SHIFT + drag to create bracket order
         if (e.shiftKey) {
             bracketRef.current.entry = price;
-            bracketRef.current.sl = price * 0.99; // 1% below
-            bracketRef.current.tp = price * 1.02; // 2% above
+            bracketRef.current.sl = price * 0.99;
+            bracketRef.current.tp = price * 1.02;
             bracketRef.current.active = true;
             renderBracketLines();
             return;
         }
-        
-        const { tp, sl } = tpSlRef.current;
-        const priceToY = (p: number | null) => p ? candleSeriesRef.current!.priceToCoordinate(p) : null;
-        if (bracketRef.current.active) {
-            if (bracketRef.current.entry && Math.abs(priceToY(bracketRef.current.entry)! - y) < 8) draggingBracket = "entry";
-            if (bracketRef.current.tp && Math.abs(priceToY(bracketRef.current.tp)! - y) < 8) draggingBracket = "tp";
-            if (bracketRef.current.sl && Math.abs(priceToY(bracketRef.current.sl)! - y) < 8) draggingBracket = "sl";
-        }
 
+        const priceToY = (p: number | null) => p ? candleSeriesRef.current!.priceToCoordinate(p) : null;
+        
+        if (bracketRef.current.active) {
+            const { entry, tp, sl } = bracketRef.current;
+            if (entry && Math.abs(priceToY(entry)! - y) < 8) draggingBracket = "entry";
+            if (tp && Math.abs(priceToY(tp)! - y) < 8) draggingBracket = "tp";
+            if (sl && Math.abs(priceToY(sl)! - y) < 8) draggingBracket = "sl";
+        }
 
         const tool = getDrawingTool();
         if (tool !== "none") {
@@ -459,9 +673,17 @@ const ChartEngine = forwardRef<any, ChartEngineProps>(({
             const last = lastPriceRef.current;
             const side = price < last ? "buy" : "sell";
             const id = "O" + Math.floor(Math.random() * 999999);
-            pendingOrdersRef.current.push({ id, price, size: 0.1, side });
+            const size = 0.1;
+            pendingOrdersRef.current.push({ id, price, size, side });
             renderOrderLines();
+            
+            // MOCK FILL ANIMATION
+            setTimeout(() => startFillAnimation(id, size * 0.25, size, side, price), 500);
+            setTimeout(() => startFillAnimation(id, size * 0.6, size, side, price), 1200);
+            setTimeout(() => startFillAnimation(id, size * 1.0, size, side, price), 2200);
+            
         } else {
+            const { tp, sl } = tpSlRef.current;
             const tpY = tp ? priceToY(tp) : null;
             const slY = sl ? priceToY(sl) : null;
             if (tpY && Math.abs(tpY - y) < 8) draggingTp = true;
@@ -478,18 +700,13 @@ const ChartEngine = forwardRef<any, ChartEngineProps>(({
         }
     };
     
-    const handlePointerUp = (e: PointerEvent) => {
-        if (draggingBracket) {
-            draggingBracket = null;
-            return;
-        }
-      if(draggingTp || draggingSl || draggingTP || draggingOrderId) {
-        draggingTp = false;
-        draggingSl = false;
-        draggingTP = null;
-        draggingOrderId = null;
-        return;
-      }
+    const onPointerUp = (e: PointerEvent) => {
+      draggingBracket = null;
+      draggingTp = false;
+      draggingSl = false;
+      draggingTP = null;
+      draggingOrderId = null;
+
       if (!startPoint) return;
       const tool = getDrawingTool();
       const chart = chartRef.current;
@@ -518,9 +735,11 @@ const ChartEngine = forwardRef<any, ChartEngineProps>(({
                 bracketRef.current.entry = price;
                 bracketRef.current.tp! += delta;
                 bracketRef.current.sl! += delta;
+            } else if (draggingBracket === "tp") {
+                bracketRef.current.tp = price;
+            } else if (draggingBracket === "sl") {
+                bracketRef.current.sl = price;
             }
-            if (draggingBracket === "tp") bracketRef.current.tp = price;
-            if (draggingBracket === "sl") bracketRef.current.sl = price;
             renderBracketLines();
             return;
         }
@@ -542,6 +761,7 @@ const ChartEngine = forwardRef<any, ChartEngineProps>(({
 
     const onContextMenu = (e: MouseEvent) => {
         e.preventDefault();
+        
         if (bracketRef.current.active) {
             bracketRef.current.active = false;
             renderBracketLines();
@@ -560,8 +780,8 @@ const ChartEngine = forwardRef<any, ChartEngineProps>(({
     };
 
     const el = containerRef.current;
-    el.addEventListener("pointerdown", handlePointerDown);
-    el.addEventListener("pointerup", handlePointerUp);
+    el.addEventListener("pointerdown", onPointerDown);
+    el.addEventListener("pointerup", onPointerUp);
     el.addEventListener("pointermove", onPointerMove);
     el.addEventListener("contextmenu", onContextMenu);
 
@@ -572,8 +792,8 @@ const ChartEngine = forwardRef<any, ChartEngineProps>(({
 
     return () => {
       obs.disconnect();
-      el.removeEventListener("pointerdown", handlePointerDown);
-      el.removeEventListener("pointerup", handlePointerUp);
+      el.removeEventListener("pointerdown", onPointerDown);
+      el.removeEventListener("pointerup", onPointerUp);
       el.removeEventListener("pointermove", onPointerMove);
       el.removeEventListener("contextmenu", onContextMenu);
       chart.remove();
@@ -625,16 +845,16 @@ const ChartEngine = forwardRef<any, ChartEngineProps>(({
           candleSeriesRef.current?.update(last);
           lastPriceRef.current = last.close;
           volumeSeriesRef.current?.update({ time: last.time, value: Number(c.v), color: last.close >= last.open ? "#26a69a" : "#ef5350" });
+          
           renderOrderLines();
           if (bracketRef.current.active) {
             renderBracketLines();
           }
+          drawOverlays(last.close);
           renderPositionOverlay(last.close);
-          renderLiquidationLine();
-          drawLiquidationZone(last.close);
         }
         if (msg.c?.includes("deal.v3.api")) {
-          if (Array.isArray(msg.d.deals)) {
+          if (Array.isArray(msg.d?.deals)) {
             msg.d.deals.forEach((t: any) => pushTradeMarker({ p: Number(t.p), T: Number(t.t), m: t.S === 2, v: Number(t.v) }));
           }
         }
@@ -648,3 +868,5 @@ const ChartEngine = forwardRef<any, ChartEngineProps>(({
 
 ChartEngine.displayName = "ChartEngine";
 export default ChartEngine;
+
+    

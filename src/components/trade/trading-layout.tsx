@@ -4,9 +4,9 @@ import React from "react";
 import ThemeToggle from "@/components/theme/theme-toggle";
 
 // Panels (placeholders for now, will be built in later parts)
-import MarketListSidebar from "@/components/trade/markets/market-list-sidebar";
+import MarketListSidebar from "@/components/trade/markets/markets-sidebar";
 import TradingChart from "@/components/trade/chart/trading-chart-container";
-import OrderForm from "@/components/trade/orders/order-form";
+import OrderForm from "@/components/trade/orderform/order-form";
 import OrderbookPanel from "@/components/trade/orderbook/orderbook-panel";
 import TradesPanel from "@/components/trade/trades/trades-panel";
 import { useUser } from "@/firebase";
@@ -68,7 +68,7 @@ export default function ProTradingLayout({ marketId }: { marketId: string }) {
           {/* BOTTOM PANELS — ORDERBOOK + TRADES */}
           <div className="h-[280px] flex border-t border-border bg-card">
             <div className="w-1/2 border-r border-border">
-              <OrderbookPanel pair={marketId} />
+              <OrderbookPanel />
             </div>
             <div className="w-1/2">
               <TradesPanel />

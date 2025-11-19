@@ -54,6 +54,17 @@ export function OrderForm({ selectedPrice, marketId }: { selectedPrice?: number;
   useEffect(() => { buyForm.setValue('type', orderType); sellForm.setValue('type', orderType); }, [orderType, buyForm, sellForm]);
   useEffect(() => { if (selectedPrice) { buyForm.setValue('price', selectedPrice); sellForm.setValue('price', selectedPrice); } }, [selectedPrice, buyForm, sellForm]);
 
+  useEffect(() => {
+    if (marketOrderState.status === 'success') {
+      toast({ title: 'Success', description: marketOrderState.message });
+      buyForm.reset();
+      sellForm.reset();
+    } else if (marketOrderState.status === 'error') {
+      toast({ variant: 'destructive', title: 'Order Failed', description: marketOrderState.message });
+    }
+  }, [marketOrderState, toast, buyForm, sellForm]);
+
+
   const OrderTabContent = ({ side }: { side: 'BUY' | 'SELL' }) => {
     const form = side === 'BUY' ? buyForm : sellForm;
     const { watch, control, handleSubmit, setValue } = form;
@@ -72,11 +83,7 @@ export function OrderForm({ selectedPrice, marketId }: { selectedPrice?: number;
 
     return (
       <Form {...form}>
-        <form action={marketOrderAction} className="mt-4 space-y-4">
-          <input type="hidden" {...form.register("userId")} value={user?.uid} />
-          <input type="hidden" {...form.register("marketId")} />
-          <input type="hidden" {...form.register("side")} />
-          <input type="hidden" {...form.register("type")} />
+        <form onSubmit={handleSubmit((data) => marketOrderAction(data as any))} className="mt-4 space-y-4">
           {orderType === 'LIMIT' && <FormField control={control} name="price" render={({ field }) => <FormItem><FormLabel>Price ({quoteAsset})</FormLabel><FormControl><Input placeholder="0.00" type="number" {...field} /></FormControl><FormMessage /></FormItem>} />}
           <FormField control={control} name="quantity" render={({ field }) => <FormItem><FormLabel>Amount ({baseAsset})</FormLabel><FormControl><Input placeholder="0.00" type="number" {...field} /></FormControl><FormMessage /></FormItem>} />
           <div className="flex justify-between gap-1">

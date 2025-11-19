@@ -1,3 +1,4 @@
+
 'use client';
 
 import { create } from 'zustand';
@@ -83,7 +84,7 @@ export const useMarketDataStore = create<MarketDataState>((set) => ({
     const processedAsks = detectWalls(asks);
     set({ bids: processedBids, asks: processedAsks });
   },
-  pushTrade: (trade) => set((state) => ({ trades: [...state.trades, trade].slice(-100) })),
+  pushTrade: (trade) => set((state) => ({ trades: [trade, ...state.trades].slice(-100) })),
   setConnected: (status) => set({ isConnected: status }),
   setError: (error) => set({ error }),
   setHoveredPrice: (price) => set({ hoveredPrice: price }),
@@ -148,13 +149,11 @@ export class MarketDataService {
       
       if (event.code === 1006) {
         useMarketDataStore.getState().setError("Connection failed. This may be due to development environment restrictions (e.g., Firebase Studio). Test in a standard browser window.");
-        // Do not auto-reconnect on 1006 as it will likely fail repeatedly in a sandbox
         return;
       }
       
-      // Don't auto-reconnect on normal close or if already handling it
       if (event.code !== 1000 && !this.reconnectTimer) {
-        this.reconnectTimer = setTimeout(() => this.connect(), 5000); // Reconnect after 5s
+        this.reconnectTimer = setTimeout(() => this.connect(), 5000);
       }
     };
   }
@@ -167,7 +166,7 @@ export class MarketDataService {
         `spot@public.bookTicker.v3.api@${this.symbol}`,
         `spot@public.deal.v3.api@${this.symbol}`,
         `spot@public.kline.v3.api@${this.symbol}@Min1`,
-        `spot@public.depth.v3.api@${this.symbol}`,
+        `spot@public.depth.v3.api@${this.symbol}@0`, // Corrected: Added @0 for full depth
       ],
       id: 1,
     };
@@ -177,32 +176,33 @@ export class MarketDataService {
   private handleMessage(rawMessage: string) {
     const message = JSON.parse(rawMessage);
 
-    if (message.c) {
-      if (message.c.includes('spot@public.bookTicker.v3.api')) {
-        const d = message.d;
-        // Adapt to the old TickerData structure for now
-        const adaptedTicker = {
-          c: d.askPrice,
-          P: '0.0',
-          h: '0',
-          l: '0',
-          v: '0',
-          s: d.symbol
-        };
-        useMarketDataStore.getState().setTicker(adaptedTicker);
-      } else if (message.c.includes('spot@public.deal.v3.api')) {
-        const d = message.d;
-        if(d?.d?.length) { // trades come in an array
-            d.d.forEach((trade: any) => {
-                const adaptedTrade = { p: trade.p, q: trade.v, T: trade.t, m: trade.S === 'sell' };
-                useMarketDataStore.getState().pushTrade(adaptedTrade);
-            });
+    if (message.c) { // Channel-based message
+        if (message.c.includes('spot@public.bookTicker.v3.api')) {
+            const d = message.d;
+            // Adapt to the old TickerData structure for now
+            const adaptedTicker = {
+                c: d.askPrice, // Using askPrice as the main price 'c'
+                P: '0.0', // MEXC doesn't provide % change in this stream
+                h: '0',     // Not available in this stream
+                l: '0',     // Not available in this stream
+                v: '0',     // Not available in this stream
+                s: d.symbol
+            };
+            useMarketDataStore.getState().setTicker(adaptedTicker);
+
+        } else if (message.c.includes('spot@public.deal.v3.api')) {
+            // Corrected: MEXC sends an array directly in `d`
+            if (Array.isArray(message.d)) {
+                message.d.forEach((trade: any) => {
+                    const adaptedTrade = { p: trade.p, q: trade.v, T: trade.t, m: trade.S === 'sell' };
+                    useMarketDataStore.getState().pushTrade(adaptedTrade);
+                });
+            }
+        } else if (message.c.includes('spot@public.depth.v3.api')) {
+            if (message.d?.bids && message.d?.asks) {
+                useMarketDataStore.getState().setDepth(message.d.bids, message.d.asks);
+            }
         }
-      } else if (message.c.includes('spot@public.depth.v3.api')) {
-          if (message.d?.bids && message.d?.asks) {
-              useMarketDataStore.getState().setDepth(message.d.bids, message.d.asks);
-          }
-      }
     }
   }
 
@@ -217,10 +217,9 @@ export class MarketDataService {
     }
     useMarketDataStore.getState().setConnected(false);
   }
-
+  
    public subscribeToTickers(symbols: string[]) {
     // This is now handled by the main `connect` method per-market
-    // but we can leave a stub here for components that might use it
   }
 
   public unsubscribeFromTickers(symbols: string[]) {

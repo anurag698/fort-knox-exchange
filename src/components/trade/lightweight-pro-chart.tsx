@@ -224,6 +224,7 @@ export default function LightweightProChart({
             isNaN(range.from) ||
             isNaN(range.to)
         ) {
+            tooltip.style.display = 'none';
             return; 
         }
         

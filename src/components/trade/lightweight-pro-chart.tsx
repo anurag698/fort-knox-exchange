@@ -174,78 +174,7 @@ export default function LightweightProChart({
   useEffect(() => {
     loadHistory();
   }, [loadHistory]);
-
-  // =========================
-  // 3. REAL-TIME KLINE (MEXC)
-  // =========================
-  const mapInterval = (i: string) => {
-    switch (i) {
-      case "1m": return "Min1";
-      case "5m": return "Min5";
-      case "15m": return "Min15";
-      case "1h": return "Hour1";
-      case "4h": return "Hour4";
-      case "1d": return "Day1";
-      default: return "Min1";
-    }
-  };
-
-  useEffect(() => {
-    const symbol = pair.replace("-", "").toUpperCase();
-    const mxint = mapInterval(interval);
-
-    const ws = new WebSocket("wss://wbs.mexc.com/ws");
-    wsRef.current = ws;
-
-    ws.onopen = () => {
-      setConnected(true);
-
-      ws.send(
-        JSON.stringify({
-          method: "SUBSCRIPTION",
-          params: [`spot@public.kline.v3.api@${symbol}@${mxint}`],
-          id: 1,
-        })
-      );
-    };
-
-    ws.onerror = (err) => console.log("WS ERROR (Studio sandbox)", err);
-
-    ws.onclose = () => setConnected(false);
-
-    ws.onmessage = (ev) => {
-      try {
-        const msg: MEXCKlineMsg = JSON.parse(ev.data);
-        if (!msg.c?.includes("kline.v3.api")) return;
-
-        const d = msg.d;
-        const lc = {
-          time: Math.floor(d.ts / 1000) as any,
-          open: parseFloat(d.o),
-          high: parseFloat(d.h),
-          low: parseFloat(d.l),
-          close: parseFloat(d.c),
-        };
-
-        const vol = parseFloat(d.v);
-
-        if (throttleRef.current) return;
-        throttleRef.current = window.setTimeout(() => {
-          throttleRef.current = null;
-
-          candleSeriesRef.current?.update(lc);
-          volumeSeriesRef.current?.update({
-            time: lc.time,
-            value: vol,
-            color: lc.close >= lc.open ? "#26a69a" : "#ef5350",
-          });
-        }, 50);
-      } catch (err) {}
-    };
-
-    return () => ws.close();
-  }, [pair, interval]);
-
+  
   // =========================
   // 4. DEPTH HEATMAP
   // =========================
@@ -305,31 +234,98 @@ export default function LightweightProChart({
     []
   );
 
-  // Subscribe to depth
+  // =========================
+  // 3. REAL-TIME WEBSOCKET (MEXC)
+  // =========================
+  const mapInterval = (i: string) => {
+    switch (i) {
+      case "1m": return "Min1";
+      case "5m": return "Min5";
+      case "15m": return "Min15";
+      case "1h": return "Hour1";
+      case "4h": return "Hour4";
+      case "1d": return "Day1";
+      default: return "Min1";
+    }
+  };
+  
   useEffect(() => {
-    if (!wsRef.current) return;
-
     const symbol = pair.replace("-", "").toUpperCase();
-    wsRef.current.send(
-      JSON.stringify({
-        method: "SUBSCRIPTION",
-        params: [`spot@public.depth.v3.api@${symbol}@0`],
-        id: 2,
-      })
-    );
+    const mxint = mapInterval(interval);
 
-    wsRef.current.onmessage = (ev) => {
+    // Close existing connection if any
+    if (wsRef.current) {
+        wsRef.current.close();
+    }
+
+    const ws = new WebSocket("wss://wbs.mexc.com/ws");
+    wsRef.current = ws;
+
+    const subscribe = () => {
+        ws.send(JSON.stringify({
+            method: "SUBSCRIPTION",
+            params: [
+                `spot@public.kline.v3.api@${symbol}@${mxint}`,
+                `spot@public.depth.v3.api@${symbol}@0`
+            ],
+            id: 1,
+        }));
+    };
+
+    ws.onopen = () => {
+        setConnected(true);
+        subscribe();
+    };
+
+    ws.onmessage = (ev) => {
       try {
         const msg = JSON.parse(ev.data);
-        if (!msg.c?.includes("depth.v3.api")) return;
+        if (!msg.c) return;
 
-        const bids = msg.d.bids.map((b: any) => [parseFloat(b[0]), parseFloat(b[1])] as DepthTuple);
-        const asks = msg.d.asks.map((a: any) => [parseFloat(a[0]), parseFloat(a[1])] as DepthTuple);
+        // KLINE
+        if (msg.c.includes("kline.v3.api") && msg.d) {
+          const d = msg.d;
+          const lc = {
+            time: Math.floor(d.ts / 1000),
+            open: parseFloat(d.o),
+            high: parseFloat(d.h),
+            low: parseFloat(d.l),
+            close: parseFloat(d.c),
+          };
+          const vol = parseFloat(d.v);
 
-        drawDepth(bids, asks);
-      } catch (err) {}
+          if (throttleRef.current) return;
+          throttleRef.current = window.setTimeout(() => {
+            throttleRef.current = null;
+            candleSeriesRef.current?.update(lc);
+            volumeSeriesRef.current?.update({
+              time: lc.time, value: vol,
+              color: lc.close >= lc.open ? "#26a69a" : "#ef5350",
+            });
+          }, 50);
+        }
+
+        // DEPTH
+        if (msg.c.includes("depth.v3.api") && msg.d) {
+          const bids = msg.d.bids.map((b: any) => [parseFloat(b[0]), parseFloat(b[1])]);
+          const asks = msg.d.asks.map((a: any) => [parseFloat(a[0]), parseFloat(a[1])]);
+          drawDepth(bids, asks);
+        }
+      } catch (e) {
+        console.error("WS parse error", e);
+      }
     };
-  }, [pair, drawDepth]);
+    
+    ws.onerror = (err) => console.error("WS error", err);
+    ws.onclose = () => setConnected(false);
+
+    return () => {
+        if(ws.readyState === WebSocket.OPEN) {
+            ws.close();
+        }
+    };
+  }, [pair, interval, drawDepth]);
+
 
   // =========================
   // 5. DEPTH CANVAS MOUNT

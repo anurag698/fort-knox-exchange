@@ -1,30 +1,26 @@
 'use client';
 
-type Callback = (data: any) => void;
-type Listeners = Record<string, Callback[]>;
+type Handler = (...args: any[]) => any;
 
 class EventBus {
-  private listeners: Listeners = {};
-
-  on(event: string, callback: Callback) {
-    if (!this.listeners[event]) {
-      this.listeners[event] = [];
+  private map = new Map<string, Set<Handler>>();
+  on(event: string, fn: Handler) {
+    const s = this.map.get(event) || new Set();
+    s.add(fn);
+    this.map.set(event, s);
+  }
+  off(event: string, fn?: Handler) {
+    if (!fn) { this.map.delete(event); return; }
+    const s = this.map.get(event); if (!s) return;
+    s.delete(fn);
+  }
+  offSafe(event: string, fn?: Handler) { this.off(event, fn); }
+  emit(event: string, payload?: any) {
+    const s = this.map.get(event); if (!s) return;
+    for (const fn of Array.from(s)) {
+      try { fn(payload); } catch (e) { console.warn("bus handler failed", e); }
     }
-    this.listeners[event].push(callback);
-  }
-
-  off(event: string, callback: Callback) {
-    if (!this.listeners[event]) return;
-    this.listeners[event] = this.listeners[event].filter(
-      (cb) => cb !== callback
-    );
-  }
-
-  emit(event: string, data: any) {
-    if (!this.listeners[event]) return;
-    this.listeners[event].forEach((cb) => cb(data));
   }
 }
-
-// Export a singleton instance
 export const bus = new EventBus();
+export default bus;

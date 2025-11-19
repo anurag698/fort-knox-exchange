@@ -4,6 +4,7 @@ import ProHeader from "@/components/layout/pro-header";
 import { Toaster } from "@/components/ui/toaster";
 import { FirebaseClientProvider } from "@/firebase";
 import Script from "next/script";
+import FeedStatusWidget from "@/components/debug/FeedStatusWidget";
 
 export const metadata = {
   title: "Fort Knox Exchange",
@@ -66,6 +67,7 @@ export default function RootLayout({
               {children}
             </main>
             <Toaster />
+            {process.env.NODE_ENV === "development" && <FeedStatusWidget defaultSymbol="BTC-USDT" />}
           </FirebaseClientProvider>
         </ThemeProvider>
       </body>

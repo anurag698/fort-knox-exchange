@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState, useRef, useEffect } from "react";
@@ -26,7 +27,10 @@ export default function ProTradingLayout({ marketId }: { marketId: string }) {
   const chartRef = useRef<any>(null);
   
   useEffect(() => {
-    startMarketDataSubscriber();
+    if (typeof window !== "undefined") {
+      import("@/services/market-data-subscriber").then((m) => m.startMarketDataSubscriber());
+    }
+
     if (marketId) {
       const symbol = marketId.replace("-", "").toUpperCase();
       marketDataService.startFeed(symbol, "1m");

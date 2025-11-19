@@ -86,6 +86,7 @@ export interface Candle {
   l: number;
   c: number;
   v: number;
+  final?: boolean;
 }
 
 // Lightweight-Charts format
@@ -293,6 +294,27 @@ export class ChartEngineCore {
     this.eventBus.emit("candles-updated", c);
   }
 
+  getLastCandle(): Candle | null {
+    if (this.candles.length === 0) return null;
+    return this.candles[this.candles.length - 1];
+  }
+
+  applyRealtimeCandle(c: Candle, interval: Timeframe) {
+    if (this.mtf.primary !== interval) return; // Ignore updates for other timeframes
+
+    const last = this.getLastCandle();
+    
+    // If the new candle's timestamp matches the last one, update it.
+    if (last && c.t === last.t) {
+      this.candles[this.candles.length - 1] = c;
+    } else {
+      // Otherwise, it's a new candle.
+      this.candles.push(c);
+    }
+    this.eventBus.emit("candles-updated", this.candles);
+  }
+
+
   pushTrade(t: Trade) {
     this.trades.push(t);
     this.eventBus.emit("trade", t);
@@ -311,5 +333,9 @@ export class ChartEngineCore {
   updatePosition(p: SpotPosition | PerpPosition) {
     this.position = p;
     this.eventBus.emit("position", p);
+  }
+
+  destroy() {
+    // any cleanup logic
   }
 }

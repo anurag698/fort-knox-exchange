@@ -27,11 +27,11 @@ type Orderbook = { bids: [number, number][]; asks: [number, number][]; ts?: numb
 export default function LightweightProChart({
   pair = "BTC-USDT",
   interval = "1m",
-  wsUrl = "ws://localhost:8080",
+  wsUrl = "",
   candlesApi = (p: string, i: string, from: number, to: number) =>
     `/api/marketdata/candles?pair=${encodeURIComponent(p)}&interval=${encodeURIComponent(i)}&from=${from}&to=${to}`,
   onOrderbook,
-  height = 560,
+  height = 700,
 }: {
   pair?: string;
   interval?: string;
@@ -215,7 +215,7 @@ export default function LightweightProChart({
         }
 
         const range = chartRef.current.timeScale().getVisibleLogicalRange();
-        
+
         if (
             !range ||
             range.from == null ||
@@ -234,8 +234,13 @@ export default function LightweightProChart({
             return;
         };
 
+        if (!param?.seriesPrices || !candleSeriesRef.current) {
+            tooltip.style.display = 'none';
+            return;
+        }
+
         const price = param.seriesPrices.get(candleSeriesRef.current);
-        if (!price) {
+        if (price == null) {
             tooltip.style.display = 'none';
             return;
         }

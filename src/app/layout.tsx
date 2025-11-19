@@ -1,22 +1,20 @@
-import type { Metadata } from 'next';
-import './globals.css';
-import { Toaster } from '@/components/ui/toaster';
-import Header from '@/components/layout/header';
-import { FirebaseClientProvider } from '@/firebase';
-import Script from 'next/script';
-import { ThemeProvider } from '@/providers/theme-provider';
+import "./globals.css";
+import { ThemeProvider } from "@/providers/theme-provider";
+import ProHeader from "@/components/layout/pro-header";
+import { Toaster } from "@/components/ui/toaster";
+import { FirebaseClientProvider } from "@/firebase";
+import Script from "next/script";
 
-
-export const metadata: Metadata = {
-  title: 'Fort Knox Exchange',
-  description: 'A secure, modern crypto exchange.',
+export const metadata = {
+  title: "Fort Knox Exchange",
+  description: "A secure and modern cryptocurrency exchange.",
 };
 
 export default function RootLayout({
   children,
-}: Readonly<{
+}: {
   children: React.ReactNode;
-}>) {
+}) {
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
@@ -60,12 +58,15 @@ export default function RootLayout({
       <body>
         <ThemeProvider>
           <FirebaseClientProvider>
-            <Header />
-            <main className="container mx-auto px-4 py-8">
+            {/* GLOBAL HEADER */}
+            <ProHeader />
+
+            {/* PAGE CONTENT (with header spacing) */}
+            <main className="container mx-auto px-4 py-8 pt-24">
               {children}
             </main>
+            <Toaster />
           </FirebaseClientProvider>
-          <Toaster />
         </ThemeProvider>
       </body>
     </html>

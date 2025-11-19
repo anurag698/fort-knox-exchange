@@ -23,6 +23,7 @@ import { useRouter, usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 import type { UserProfile } from "@/lib/types";
 import WalletDrawer from '@/components/wallet/wallet-drawer';
+import NotificationsDrawer from "@/components/notifications/notifications-drawer";
 
 
 const mainLinks = [
@@ -116,6 +117,7 @@ export default function Header() {
          <Avatar className="h-9 w-9 animate-pulse bg-muted rounded-full" />
         ) : user ? (
         <>
+          <NotificationsDrawer />
           <WalletDrawer />
           <DropdownMenu>
             <DropdownMenuTrigger asChild>

@@ -1,90 +1,79 @@
-
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-body {
-  font-family: 'Inter', sans-serif;
+@import url('https://fonts.googleapis.com/css2?family=Sora:wght@300;400;600;700&family=Outfit:wght@300;400;500;600&display=swap');
+
+:root {
+  --font-sans: 'Outfit', sans-serif;
+
+  /* LIGHT MODE (default) */
+  --bg-primary: 220 20% 98%;
+  --bg-card: 0 0% 100%;
+  --text-primary: 220 20% 10%;
+  --text-secondary: 220 10% 40%;
+  --border-color: 220 13% 91%;
+
+  --brand-gold: 42 56% 54%;
+  --brand-gold-light: 42 65% 75%;
+  --brand-blue: 199 100% 56%;
+  --brand-blue-royal: 220 70% 35%;
+  
+  --background: var(--bg-primary);
+  --foreground: var(--text-primary);
+  --card: var(--bg-card);
+  --card-foreground: var(--text-primary);
+  --popover: var(--bg-card);
+  --popover-foreground: var(--text-primary);
+  --primary: var(--brand-blue-royal);
+  --primary-foreground: 0 0% 100%;
+  --secondary: 220 13% 91%;
+  --secondary-foreground: 220 20% 10%;
+  --muted: 220 13% 91%;
+  --muted-foreground: 220 10% 40%;
+  --accent: 220 13% 91%;
+  --accent-foreground: 220 20% 10%;
+  --destructive: 0 84% 60%;
+  --destructive-foreground: 0 0% 100%;
+  --border: var(--border-color);
+  --input: var(--border-color);
+  --ring: var(--brand-blue-royal);
+
+  --radius: 0.5rem;
 }
 
-html, body {
-  overflow-anchor: none !important;
+.dark {
+  /* DARK MODE */
+  --bg-primary: 222 47% 8%;
+  --bg-card: 222 47% 11%;
+  --text-primary: 210 40% 96%;
+  --text-secondary: 216 15% 65%;
+  --border-color: 222 30% 18%;
+
+  --background: var(--bg-primary);
+  --foreground: var(--text-primary);
+  --card: var(--bg-card);
+  --card-foreground: var(--text-primary);
+  --popover: var(--bg-card);
+  --popover-foreground: var(--text-primary);
+  --primary: var(--brand-blue);
+  --primary-foreground: 0 0% 100%;
+  --secondary: 222 30% 18%;
+  --secondary-foreground: 210 40% 96%;
+  --muted: 222 30% 18%;
+  --muted-foreground: 216 15% 65%;
+  --accent: var(--brand-gold);
+  --accent-foreground: 222 47% 8%;
+  --destructive: 0 63% 31%;
+  --destructive-foreground: 0 0% 100%;
+  --border: var(--border-color);
+  --input: var(--border-color);
+  --ring: var(--brand-blue);
 }
 
-.trade-area {
-  overflow-anchor: none;
-}
-
-@layer base {
-  :root {
-    --background: 240 10% 3.9%; /* Deep Blue - adjusted for dark theme */
-    --foreground: 210 40% 98%;
-    --card: 240 10% 3.9%;
-    --card-foreground: 210 40% 98%;
-    --popover: 240 10% 3.9%;
-    --popover-foreground: 210 40% 98%;
-    --primary: 180 100% 25%; /* Vibrant Teal */
-    --primary-foreground: 180 100% 95%;
-    --secondary: 217.2 32.6% 17.5%;
-    --secondary-foreground: 210 40% 98%;
-    --muted: 217.2 32.6% 17.5%;
-    --muted-foreground: 215 20.2% 65.1%;
-    --accent: 180 100% 25%; /* Vibrant Teal */
-    --accent-foreground: 180 100% 95%;
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 217.2 32.6% 17.5%;
-    --input: 217.2 32.6% 17.5%;
-    --ring: 180 100% 30%; /* Vibrant Teal */
-    --chart-1: 180 70% 40%;
-    --chart-2: 45 80% 55%;
-    --chart-3: 30 80% 55%;
-    --chart-4: 280 65% 60%;
-    --chart-5: 340 75% 55%;
-    --radius: 0.5rem;
-
-    /* Sidebar Dark Theme */
-    --sidebar-background: 240 10% 3.9%;
-    --sidebar-foreground: 210 40% 98%;
-    --sidebar-primary: 180 100% 30%; /* Vibrant Teal */
-    --sidebar-primary-foreground: 180 100% 95%;
-    --sidebar-accent: 217.2 32.6% 22.5%;
-    --sidebar-accent-foreground: 210 40% 98%;
-    --sidebar-border: 217.2 32.6% 17.5%;
-    --sidebar-ring: 180 100% 30%; /* Vibrant Teal */
-  }
-
-  .dark {
-    --background: 240 10% 3.9%; /* Deep Blue - adjusted for dark theme */
-    --foreground: 210 40% 98%;
-    --card: 240 10% 3.9%;
-    --card-foreground: 210 40% 98%;
-    --popover: 240 10% 3.9%;
-    --popover-foreground: 210 40% 98%;
-    --primary: 180 100% 25%; /* Vibrant Teal */
-    --primary-foreground: 180 100% 95%;
-    --secondary: 217.2 32.6% 17.5%;
-    --secondary-foreground: 210 40% 98%;
-    --muted: 217.2 32.6% 17.5%;
-    --muted-foreground: 215 20.2% 65.1%;
-    --accent: 180 100% 25%; /* Vibrant Teal */
-    --accent-foreground: 180 100% 95%;
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 217.2 32.6% 17.5%;
-    --input: 217.2 32.6% 17.5%;
-    --ring: 180 100% 30%; /* Vibrant Teal */
-    
-    /* Sidebar Dark Theme */
-    --sidebar-background: 240 10% 3.9%;
-    --sidebar-foreground: 210 40% 98%;
-    --sidebar-primary: 180 100% 30%; /* Vibrant Teal */
-    --sidebar-primary-foreground: 180 100% 95%;
-    --sidebar-accent: 217.2 32.6% 22.5%;
-    --sidebar-accent-foreground: 210 40% 98%;
-    --sidebar-border: 217.2 32.6% 17.5%;
-    --sidebar-ring: 180 100% 30%; /* Vibrant Teal */
-  }
+/* Smooth theme switching */
+* {
+  transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease;
 }
 
 @layer base {
@@ -93,71 +82,6 @@ html, body {
   }
   body {
     @apply bg-background text-foreground;
+    font-family: var(--font-sans), sans-serif;
   }
-}
-
-.flash-green {
-  animation: flashGreen 0.4s ease;
-}
-
-.flash-red {
-  animation: flashRed 0.4s ease;
-}
-
-@keyframes flashGreen {
-  0% { background-color: rgba(0, 255, 0, 0.3); }
-  100% { background-color: transparent; }
-}
-
-@keyframes flashRed {
-  0% { background-color: rgba(255, 0, 0, 0.3); }
-  100% { background-color: transparent; }
-}
-
-.swipe-slide {
-  transition: transform 0.25s ease-in-out;
-}
-
-.fullscreen-enter {
-  animation: fullscreenFade 0.15s ease-out;
-}
-
-@keyframes fullscreenFade {
-  from { opacity: 0; transform: scale(0.98); }
-  to { opacity: 1; transform: scale(1); }
-}
-
-/* Unified panel container style */
-.trading-panel {
-  @apply bg-zinc-900 border border-zinc-800 rounded-lg;
-}
-
-/* Unified panel header */
-.trading-panel-header {
-  @apply px-4 py-3 border-b border-zinc-800 text-white font-medium;
-}
-
-/* Unified panel body */
-.trading-panel-body {
-  @apply px-4 py-3 text-zinc-300;
-}
-
-@media (max-width: 768px) {
-  body {
-    font-size: 14px;
-  }
-  .trading-panel-header {
-    @apply px-3 py-2 text-sm;
-  }
-  .trading-panel-body {
-    @apply px-3 py-2;
-  }
-}
-
-.canvas-depth-wrapper {
-  height: 360px !important;
-  max-height: 360px !important;
-  overflow: hidden !important;
-  position: relative;
-  overflow-anchor: none;
 }

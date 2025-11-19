@@ -1,106 +1,121 @@
-
-"use client";
-
 import { create } from "zustand";
 import { bus } from "@/components/bus";
-import { RawOrder, ProcessedOrder, MarketData } from "@/lib/types";
 
-interface MarketDataState {
-  symbol: string;
-  isConnected: boolean;
-  error: string | null;
-  ticker: MarketData | null;
-  bids: RawOrder[];
-  asks: RawOrder[];
-  trades: any[];
+export interface Kline {
+  t: number;   // timestamp
+  o: number;
+  h: number;
+  l: number;
+  c: number;
+  v: number;
+  final?: boolean;
 }
 
-interface MarketDataActions {
-  setConnected: (status: boolean) => void;
-  setError: (error: string | null) => void;
-  pushTrade: (trade: any) => void;
-  setDepth: (bids: RawOrder[], asks: RawOrder[]) => void;
-  setTicker: (ticker: any) => void;
-  setSymbol: (symbol: string) => void;
+export interface DepthLevel {
+  price: number;
+  size: number;
 }
 
-export const useMarketDataStore = create<MarketDataState & MarketDataActions>((set) => ({
-  symbol: "BTC-USDT",
-  isConnected: false,
-  error: null,
-  ticker: null,
-  bids: [],
-  asks: [],
+export interface DepthData {
+  bids: DepthLevel[];
+  asks: DepthLevel[];
+  mid?: number;
+}
+
+export interface Trade {
+  p: number;   // price
+  q: number;   // quantity
+  S: "buy" | "sell"; // side
+  t: number;   // timestamp
+}
+
+export interface MarketState {
+  symbol: string;      // BTCUSDT
+  interval: string;    // 1m
+
+  // Real-time state
+  lastKline: Kline | null;
+  depth: DepthData | null;
+  trades: Trade[];
+  ticker: any | null;
+
+  // Setters
+  setSymbol: (s: string) => void;
+  setInterval: (i: string) => void;
+
+  // Stream controllers
+  pushKline: (k: Kline) => void;
+  pushDepth: (d: DepthData) => void;
+  pushTrade: (t: Trade) => void;
+  pushTicker: (t: any) => void;
+
+  clearTrades: () => void;
+}
+
+export const useMarketDataStore = create<MarketState>((set, get) => ({
+  symbol: "BTCUSDT",
+  interval: "1m",
+
+  lastKline: null,
+  depth: null,
   trades: [],
-  
-  setConnected: (status) => set({ isConnected: status }),
-  setError: (error) => set({ error }),
-  pushTrade: (trade) => set((state) => ({
-      trades: [trade, ...state.trades].slice(0, 100),
-  })),
-  setDepth: (bids, asks) => set({ bids, asks }),
-  setTicker: (ticker) => set({ ticker }),
-  setSymbol: (symbol) => set({ symbol }),
+  ticker: null,
+
+  setSymbol: (symbol) =>
+    set({
+      symbol,
+      trades: [],
+      depth: null,
+      lastKline: null,
+    }),
+
+  setInterval: (interval) =>
+    set({
+      interval,
+      lastKline: null,
+    }),
+
+  // -----------------------------
+  //  LIVE KLINE
+  // -----------------------------
+  pushKline: (k) => {
+    set({ lastKline: k });
+
+    // Forward to event bus for chart overlays, indicators, drawings
+    bus.emit("kline", k);
+  },
+
+  // -----------------------------
+  //  DEPTH
+  // -----------------------------
+  pushDepth: (d) => {
+    set({ depth: d });
+
+    bus.emit("depth", d);
+  },
+
+  // -----------------------------
+  //  TRADE FEED
+  // -----------------------------
+  pushTrade: (t) => {
+    const list = get().trades;
+
+    const newList =
+      list.length < 50 ? [...list, t] : [...list.slice(1), t];
+
+    set({ trades: newList });
+
+    bus.emit("trade", t);
+  },
+
+  // -----------------------------
+  //  TICKER / PNL FEED
+  // -----------------------------
+  pushTicker: (t) => {
+    set({ ticker: t });
+
+    bus.emit("ticker", t);
+  },
+
+  clearTrades: () => set({ trades: [] }),
 }));
-
-// Listen to global bus events and update the store
-bus.on("ticker", (data) => {
-  const ticker = {
-    id: data.s,
-    price: parseFloat(data.a || data.askPrice || data.c),
-    priceChangePercent: parseFloat(data.P),
-    high: parseFloat(data.h),
-    low: parseFloat(data.l),
-    volume: parseFloat(data.v),
-    marketCap: 0,
-    lastUpdated: new Date()
-  };
-  useMarketDataStore.getState().setTicker(ticker);
-});
-
-bus.on("depth", (data) => {
-  if (data?.bids && data?.asks) {
-    useMarketDataStore.getState().setDepth(data.bids, data.asks);
-  }
-});
-
-bus.on("trade", (data) => {
-  const trade = {
-    price: parseFloat(data.p),
-    quantity: parseFloat(data.v),
-    timestamp: data.t,
-    side: data.S === "buy" ? "BUY" : "SELL",
-  };
-  useMarketDataStore.getState().pushTrade(trade);
-});
-
-bus.on("kline", (candle) => {
-  // The chart engine consumes kline events directly.
-  // We can update the ticker here as a fallback if the dedicated ticker stream fails.
-  const state = useMarketDataStore.getState();
-  if (!state.ticker || state.ticker.id === candle.s) {
-    useMarketDataStore.getState().setTicker({
-      ...state.ticker,
-      id: candle.s,
-      price: candle.c,
-      priceChangePercent: state.ticker?.priceChangePercent || 0,
-      high: Math.max(state.ticker?.high || 0, candle.h),
-      low: Math.min(state.ticker?.low || Infinity, candle.l),
-      volume: (state.ticker?.volume || 0) + candle.v,
-      lastUpdated: new Date(candle.t),
-    });
-  }
-});
-
-bus.on("market-feed:status", (data: any) => {
-    if (data.status === 'offline') {
-        useMarketDataStore.getState().setConnected(false);
-    } else {
-        useMarketDataStore.getState().setConnected(true);
-    }
-     if (data.error) {
-        useMarketDataStore.getState().setError(data.error);
-    } else {
-        useMarketDataStore.getState().setError(null);
-    }
-});

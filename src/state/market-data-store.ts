@@ -1,6 +1,6 @@
 
 import { create } from "zustand";
-import { bus } from "@/components/event-bus";
+import { bus } from "@/components/bus";
 import { RawOrder } from "@/lib/types";
 
 interface MarketDataState {
@@ -16,6 +16,7 @@ interface MarketDataState {
   setError: (error: string | null) => void;
   pushTrade: (trade: any) => void;
   setDepth: (bids: RawOrder[], asks: RawOrder[]) => void;
+  setTicker: (ticker: any) => void;
 }
 
 export const useMarketDataStore = create<MarketDataState>((set) => ({
@@ -33,6 +34,7 @@ export const useMarketDataStore = create<MarketDataState>((set) => ({
       trades: [trade, ...state.trades].slice(0, 100),
   })),
   setDepth: (bids, asks) => set({ bids, asks }),
+  setTicker: (ticker) => set({ ticker }),
 }));
 
 // Listen to global bus events and update the store
@@ -45,7 +47,7 @@ bus.on("ticker", (data) => {
     low: parseFloat(data.l),
     volume: parseFloat(data.v),
   };
-  useMarketDataStore.setState({ ticker });
+  useMarketDataStore.getState().setTicker(ticker);
 });
 
 bus.on("depth", (data) => {

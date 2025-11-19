@@ -1,29 +1,14 @@
 "use client";
 
-import { bus } from "@/components/event-bus";
+import { bus } from "@/components/bus";
 
-// -----------------------------
-// Types
-// -----------------------------
-export interface DepthLevel {
-  price: number;
-  size: number;
-}
+/**
+ * Market Data Service for Fort Knox Exchange
+ * MEXC Socket → Event Bus → Zustand Store / Chart Engine
+ */
 
-export interface KlineMessage {
-  t: number;
-  o: number;
-  h: number;
-  l: number;
-  c: number;
-  v: number;
-}
-
-// -----------------------------
-// MarketDataService
-// -----------------------------
 class MarketDataService {
-  private static services = new Map<string, MarketDataService>();
+  private static instances: Map<string, MarketDataService> = new Map();
 
   private symbol: string;
   private ws: WebSocket | null = null;
@@ -33,14 +18,21 @@ class MarketDataService {
     this.symbol = symbol.toUpperCase().replace("-", "");
   }
 
+  // ----------------------------------------------------
+  // Static Getter
+  // ----------------------------------------------------
   static get(symbol: string): MarketDataService {
-    const key = symbol.toUpperCase();
-    if (!this.services.has(key)) {
-      this.services.set(key, new MarketDataService(symbol));
+    const key = symbol.toUpperCase().replace("-", "");
+
+    if (!this.instances.has(key)) {
+      this.instances.set(key, new MarketDataService(key));
     }
-    return this.services.get(key)!;
+    return this.instances.get(key)!;
   }
 
+  // ----------------------------------------------------
+  // Connect to MEXC
+  // ----------------------------------------------------
   connect() {
     if (this.ws) {
       try {
@@ -51,8 +43,8 @@ class MarketDataService {
 
     try {
       this.ws = new WebSocket("wss://wbs.mexc.com/ws");
-    } catch (e) {
-      console.error("WS creation failed", e);
+    } catch (err) {
+      console.error("WS creation failed:", err);
       return;
     }
 
@@ -78,24 +70,21 @@ class MarketDataService {
     this.ws.onmessage = (ev) => {
       try {
         const msg = JSON.parse(ev.data);
-
         if (!msg.c) return;
 
-        // TICKER
+        // -------- TICKER ----------
         if (msg.c.includes("bookTicker")) {
           bus.emit("ticker", msg.d);
         }
 
-        // TRADES
-        if (msg.c.includes("deal")) {
-          if (Array.isArray(msg.d.d)) {
-            for (const t of msg.d.d) {
-              bus.emit("trade", t);
-            }
-          }
+        // -------- TRADES ----------
+        if (msg.c.includes("deal") && Array.isArray(msg.d)) {
+          msg.d.forEach((trade: any) => {
+            bus.emit("trade", trade);
+          });
         }
 
-        // DEPTH
+        // -------- DEPTH ----------
         if (msg.c.includes("depth")) {
           bus.emit("depth", {
             bids: msg.d?.bids ?? [],
@@ -103,22 +92,21 @@ class MarketDataService {
           });
         }
 
-        // KLINE
-        if (msg.c.includes("kline")) {
-          const k = msg.d?.k;
-          if (k) bus.emit("kline", k);
+        // -------- KLINE ----------
+        if (msg.c.includes("kline") && msg.d?.kline) {
+          bus.emit("kline", msg.d.kline);
         }
-      } catch (e) {
-        console.error("WS parse error", e);
+      } catch (err) {
+        console.error("WS parse error", err);
       }
     };
 
-    this.ws.onerror = (ev) => {
-      console.error("WS error", ev);
+    this.ws.onerror = (err) => {
+      console.error("WS error", err);
     };
 
     this.ws.onclose = () => {
-      // Skip reconnect inside Firebase Studio sandbox
+      // Firebase Studio sandbox block – do not reconnect
       if (typeof window !== "undefined" && window.location.href.includes("firebase")) {
         return;
       }
@@ -138,4 +126,7 @@ class MarketDataService {
   }
 }
 
+// ----------------------------------------------------
+// EXPORT CORRECTLY
+// ----------------------------------------------------
 export { MarketDataService };

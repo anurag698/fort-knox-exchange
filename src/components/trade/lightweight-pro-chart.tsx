@@ -1,4 +1,3 @@
-
 // src/components/trade/lightweight-pro-chart.tsx
 "use client";
 
@@ -72,12 +71,13 @@ export default function LightweightProChart({
       },
       crosshair: { mode: CrosshairMode.Normal },
       rightPriceScale: { borderColor: "#0b1220" },
-      timeScale: { borderColor: "#0b1220", rightOffset: 8, timeVisible: true },
+      timeScale: { borderColor: "#0b1220", rightOffset: 8, timeVisible: true, secondsVisible: false },
     };
 
     const chart = createChart(containerRef.current, {
       ...chartOptions,
       height,
+      width: containerRef.current.clientWidth,
     });
     chartRef.current = chart;
 
@@ -116,7 +116,6 @@ export default function LightweightProChart({
     const to = Math.floor(Date.now() / 1000);
     const from = to - 60 * 60 * 24; // 24 hours
 
-    // Note: This API route needs to be created.
     const url = `/api/mexc/candles?pair=${pair}&interval=${interval}&from=${from}&to=${to}`;
     try {
       const res = await fetch(url);
@@ -193,8 +192,10 @@ export default function LightweightProChart({
         const msg: MEXCKlineMsg = JSON.parse(ev.data);
         if (!msg.c || !msg.d) return;
 
+        // Handle MEXC Kline v3
         if (msg.c.includes("kline.v3.api")) {
           const c = msg.d;
+
           const lc = {
             time: Math.floor(c.ts / 1000) as any,
             open: parseFloat(c.o),
@@ -202,18 +203,23 @@ export default function LightweightProChart({
             low: parseFloat(c.l),
             close: parseFloat(c.c),
           };
+
           const vol = parseFloat(c.v);
 
+          // Throttle candle update
           if (throttleTimer.current) return;
           throttleTimer.current = window.setTimeout(() => {
             throttleTimer.current = null;
+
             if (candleSeriesRef.current) candleSeriesRef.current.update(lc);
+
             if (volumeSeriesRef.current)
               volumeSeriesRef.current.update({
                 time: lc.time,
                 value: vol,
                 color: lc.close >= lc.open ? "#26a69a" : "#ef5350",
               });
+
             lastCandleTs.current = lc.time;
           }, 50);
         }
@@ -222,57 +228,91 @@ export default function LightweightProChart({
       }
     };
 
-    ws.onclose = () => setConnected(false);
-    ws.onerror = (error) => console.error("WS error", error);
+    ws.onclose = () => {
+      setConnected(false);
+    };
+
+    ws.onerror = (error) => {
+      console.error("WS error", error);
+    };
 
     return () => {
       ws.close();
     };
   }, [pair, interval]);
 
+  /** -----------------------------
+   *  Indicators (SMA, EMA, RSI)
+   * ------------------------------ */
+  const ma5Ref = useRef<ISeriesApi<"Line"> | null>(null);
+  const ma10Ref = useRef<ISeriesApi<"Line"> | null>(null);
+  const ma20Ref = useRef<ISeriesApi<"Line"> | null>(null);
+
+  // Helper to calculate SMA
+  const sma = (bars: { time: any; value: number }[], period: number) => {
+    const res: { time: any; value: number }[] = [];
+    for (let i = 0; i < bars.length; i++) {
+      if (i < period - 1) continue;
+      let sum = 0;
+      for (let j = 0; j < period; j++) sum += bars[i - j].value;
+      res.push({ time: bars[i].time, value: sum / period });
+    }
+    return res;
+  };
+
+  // Initialize indicators series
+  useEffect(() => {
+    const chart = chartRef.current;
+    if (!chart) return;
+    ma5Ref.current = chart.addLineSeries({ color: "#f6e05e", lineWidth: 1, priceLineVisible: false });
+    ma10Ref.current = chart.addLineSeries({ color: "#60a5fa", lineWidth: 1, priceLineVisible: false });
+    ma20Ref.current = chart.addLineSeries({ color: "#a78bfa", lineWidth: 1, priceLineVisible: false });
+  }, []);
 
   /** -----------------------------
-   *  Tooltip
+   *  Tooltip (Safe, Optimized)
    * ------------------------------ */
   useEffect(() => {
+    if (!chartRef.current || !containerRef.current) return;
+
     const container = containerRef.current;
-    const chart = chartRef.current;
-    if (!container || !chart) return;
     const tooltip = document.createElement("div");
-    tooltip.style.cssText = "position:absolute;display:none;padding:8px;background:rgba(10,20,30,0.85);color:#fff;border:1px solid #333;border-radius:4px;font-size:12px;pointer-events:none;z-index:100;";
+
+    tooltip.style.cssText =
+      "position:absolute;display:none;padding:6px;background:rgba(0,0,0,0.65);color:#fff;border-radius:4px;font-size:12px;pointer-events:none;z-index:30";
     container.appendChild(tooltip);
 
-    const handleCrosshairMove = (param: any) => {
-        if (!param.time || !param.seriesPrices) {
-            tooltip.style.display = 'none';
-            return;
-        }
-        const priceData = param.seriesPrices.get(candleSeriesRef.current);
-        if(!priceData) return;
+    const onMove = (param: any) => {
+      if (!param || !param.time || !param.seriesPrices) {
+        tooltip.style.display = "none";
+        return;
+      }
+      
+      if (!candleSeriesRef.current) return;
 
-        const date = new Date(param.time * 1000).toLocaleString();
-        tooltip.innerHTML = `
-            <div style="font-weight:bold;margin-bottom:4px;">${date}</div>
-            <div>O: <span style="color:${priceData.close >= priceData.open ? '#26a69a' : '#ef5350'}">${priceData.open.toFixed(4)}</span></div>
-            <div>H: <span style="color:#26a69a">${priceData.high.toFixed(4)}</span></div>
-            <div>L: <span style="color:#ef5350">${priceData.low.toFixed(4)}</span></div>
-            <div>C: <span style="color:${priceData.close >= priceData.open ? '#26a69a' : '#ef5350'}">${priceData.close.toFixed(4)}</span></div>
-        `;
-        tooltip.style.display = 'block';
-        
-        const x = param.point?.x ?? 0;
-        const y = param.point?.y ?? 0;
-        const w = tooltip.offsetWidth;
-        const h = tooltip.offsetHeight;
-        const chartW = container.clientWidth;
-        
-        tooltip.style.left = x + 15 + w > chartW ? `${x - w - 15}px` : `${x + 15}px`;
-        tooltip.style.top = `${y + 15}px`;
+      const price = param.seriesPrices.get(candleSeriesRef.current);
+      if (!price) {
+        tooltip.style.display = "none";
+        return;
+      }
+
+      tooltip.innerHTML = `
+        O: ${price.open.toFixed(4)}  
+        H: ${price.high.toFixed(4)}  
+        L: ${price.low.toFixed(4)}  
+        C: ${price.close.toFixed(4)}
+      `;
+
+      tooltip.style.display = "block";
+      tooltip.style.left = param.point.x + 12 + "px";
+      tooltip.style.top = param.point.y + 12 + "px";
     };
-    chart.subscribeCrosshairMove(handleCrosshairMove);
+
+    chartRef.current.subscribeCrosshairMove(onMove);
+
     return () => {
-        chart.unsubscribeCrosshairMove(handleCrosshairMove);
-        tooltip.remove();
+      chartRef.current?.unsubscribeCrosshairMove(onMove);
+      tooltip.remove();
     };
   }, []);
 
@@ -283,6 +323,7 @@ export default function LightweightProChart({
         style={{ width: "100%", height }}
         className="relative"
       />
+
       <div
         style={{
           position: "absolute",

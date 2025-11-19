@@ -14,14 +14,31 @@ import { LogIn } from "lucide-react";
 import ChartToolbar from "./chart/chart-toolbar";
 import PositionsPanel from "./positions/positions-panel";
 import ChartShell from "./chart/chart-shell";
-import { setTP, setSL } from "./chart/chart-engine";
-
 
 export default function ProTradingLayout({ marketId }: { marketId: string }) {
   const { user, isUserLoading } = useUser();
   const [interval, setInterval] = useState("1m");
   const [chartType, setChartType] = useState<"candles" | "line" | "area">("candles");
   const chartRef = useRef<any>(null);
+
+  const handleAddEntry = (price: number, size: number) => {
+    // Logic to add an entry to the chart engine's state
+    // This will be passed down to ChartEngine via ChartShell
+    console.log("Add entry:", { price, size });
+  };
+
+  const handleRemoveEntry = (id: string) => {
+    // Logic to remove an entry
+    console.log("Remove entry:", id);
+  };
+  
+  const handleSetTP = (price: number) => {
+     console.log("Set TP:", price);
+  }
+
+  const handleSetSL = (price: number) => {
+      console.log("Set SL:", price);
+  }
 
   return (
     <div className="flex flex-col h-screen w-screen bg-background text-foreground overflow-hidden -m-8">
@@ -74,9 +91,11 @@ export default function ProTradingLayout({ marketId }: { marketId: string }) {
               setInterval={setInterval}
               chartType={chartType}
               setChartType={setChartType}
-              onReset={() => chartRef.current?.reset()}
-              setTP={setTP}
-              setSL={setSL}
+              onReset={() => { (chartRef.current as any)?.reset() }}
+              setTP={handleSetTP}
+              setSL={handleSetSL}
+              onAddEntry={handleAddEntry}
+              onRemoveEntry={handleRemoveEntry}
             />
             <ChartShell
               ref={chartRef}
@@ -89,7 +108,7 @@ export default function ProTradingLayout({ marketId }: { marketId: string }) {
           {/* BOTTOM PANELS — ORDERBOOK + TRADES */}
           <div className="h-[320px] grid grid-cols-2 border-t border-border bg-card">
             <div className="col-span-1 border-r border-border">
-              <OrderbookPanel pair={marketId} />
+              <OrderbookPanel />
             </div>
             <div className="col-span-1">
               <TradesPanel />

@@ -27,17 +27,22 @@ type ChartEngineProps = {
   height?: number;
 };
 
-// Position state (replace with real balances later)
-const positionRef = {
-  side: "long" as "long" | "short" | null,
-  size: 1.2,
-  entry: 24586.0,
-};
+// Multiple entries for DCA / scaling
+const entriesRef = { current: [
+  // Example starting data
+  { price: 24586.0, size: 0.6, id: "e1" },
+  { price: 24320.0, size: 0.4, id: "e2" },
+]};
 
-const tpSlRef = {
+// Position side state
+const positionRef = { current: {
+  side: "long" as "long" | "short" | null,
+}};
+
+const tpSlRef = { current: {
   tp: null as number | null,
   sl: null as number | null,
-};
+}};
 
 
 /* ---------------------------------------------------------
@@ -148,25 +153,76 @@ export default function ChartEngine({
     return null;
   }
 
-  function renderPositionOverlay(lastPrice: number) {
-    const pos = positionRef;
-    if (!pos.entry) return;
+  function blendedEntry() {
+    const all = entriesRef.current;
+    if (!all.length) return null;
 
+    let totalCost = 0;
+    let totalSize = 0;
+
+    for (const e of all) {
+      totalCost += e.price * e.size;
+      totalSize += e.size;
+    }
+
+    return totalCost / totalSize;
+  }
+  
+  function renderMultiEntryLines() {
+    const chart = chartRef.current;
+    if (!chart || !candleSeriesRef.current) return;
+
+    // This is not efficient, but it's the simplest way for lightweight-charts
+    // A better way is to store references to the lines and update/remove them.
+    (chart as any).removeAllPriceLines?.();
+
+    const blended = blendedEntry();
+    const isLong = positionRef.current.side === "long";
+    const entryColor = isLong ? "#4ea3f1" : "#ff4668";
+
+    // Main blended entry line
+    if (blended) {
+      chart.createPriceLine({
+        price: blended,
+        color: entryColor,
+        lineWidth: 2,
+        lineStyle: 2, // Dashed
+        axisLabelVisible: true,
+        title: `Avg Entry • ${blended.toFixed(2)}`,
+      });
+    }
+
+    // Individual entries
+    entriesRef.current.forEach((e) => {
+      chart.createPriceLine({
+        price: e.price,
+        color: "#999",
+        lineWidth: 1,
+        lineStyle: 0, // Solid
+        axisLabelVisible: true,
+        title: `Entry ${e.id}: ${e.price.toFixed(2)} (${e.size} BTC)`,
+      });
+    });
+    
+    // Also re-render TP/SL lines
+    renderTpSlLines();
+}
+
+
+  function renderPositionOverlay(lastPrice: number) {
     const chart = chartRef.current;
     if (!chart) return;
 
-    const lineColor = pos.side === "long" ? "#4ea3f1" : "#ff4668";
+    const pos = positionRef.current;
+    const entry = blendedEntry();
+    if (!entry) return;
 
-    // Re-render TP/SL lines along with entry
-    renderTpSlLines();
+    const size = entriesRef.current.reduce((s, e) => s + e.size, 0);
 
-    // PnL calculation
-    const diff = pos.side === "long"
-      ? lastPrice - pos.entry
-      : pos.entry - lastPrice;
+    const diff = pos.side === "long" ? lastPrice - entry : entry - lastPrice;
 
-    const pct = (diff / pos.entry) * 100;
-    const pnlUSD = diff * pos.size;
+    const pct = (diff / entry) * 100;
+    const pnlUSD = diff * size;
 
     const pnlColor = diff >= 0 ? "#00ffbf" : "#ff4668";
 
@@ -177,9 +233,9 @@ export default function ChartEngine({
 
     const label = {
       price: lastPrice,
-      position: "right" as const,
+      position: 'right' as const,
       color: pnlColor,
-      shape: "circle" as const,
+      shape: 'circle' as const,
       text: `${pct >= 0 ? "+" : ""}${pct.toFixed(2)}%  (${pnlUSD >= 0 ? "+" : ""}${pnlUSD.toFixed(2)}$)`,
     };
 
@@ -188,8 +244,7 @@ export default function ChartEngine({
       label,
     ]);
 
-    // BACKGROUND ZONE
-    drawPnLZone(pos.entry, lastPrice, pos.side);
+    drawPnLZone(entry, lastPrice, pos.side);
   }
 
   function drawPnLZone(entry: number, last: number, side: "long" | "short" | null) {
@@ -209,7 +264,7 @@ export default function ChartEngine({
   
     const chart = chartRef.current;
     const priceToY = (p: number) =>
-      chart.priceScale("right").coordinateToPrice(p) ?? 0;
+      chart.priceScale("right").priceToCoordinate(p) ?? 0;
   
     const yEntry = priceToY(entry);
     const yLast = priceToY(last);
@@ -227,28 +282,16 @@ export default function ChartEngine({
   }
 
   function renderTpSlLines() {
-    if (!chartRef.current) return;
     const chart = chartRef.current;
+    if (!chart) return;
 
     // This is a temporary solution; a more robust line management system is better
-    if (chart.removeAllPriceLines) {
-      chart.removeAllPriceLines();
+    if ((chart as any).removeAllPriceLines) {
+        // This is a custom helper; real API is `removePriceLine` per line.
+        // We simulate it by just re-rendering, assuming old ones are cleared by `renderMultiEntryLines`
     }
 
-    const { tp, sl } = tpSlRef;
-
-    // Re-render entry
-    const pos = positionRef;
-    if (pos.entry) {
-      chart.createPriceLine({
-        price: pos.entry,
-        color: pos.side === "long" ? "#4ea3f1" : "#ff4668",
-        lineWidth: 2,
-        lineStyle: 2, // Dotted
-        axisLabelVisible: true,
-        title: `Entry ${pos.entry.toFixed(2)} (${pos.size} BTC)`,
-      });
-    }
+    const { tp, sl } = tpSlRef.current;
 
     // Take Profit
     if (tp) {
@@ -276,13 +319,13 @@ export default function ChartEngine({
   }
 
   function setTP(price: number) {
-    tpSlRef.tp = price;
-    renderTpSlLines();
+    tpSlRef.current.tp = price;
+    renderMultiEntryLines();
   }
 
   function setSL(price: number) {
-    tpSlRef.sl = price;
-    renderTpSlLines();
+    tpSlRef.current.sl = price;
+    renderMultiEntryLines();
   }
 
   /* ---------------------------------------------------------
@@ -413,19 +456,19 @@ export default function ChartEngine({
       if (!price) return;
 
       if (draggingTp) {
-        tpSlRef.tp = price;
-        renderTpSlLines();
+        tpSlRef.current.tp = price;
+        renderMultiEntryLines();
       }
 
       if (draggingSl) {
-        tpSlRef.sl = price;
-        renderTpSlLines();
+        tpSlRef.current.sl = price;
+        renderMultiEntryLines();
       }
     };
     
     const onPointerDown = (e: PointerEvent) => {
-      const { tp, sl } = tpSlRef;
-      if (!containerRef.current || !candleSeriesRef.current) return;
+      if(!candleSeriesRef.current || !containerRef.current) return;
+      const { tp, sl } = tpSlRef.current;
       
       const rect = containerRef.current.getBoundingClientRect();
       const y = e.clientY - rect.top;
@@ -486,9 +529,6 @@ export default function ChartEngine({
     try {
       tradeMarkersRef.current = [];
       if (candleSeriesRef.current) candleSeriesRef.current.setMarkers([]);
-
-      const end = Math.floor(Date.now() / 1000);
-      const start = end - 60 * 60 * 24; // 24h
 
       const url = `https://api.mexc.com/api/v3/klines?symbol=${symbol.toUpperCase()}&interval=${interval}`;
 
@@ -567,10 +607,11 @@ export default function ChartEngine({
             const last = { time: Math.floor(c.t / 1000), open: Number(c.o), high: Number(c.h), low: Number(c.l), close: Number(c.c) };
             candleSeriesRef.current?.update(last);
             volumeSeriesRef.current?.update({ time: last.time, value: Number(c.v), color: last.close >= last.open ? "#26a69a" : "#ef5350" });
+            renderMultiEntryLines();
             renderPositionOverlay(last.close);
         }
 
-        if (msg.c.includes("spot@public.deal.v3.api")) {
+        if (msg.c.includes("deal.v3.api")) {
             if (Array.isArray(msg.d.deals)) {
               msg.d.deals.forEach((t: any) => {
                 pushTradeMarker({

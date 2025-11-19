@@ -22,6 +22,8 @@ type Props = {
   onReset?: () => void;
   setTP: (price: number) => void;
   setSL: (price: number) => void;
+  onAddEntry: (price: number, size: number) => void;
+  onRemoveEntry: (id: string) => void;
 };
 
 const Toggle = ({ label, keyName }: any) => {
@@ -71,6 +73,8 @@ export default function ChartToolbar({
   onReset,
   setTP,
   setSL,
+  onAddEntry,
+  onRemoveEntry,
 }: Props) {
   const [indOpen, setIndOpen] = useState(false);
   const [drawOpen, setDrawOpen] = useState(false);
@@ -200,6 +204,30 @@ export default function ChartToolbar({
       >
         Set SL
       </button>
+
+       <button
+        onClick={() => {
+          const price = parseFloat(prompt("Entry price:") || "");
+          const size = parseFloat(prompt("Position size:") || "");
+          if (!price || !size) return;
+          onAddEntry(price, size);
+        }}
+        className="px-2 py-1 text-xs rounded bg-surface2 hover:bg-surface3"
+      >
+        + Add Entry
+      </button>
+
+      <button
+        onClick={() => {
+          const id = prompt("Entry ID to remove:");
+          if (!id) return;
+          onRemoveEntry(id);
+        }}
+        className="px-2 py-1 text-xs rounded bg-surface2 hover:bg-surface3"
+      >
+        – Remove Entry
+      </button>
+
 
       {/* ---------------- RESET CHART ---------------- */}
       <div className="flex-1 flex justify-end">

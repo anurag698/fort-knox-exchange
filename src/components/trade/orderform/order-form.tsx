@@ -15,6 +15,10 @@ export default function OrderForm({ marketId, price }: Props) {
   const [amount, setAmount] = useState("");
   const [limitPrice, setLimitPrice] = useState("");
 
+  const safeSymbol = typeof marketId === "string"
+    ? marketId.replace(/USDT|-/g, "")
+    : "";
+
   /* ------------------------------------------------------------
      TOTAL CALCULATION
   ------------------------------------------------------------ */
@@ -33,12 +37,16 @@ export default function OrderForm({ marketId, price }: Props) {
     const livePrice = price ?? 0;
 
     if (type === "market") {
-      const qty = fakeBalance * (p / 100) / livePrice;
-      setAmount(qty.toFixed(6));
+      if (livePrice > 0) {
+        const qty = fakeBalance * (p / 100) / livePrice;
+        setAmount(qty.toFixed(6));
+      }
     } else {
       const lp = Number(limitPrice) || livePrice;
-      const qty = fakeBalance * (p / 100) / lp;
-      setAmount(qty.toFixed(6));
+      if (lp > 0) {
+        const qty = fakeBalance * (p / 100) / lp;
+        setAmount(qty.toFixed(6));
+      }
     }
   };
 
@@ -135,7 +143,7 @@ export default function OrderForm({ marketId, price }: Props) {
       {/* ------------------------ AMOUNT ------------------------ */}
       <div>
         <label className="text-xs text-[var(--text-secondary)]">
-          Amount ({marketId.replace("USDT", "")})
+          Amount ({safeSymbol})
         </label>
         <input
           type="number"
@@ -182,7 +190,7 @@ export default function OrderForm({ marketId, price }: Props) {
             : "bg-chartred text-white"
         )}
       >
-        {side === "buy" ? "Buy" : "Sell"} {marketId.replace("USDT", "")}
+        {side === "buy" ? "Buy" : "Sell"} {safeSymbol}
       </button>
     </div>
   );

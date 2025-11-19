@@ -1,11 +1,11 @@
 "use client";
 
-import React from "react";
-import ThemeToggle from "@/components/theme/theme-toggle";
+import React, { useState } from "react";
+import ThemeToggle from "@/components/ui/theme-toggle";
 
 // Panels (placeholders for now, will be built in later parts)
-import MarketListSidebar from "@/components/trade/markets/markets-sidebar";
-import TradingChart from "@/components/trade/chart/trading-chart-container";
+import MarketsSidebar from "@/components/trade/markets/markets-sidebar";
+import TradingChart from "@/components/trade/chart/lightweight-pro-chart";
 import OrderForm from "@/components/trade/orderform/order-form";
 import OrderbookPanel from "@/components/trade/orderbook/orderbook-panel";
 import TradesPanel from "@/components/trade/trades/trades-panel";
@@ -13,9 +13,14 @@ import { useUser } from "@/firebase";
 import Link from "next/link";
 import { Button } from "../ui/button";
 import { LogIn } from "lucide-react";
+import ChartToolbar from "./chart/chart-toolbar";
+import PositionsPanel from "./positions/positions-panel";
 
 export default function ProTradingLayout({ marketId }: { marketId: string }) {
   const { user, isUserLoading } = useUser();
+  const [interval, setInterval] = useState("1m");
+  const [chartType, setChartType] = useState<"candles" | "line" | "area">("candles");
+
   return (
     <div className="flex flex-col h-screen w-screen bg-background text-foreground overflow-hidden -m-8">
 
@@ -55,30 +60,41 @@ export default function ProTradingLayout({ marketId }: { marketId: string }) {
 
         {/* ----------- LEFT SIDEBAR: MARKETS LIST ----------- */}
         <aside className="w-[260px] min-w-[260px] max-w-[260px] border-r border-border bg-card">
-          <MarketListSidebar />
+          <MarketsSidebar />
         </aside>
 
         {/* ------------------- CENTER: CHART ------------------- */}
         <section className="flex-1 flex flex-col border-r border-border">
           {/* CHART */}
-          <div className="flex-1 min-h-[400px] bg-background">
-            <TradingChart pair={marketId} />
+          <div className="flex-1 min-h-[400px] bg-background p-2">
+            <ChartToolbar 
+              interval={interval}
+              setInterval={setInterval}
+              chartType={chartType}
+              setChartType={setChartType}
+            />
+            <TradingChart pair={marketId} interval={interval} />
           </div>
 
           {/* BOTTOM PANELS — ORDERBOOK + TRADES */}
-          <div className="h-[280px] flex border-t border-border bg-card">
-            <div className="w-1/2 border-r border-border">
+          <div className="h-[320px] grid grid-cols-2 border-t border-border bg-card">
+            <div className="col-span-1 border-r border-border">
               <OrderbookPanel />
             </div>
-            <div className="w-1/2">
+            <div className="col-span-1">
               <TradesPanel />
             </div>
           </div>
         </section>
 
         {/* ---------------- RIGHT SIDEBAR: ORDER FORM ---------------- */}
-        <aside className="w-[310px] min-w-[310px] border-l border-border bg-card">
-          <OrderForm pair={marketId} />
+        <aside className="w-[310px] min-w-[310px] border-l border-border bg-card p-2 grid grid-rows-2 gap-2">
+          <div className="row-span-1">
+            <OrderForm pair={marketId} />
+          </div>
+          <div className="row-span-1">
+             <PositionsPanel />
+          </div>
         </aside>
 
       </main>

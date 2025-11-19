@@ -1,4 +1,3 @@
-
 'use client';
 
 import { create } from 'zustand';
@@ -99,7 +98,7 @@ export class MarketDataService {
 
   private symbol: string;
   private ws: WebSocket | null = null;
-  private reconnectTimer: NodeJS.Timeout | null = null;
+  private reconnectAttempts: number = 0;
 
   private constructor(symbol: string) {
     this.symbol = symbol.replace('-', '').toUpperCase();
@@ -113,7 +112,11 @@ export class MarketDataService {
   }
 
   connect() {
-    this.disconnect(); // Ensure no existing connection
+    if (this.ws) {
+        // If there's an existing WebSocket, disconnect it first to ensure a clean state
+        this.disconnect(true); // silent disconnect
+    }
+    
     const url = "wss://wbs.mexc.com/ws";
     
     try {
@@ -129,10 +132,7 @@ export class MarketDataService {
       useMarketDataStore.getState().setConnected(true);
       useMarketDataStore.getState().setError(null);
       this.subscribe();
-      if (this.reconnectTimer) {
-        clearTimeout(this.reconnectTimer);
-        this.reconnectTimer = null;
-      }
+      this.reconnectAttempts = 0; // Reset on successful connection
     };
 
     this.ws.onmessage = (event) => {
@@ -147,15 +147,24 @@ export class MarketDataService {
       console.log('MEXC WebSocket closed:', event.code, event.reason);
       useMarketDataStore.getState().setConnected(false);
       
+      // Abnormal closure, likely due to sandbox or network issue
       if (event.code === 1006) {
         useMarketDataStore.getState().setError("Connection failed. This may be due to development environment restrictions (e.g., Firebase Studio). Test in a standard browser window.");
+        // Do not attempt to reconnect in a loop if it's a sandbox issue
         return;
       }
       
-      if (event.code !== 1000 && !this.reconnectTimer) {
-        this.reconnectTimer = setTimeout(() => this.connect(), 5000);
+      if (event.code !== 1000) { // Don't reconnect on normal closure
+        this.reconnect();
       }
     };
+  }
+
+  private reconnect() {
+    this.reconnectAttempts++;
+    const delay = Math.min(1000 * Math.pow(2, this.reconnectAttempts), 30000); // Exponential backoff up to 30s
+    console.log(`WebSocket disconnected. Attempting to reconnect in ${delay / 1000}s...`);
+    setTimeout(() => this.connect(), delay);
   }
 
   private subscribe() {
@@ -179,13 +188,12 @@ export class MarketDataService {
     if (message.c) { // Channel-based message
         if (message.c.includes('spot@public.bookTicker.v3.api')) {
             const d = message.d;
-            // Adapt to the old TickerData structure for now
             const adaptedTicker = {
-                c: d.askPrice, // Using askPrice as the main price 'c'
-                P: '0.0', // MEXC doesn't provide % change in this stream
-                h: '0',     // Not available in this stream
-                l: '0',     // Not available in this stream
-                v: '0',     // Not available in this stream
+                c: d.askPrice,
+                P: '0.0', // Not provided by this stream, would need another source
+                h: '0',     // Not provided
+                l: '0',     // Not provided
+                v: '0',     // Not provided
                 s: d.symbol
             };
             useMarketDataStore.getState().setTicker(adaptedTicker);
@@ -200,30 +208,21 @@ export class MarketDataService {
             }
         } else if (message.c.includes('spot@public.depth.v3.api')) {
             if (message.d?.bids && message.d?.asks) {
-                useMarketDataStore.getState().setDepth(message.d.bids, message.d.asks);
+                 useMarketDataStore.getState().setDepth(message.d.bids, message.d.asks);
             }
         }
     }
   }
 
-  disconnect() {
-    if (this.reconnectTimer) {
-      clearTimeout(this.reconnectTimer);
-      this.reconnectTimer = null;
-    }
+  disconnect(isInternalCall = false) {
     if (this.ws) {
-      this.ws.close(1000, "Component unmounted or explicit disconnect");
-      this.ws = null;
+        if (!isInternalCall) {
+            console.log("Disconnecting from MEXC WebSocket.");
+        }
+        this.ws.close(1000, "User-initiated disconnect");
+        this.ws = null;
     }
     useMarketDataStore.getState().setConnected(false);
-  }
-  
-   public subscribeToTickers(symbols: string[]) {
-    // This is now handled by the main `connect` method per-market
-  }
-
-  public unsubscribeFromTickers(symbols: string[]) {
-    // Also handled by `disconnect`
   }
 }
 

@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useEffect, useRef, useState, forwardRef, useImperativeHandle } from "react";
@@ -24,6 +25,13 @@ type ChartEngineProps = {
   interval: string;
   chartType: "candles" | "line" | "area";
   height?: number;
+  setLiquidationPrice: (price: number, side: "long" | "short") => void;
+  addTP: (price: number, size: number) => void;
+  removeTP: (id: string) => void;
+  onAddEntry: (price: number, size: number) => void;
+  onRemoveEntry: (id: string) => void;
+  setTP: (price: number) => void;
+  setSL: (price: number) => void;
 };
 
 function isFirebaseStudio() {
@@ -39,6 +47,13 @@ const ChartEngine = forwardRef<any, ChartEngineProps>(({
   interval,
   chartType,
   height = 700,
+  setLiquidationPrice,
+  addTP,
+  removeTP,
+  onAddEntry,
+  onRemoveEntry,
+  setTP,
+  setSL,
 }, ref) => {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const chartRef = useRef<any | null>(null);
@@ -91,6 +106,19 @@ const ChartEngine = forwardRef<any, ChartEngineProps>(({
     price: null,
     side: null,
   });
+
+  const bracketRef = useRef<{
+    entry: number | null;
+    tp: number | null;
+    sl: number | null;
+    active: boolean;
+  }>({
+    entry: null,
+    tp: null,
+    sl: null,
+    active: false,
+  });
+
 
   useImperativeHandle(ref, () => ({
       addTP: (price: number, size: number) => addTP(price, size),
@@ -175,16 +203,6 @@ const ChartEngine = forwardRef<any, ChartEngineProps>(({
     });
   }
 
-  function addTP(price: number, size: number) {
-    tpTargetsRef.current.push({ id: "TP" + (tpTargetsRef.current.length + 1), price, size });
-    renderAllTPs();
-  }
-
-  function removeTP(id: string) {
-    tpTargetsRef.current = tpTargetsRef.current.filter(t => t.id !== id);
-    renderAllTPs(); // Re-render to remove the line
-  }
-
   function renderTpSlLines() {
     const chart = chartRef.current;
     if (!chart) return;
@@ -194,28 +212,11 @@ const ChartEngine = forwardRef<any, ChartEngineProps>(({
     }
     
     renderMultiEntryLines();
+    renderAllTPs(); // Render multiple TP targets
 
     const { tp, sl } = tpSlRef.current;
     if (tp) chart.createPriceLine({ price: tp, color: "#00ffbf", lineWidth: 2, lineStyle: 0, axisLabelVisible: true, title: `TP ${tp.toFixed(2)}` });
     if (sl) chart.createPriceLine({ price: sl, color: "#ff4668", lineWidth: 2, lineStyle: 0, axisLabelVisible: true, title: `SL ${sl.toFixed(2)}` });
-    
-    renderAllTPs();
-  }
-
-  function setTP(price: number) {
-    tpSlRef.current.tp = price;
-    renderTpSlLines();
-  }
-
-  function setSL(price: number) {
-    tpSlRef.current.sl = price;
-    renderTpSlLines();
-  }
-
-  function setLiquidationPrice(price: number, side: "long" | "short") {
-    liquidationRef.current.price = price;
-    liquidationRef.current.side = side;
-    renderLiquidationLine();
   }
 
   function renderLiquidationLine() {
@@ -235,13 +236,13 @@ const ChartEngine = forwardRef<any, ChartEngineProps>(({
   function renderOrderLines() {
     if (!chartRef.current) return;
   
-    // Reset previous lines
     chartRef.current.removeAllPriceLines?.();
   
-    // Re-render entry lines, TP/SL, liquidation, etc.
     renderMultiEntryLines();
     renderAllTPs();
+    renderTpSlLines(); // This will now handle the single TP/SL
     renderLiquidationLine();
+    renderBracketLines();
   
     const colors = {
       buy: "#00ffbf",
@@ -259,6 +260,48 @@ const ChartEngine = forwardRef<any, ChartEngineProps>(({
       });
     });
   }
+
+  function renderBracketLines() {
+    if (!chartRef.current) return;
+    const chart = chartRef.current;
+    const { entry, tp, sl, active } = bracketRef.current;
+
+    // We call removeAllPriceLines in a higher-level render function now
+    // chart.removeAllPriceLines?.();
+
+    if (!active || !entry) return;
+
+    // ENTRY
+    chart.createPriceLine({
+        price: entry,
+        color: "#4ea3f1",
+        lineWidth: 2,
+        title: `ENTRY • ${entry.toFixed(2)}`,
+    });
+
+    // TP
+    if (tp) {
+        const reward = ((tp - entry) / entry) * 100;
+        chart.createPriceLine({
+        price: tp,
+        color: "#00ffbf",
+        lineWidth: 2,
+        title: `TP • ${tp.toFixed(2)} (+${reward.toFixed(2)}%)`,
+        });
+    }
+
+    // SL
+    if (sl) {
+        const risk = ((sl - entry) / entry) * 100;
+        chart.createPriceLine({
+        price: sl,
+        color: "#ff4668",
+        lineWidth: 2,
+        title: `SL • ${sl.toFixed(2)} (${risk.toFixed(2)}%)`,
+        });
+    }
+  }
+
 
   function pushTradeMarker(trade: { p: number; T: number; m: boolean; v: number }) {
     if (!candleSeriesRef.current) return;
@@ -378,47 +421,68 @@ const ChartEngine = forwardRef<any, ChartEngineProps>(({
     let draggingTp = false;
     let draggingSl = false;
     let draggingTP: string | null = null;
+    let draggingBracket: "entry" | "tp" | "sl" | null = null;
     
     const handlePointerDown = (e: PointerEvent) => {
-      const tool = getDrawingTool();
-      if (tool !== "none") {
-        const rect = containerRef.current!.getBoundingClientRect();
+        if (!containerRef.current) return;
+        const rect = containerRef.current.getBoundingClientRect();
+        const y = e.clientY - rect.top;
         const x = e.clientX - rect.left;
-        const y = e.clientY - rect.top;
+        const price = candleSeriesRef.current!.coordinateToPrice(y);
         const time = chart.timeScale().coordinateToTime(x);
-        const price = series.coordinateToPrice(y);
+
         if (!time || !price) return;
-        startPoint = { time, price };
-      } else if (e.altKey) {
-        const rect = containerRef.current!.getBoundingClientRect();
-        const price = candleSeriesRef.current!.coordinateToPrice(e.clientY - rect.top);
-        if (!price) return;
-        const last = lastPriceRef.current;
-        const side = price < last ? "buy" : "sell";
-        const id = "O" + Math.floor(Math.random() * 999999);
-        pendingOrdersRef.current.push({ id, price, size: 0.1, side });
-        renderOrderLines();
-      } else {
-        const rect = containerRef.current!.getBoundingClientRect();
-        const y = e.clientY - rect.top;
+        
+        // SHIFT + drag to create bracket order
+        if (e.shiftKey) {
+            bracketRef.current.entry = price;
+            bracketRef.current.sl = price * 0.99; // 1% below
+            bracketRef.current.tp = price * 1.02; // 2% above
+            bracketRef.current.active = true;
+            renderBracketLines();
+            return;
+        }
+        
         const { tp, sl } = tpSlRef.current;
-        const tpY = tp ? candleSeriesRef.current!.priceToCoordinate(tp) : null;
-        const slY = sl ? candleSeriesRef.current!.priceToCoordinate(sl) : null;
-        if (tpY && Math.abs(tpY - y) < 8) draggingTp = true;
-        if (slY && Math.abs(slY - y) < 8) draggingSl = true;
-        tpTargetsRef.current.forEach(tp => {
-          const yTp = candleSeriesRef.current!.priceToCoordinate(tp.price);
-          if (yTp && Math.abs(yTp - y) < 8) draggingTP = tp.id;
-        });
-        pendingOrdersRef.current.forEach((o) => {
-            const yOrder = candleSeriesRef.current!.priceToCoordinate(o.price);
-            if (yOrder && Math.abs(yOrder - y) < 8) {
-              draggingOrderId = o.id;
-            }
-        });
-      }
+        const priceToY = (p: number | null) => p ? candleSeriesRef.current!.priceToCoordinate(p) : null;
+        if (bracketRef.current.active) {
+            if (bracketRef.current.entry && Math.abs(priceToY(bracketRef.current.entry)! - y) < 8) draggingBracket = "entry";
+            if (bracketRef.current.tp && Math.abs(priceToY(bracketRef.current.tp)! - y) < 8) draggingBracket = "tp";
+            if (bracketRef.current.sl && Math.abs(priceToY(bracketRef.current.sl)! - y) < 8) draggingBracket = "sl";
+        }
+
+
+        const tool = getDrawingTool();
+        if (tool !== "none") {
+            startPoint = { time, price };
+        } else if (e.altKey) {
+            const last = lastPriceRef.current;
+            const side = price < last ? "buy" : "sell";
+            const id = "O" + Math.floor(Math.random() * 999999);
+            pendingOrdersRef.current.push({ id, price, size: 0.1, side });
+            renderOrderLines();
+        } else {
+            const tpY = tp ? priceToY(tp) : null;
+            const slY = sl ? priceToY(sl) : null;
+            if (tpY && Math.abs(tpY - y) < 8) draggingTp = true;
+            if (slY && Math.abs(slY - y) < 8) draggingSl = true;
+            
+            tpTargetsRef.current.forEach(tpTarget => {
+              const yTp = priceToY(tpTarget.price);
+              if (yTp && Math.abs(yTp - y) < 8) draggingTP = tpTarget.id;
+            });
+            pendingOrdersRef.current.forEach((o) => {
+                const yOrder = priceToY(o.price);
+                if (yOrder && Math.abs(yOrder - y) < 8) draggingOrderId = o.id;
+            });
+        }
     };
+    
     const handlePointerUp = (e: PointerEvent) => {
+        if (draggingBracket) {
+            draggingBracket = null;
+            return;
+        }
       if(draggingTp || draggingSl || draggingTP || draggingOrderId) {
         draggingTp = false;
         draggingSl = false;
@@ -430,8 +494,8 @@ const ChartEngine = forwardRef<any, ChartEngineProps>(({
       const tool = getDrawingTool();
       const chart = chartRef.current;
       const series = candleSeriesRef.current;
-      if(!chart || !series) return;
-      const rect = containerRef.current!.getBoundingClientRect();
+      if(!chart || !series || !containerRef.current) return;
+      const rect = containerRef.current.getBoundingClientRect();
       const x = e.clientX - rect.left;
       const y = e.clientY - rect.top;
       const time2 = chart.timeScale().coordinateToTime(x);
@@ -443,31 +507,49 @@ const ChartEngine = forwardRef<any, ChartEngineProps>(({
     };
     
     const onPointerMove = (e: PointerEvent) => {
-      const tool = getDrawingTool();
-      if (tool !== "none") return;
-      const chart = chartRef.current;
-      if (!chart || !candleSeriesRef.current || !containerRef.current) return;
-      const rect = containerRef.current.getBoundingClientRect();
-      const price = candleSeriesRef.current.coordinateToPrice(e.clientY - rect.top);
-      if (!price) return;
-      if (draggingTp) { tpSlRef.current.tp = price; renderTpSlLines(); }
-      if (draggingSl) { tpSlRef.current.sl = price; renderTpSlLines(); }
-      if (draggingTP) {
+        if (!candleSeriesRef.current || !containerRef.current) return;
+        const rect = containerRef.current.getBoundingClientRect();
+        const price = candleSeriesRef.current.coordinateToPrice(e.clientY - rect.top);
+        if (!price) return;
+        
+        if (draggingBracket) {
+            if (draggingBracket === "entry") {
+                const delta = price - bracketRef.current.entry!;
+                bracketRef.current.entry = price;
+                bracketRef.current.tp! += delta;
+                bracketRef.current.sl! += delta;
+            }
+            if (draggingBracket === "tp") bracketRef.current.tp = price;
+            if (draggingBracket === "sl") bracketRef.current.sl = price;
+            renderBracketLines();
+            return;
+        }
+
+        const tool = getDrawingTool();
+        if (tool !== "none") return;
+        
+        if (draggingTp) { setTP(price); }
+        if (draggingSl) { setSL(price); }
+        if (draggingTP) {
           const tp = tpTargetsRef.current.find(t => t.id === draggingTP);
           if (tp) { tp.price = price; renderAllTPs(); }
-      }
-      if (draggingOrderId) {
-        const order = pendingOrdersRef.current.find((o) => o.id === draggingOrderId);
-        if (order) {
-            order.price = price;
-            renderOrderLines();
         }
-      }
+        if (draggingOrderId) {
+            const order = pendingOrdersRef.current.find((o) => o.id === draggingOrderId);
+            if (order) { order.price = price; renderOrderLines(); }
+        }
     };
 
     const onContextMenu = (e: MouseEvent) => {
         e.preventDefault();
-        const rect = containerRef.current!.getBoundingClientRect();
+        if (bracketRef.current.active) {
+            bracketRef.current.active = false;
+            renderBracketLines();
+            return;
+        }
+
+        if (!candleSeriesRef.current || !containerRef.current) return;
+        const rect = containerRef.current.getBoundingClientRect();
         const y = e.clientY - rect.top;
         const price = candleSeriesRef.current!.coordinateToPrice(y);
         if (!price) return;
@@ -543,11 +625,13 @@ const ChartEngine = forwardRef<any, ChartEngineProps>(({
           candleSeriesRef.current?.update(last);
           lastPriceRef.current = last.close;
           volumeSeriesRef.current?.update({ time: last.time, value: Number(c.v), color: last.close >= last.open ? "#26a69a" : "#ef5350" });
-          renderMultiEntryLines();
+          renderOrderLines();
+          if (bracketRef.current.active) {
+            renderBracketLines();
+          }
           renderPositionOverlay(last.close);
           renderLiquidationLine();
           drawLiquidationZone(last.close);
-          renderOrderLines();
         }
         if (msg.c?.includes("deal.v3.api")) {
           if (Array.isArray(msg.d.deals)) {

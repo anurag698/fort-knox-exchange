@@ -6,12 +6,13 @@ import dynamic from "next/dynamic";
 import ResizeHandle from "@/components/ui/resize-handle";
 import ResizeRowHandle from "@/components/ui/resize-row-handle";
 import { useResizable } from "@/hooks/useResizable";
-import { OrderForm } from "./order-form";
+import OrderForm from "./orderform/order-form";
 import OrderbookPanel from "./orderbook/orderbook-panel";
 import TradesPanel from "./trades/trades-panel";
 import MarketsSidebar from "./markets/markets-sidebar";
+import PositionsPanel from "./positions/positions-panel";
 
-const ProChart = dynamic(() => import("./lightweight-pro-chart"), { ssr: false });
+const ProChart = dynamic(() => import("./chart/lightweight-pro-chart"), { ssr: false });
 
 // Layout Wrapper
 export default function ProTradingLayout({
@@ -74,9 +75,14 @@ export default function ProTradingLayout({
 
 
       {/* RIGHT PANEL */}
-      <div className="w-[320px] border-l border-bordercolor p-4">
-        <h3 className="text-white mb-2 text-sm">Trade</h3>
-        <OrderForm marketId={pair} />
+      <div className="w-[320px] border-l border-bordercolor p-4 grid grid-rows-2 gap-4">
+        <div className="row-span-1">
+            <h3 className="text-white mb-2 text-sm">Trade</h3>
+            <OrderForm marketId={pair} />
+        </div>
+         <div className="row-span-1">
+            <PositionsPanel />
+        </div>
       </div>
     </div>
   );

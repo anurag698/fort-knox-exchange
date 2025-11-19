@@ -1,144 +1,151 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { cn } from "@/lib/utils";
-import { useMarketDataStore } from "@/stores/market-data-store"; // for mark price
-import { X } from "lucide-react";
 
-type Position = {
+type Order = {
   id: string;
-  pair: string;
-  size: number;
-  entryPrice: number;
-  side: "long" | "short";
+  symbol: string;
+  price: number;
+  amount: number;
+  side: "buy" | "sell";
+  status: "open" | "closed";
+  time: string;
 };
 
-export default function PositionsPanel({ pair }: { pair: string }) {
-  const { ticker } = useMarketDataStore(); // to read the live mark price
-  const markPrice = ticker?.c ? Number(ticker.c) : null;
+export default function PositionsPanel() {
+  const [tab, setTab] = useState<"open" | "history" | "trade">("open");
 
-  // Local mock positions (replace with your backend later)
-  const [positions, setPositions] = useState<Position[]>([
+  // -----------------------------
+  // Dummy local data (safe)
+  // -----------------------------
+  const openOrders: Order[] = [
     {
-      id: "pos1",
-      pair,
-      size: 0.54,
-      entryPrice: 62250.0,
-      side: "long",
+      id: "1",
+      symbol: "BTCUSDT",
+      price: 43000,
+      amount: 0.005,
+      side: "buy",
+      status: "open",
+      time: "2025-01-12 14:22",
     },
-  ]);
+  ];
 
-  const closePosition = (id: string) => {
-    setPositions((prev) => prev.filter((p) => p.id !== id));
-  };
+  const orderHistory: Order[] = [
+    {
+      id: "2",
+      symbol: "BTCUSDT",
+      price: 42500,
+      amount: 0.01,
+      side: "sell",
+      status: "closed",
+      time: "2025-01-10 19:45",
+    },
+  ];
 
-  const calcPnl = (pos: Position) => {
-    if (!markPrice) return { pnl: 0, roe: 0 };
+  const tradeHistory: Order[] = [
+    {
+      id: "3",
+      symbol: "BTCUSDT",
+      price: 42000,
+      amount: 0.02,
+      side: "buy",
+      status: "closed",
+      time: "2025-01-09 08:32",
+    },
+  ];
 
-    const diff =
-      pos.side === "long"
-        ? markPrice - pos.entryPrice
-        : pos.entryPrice - markPrice;
-
-    const pnl = diff * pos.size;
-    const roe = (diff / pos.entryPrice) * 100;
-
-    return { pnl, roe };
-  };
+  const activeList =
+    tab === "open" ? openOrders : tab === "history" ? orderHistory : tradeHistory;
 
   return (
-    <div className="p-4 text-[var(--text-primary)]">
-      {/* Header */}
-      <div className="pb-3 border-b border-[var(--border-color)]">
-        <h2 className="text-sm font-semibold">Positions</h2>
+    <div className="w-full h-full bg-surface1 border border-[var(--border-color)] rounded-xl overflow-hidden flex flex-col">
+      {/* ------------------ TOP TABS ------------------ */}
+      <div className="flex text-sm border-b border-[var(--border-color)]">
+        <button
+          className={cn(
+            "flex-1 py-2",
+            tab === "open"
+              ? "text-accent font-semibold"
+              : "text-[var(--text-secondary)]"
+          )}
+          onClick={() => setTab("open")}
+        >
+          Open Orders
+        </button>
+
+        <button
+          className={cn(
+            "flex-1 py-2",
+            tab === "history"
+              ? "text-accent font-semibold"
+              : "text-[var(--text-secondary)]"
+          )}
+          onClick={() => setTab("history")}
+        >
+          Order History
+        </button>
+
+        <button
+          className={cn(
+            "flex-1 py-2",
+            tab === "trade"
+              ? "text-accent font-semibold"
+              : "text-[var(--text-secondary)]"
+          )}
+          onClick={() => setTab("trade")}
+        >
+          Trade History
+        </button>
       </div>
 
-      {/* Table */}
-      <div className="mt-3 overflow-x-auto">
-        <table className="w-full text-xs">
-          <thead>
-            <tr className="text-[var(--text-secondary)] border-b border-[var(--border-color)]">
-              <th className="py-2 text-left">Pair</th>
-              <th className="text-right">Size</th>
-              <th className="text-right">Entry</th>
-              <th className="text-right">Mark</th>
-              <th className="text-right">PnL</th>
-              <th className="text-right">ROE%</th>
-              <th className="text-right">Action</th>
-            </tr>
-          </thead>
+      {/* ------------------ TABLE HEADER ------------------ */}
+      <div className="grid grid-cols-6 text-xs px-3 py-2 border-b border-[var(--border-color)] text-[var(--text-secondary)]">
+        <div>Pair</div>
+        <div>Side</div>
+        <div>Price</div>
+        <div>Amount</div>
+        <div>Status</div>
+        <div>Time</div>
+      </div>
 
-          <tbody>
-            {positions.length === 0 && (
-              <tr>
-                <td
-                  colSpan={8}
-                  className="text-center py-6 text-[var(--text-secondary)]"
-                >
-                  No active positions
-                </td>
-              </tr>
-            )}
+      {/* ------------------ TABLE ROWS ------------------ */}
+      <div className="flex-1 overflow-auto text-xs">
+        {activeList.length === 0 ? (
+          <div className="p-4 text-[var(--text-secondary)]">
+            No records found.
+          </div>
+        ) : (
+          activeList.map((o) => (
+            <div
+              key={o.id}
+              className="grid grid-cols-6 px-3 py-2 border-b border-[var(--border-color)] text-[var(--text-primary)]"
+            >
+              <div>{o.symbol}</div>
 
-            {positions.map((pos) => {
-              const { pnl, roe } = calcPnl(pos);
+              <div
+                className={o.side === "buy" ? "text-chartgreen" : "text-chartred"}
+              >
+                {o.side.toUpperCase()}
+              </div>
 
-              return (
-                <tr
-                  key={pos.id}
-                  className="border-b border-[var(--border-color)] hover:bg-[var(--hover-bg)] transition"
-                >
-                  <td className="py-2">
-                    <span className="font-medium">{pos.pair}</span>
-                    <span
-                      className={cn(
-                        "ml-2 px-1.5 py-0.5 rounded text-[10px]",
-                        pos.side === "long"
-                          ? "text-[#1AC186] bg-[#1ac18522]"
-                          : "text-[#F54E5D] bg-[#f54e5d22]"
-                      )}
-                    >
-                      {pos.side.toUpperCase()}
-                    </span>
-                  </td>
+              <div>{o.price}</div>
+              <div>{o.amount}</div>
 
-                  <td className="text-right">{pos.size}</td>
-                  <td className="text-right">{pos.entryPrice.toFixed(2)}</td>
-                  <td className="text-right">
-                    {markPrice ? markPrice.toFixed(2) : "--"}
-                  </td>
+              <div
+                className={
+                  o.status === "open"
+                    ? "text-accent"
+                    : "text-[var(--text-secondary)]"
+                }
+              >
+                {o.status}
+              </div>
 
-                  <td
-                    className={cn(
-                      "text-right font-medium",
-                      pnl >= 0 ? "text-[#1AC186]" : "text-[#F54E5D]"
-                    )}
-                  >
-                    {pnl.toFixed(2)}
-                  </td>
-
-                  <td
-                    className={cn(
-                      "text-right font-medium",
-                      roe >= 0 ? "text-[#1AC186]" : "text-[#F54E5D]"
-                    )}
-                  >
-                    {roe.toFixed(2)}%
-                  </td>
-
-                  <td className="text-right">
-                    <button
-                      onClick={() => closePosition(pos.id)}
-                      className="p-1 rounded hover:bg-[var(--border-color)] transition"
-                    >
-                      <X size={14} />
-                    </button>
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
+              <div>{o.time}</div>
+            </div>
+          ))
+        )}
       </div>
     </div>
   );

@@ -3,33 +3,11 @@
 
 import { create } from 'zustand';
 
-// ------------------------------
-// Types for MEXC
-// ------------------------------
-export type TickerData = {
-  symbol: string;
-  bidPrice: string;
-  askPrice: string;
-};
+// =====================================================
+//  Types (MEXC formats)
+// =====================================================
 
-export type TradeData = {
-  p: string; // price
-  v: string; // volume
-  T: number; // timestamp
-  S: 'buy' | 'sell'; // side
-};
-
-export type KlineData = {
-    i: string; // interval
-    ts: number; // timestamp
-    o: string; // open
-    h: string; // high
-    l: string; // low
-    c: string; // close
-    v: string; // volume
-};
-
-export type RawOrder = [string, string]; // [price, size]
+export type RawOrder = [string, string];
 
 export type ProcessedOrder = {
   price: number;
@@ -37,23 +15,25 @@ export type ProcessedOrder = {
   isWall: boolean;
 };
 
-// ------------------------------
-// Zustand store for live updates
-// ------------------------------
+// =====================================================
+//  Zustand store
+// =====================================================
+
 interface MarketDataState {
-  ticker: { c: string; P: string; h: string; l: string; v: string; s: string } | null;
+  ticker: any | null;
   bids: ProcessedOrder[];
   asks: ProcessedOrder[];
   trades: any[];
   isConnected: boolean;
   error: string | null;
   hoveredPrice: number | null;
+
   setTicker: (data: any) => void;
   setDepth: (bids: RawOrder[], asks: RawOrder[]) => void;
   pushTrade: (trade: any) => void;
-  setConnected: (status: boolean) => void;
-  setError: (error: string | null) => void;
-  setHoveredPrice: (price: number | null) => void;
+  setConnected: (s: boolean) => void;
+  setError: (e: string | null) => void;
+  setHoveredPrice: (p: number | null) => void;
 }
 
 export const useMarketDataStore = create<MarketDataState>((set) => ({
@@ -64,42 +44,42 @@ export const useMarketDataStore = create<MarketDataState>((set) => ({
   isConnected: false,
   error: null,
   hoveredPrice: null,
+
   setTicker: (data) => set({ ticker: data }),
+
   setDepth: (bids, asks) => {
-    function detectWalls(levels: RawOrder[]): ProcessedOrder[] {
-        if (!Array.isArray(levels) || levels.length === 0) return [];
-
-        const top15Levels = levels.slice(0, 15);
-        const amounts = top15Levels.map((lvl) => parseFloat(lvl[1]) || 0);
-        const avg = amounts.reduce((a, b) => a + b, 0) / (amounts.length || 1);
-        const threshold = avg * 2.5;
-
-        return levels.map((lvl) => {
-            const price = parseFloat(lvl[0]);
-            const size = parseFloat(lvl[1]);
-            return { price, size, isWall: size >= threshold };
-        });
-    }
-    const processedBids = detectWalls(bids);
-    const processedAsks = detectWalls(asks);
-    set({ bids: processedBids, asks: processedAsks });
+    const detect = (levels: RawOrder[]): ProcessedOrder[] => {
+      if (!Array.isArray(levels) || levels.length === 0) return [];
+      const top = levels.slice(0, 15);
+      const avg = top.reduce((a, b) => a + parseFloat(b[1]), 0) / top.length;
+      const th = avg * 2.5;
+      return levels.map(([p, s]) => ({
+        price: +p,
+        size: +s,
+        isWall: +s >= th,
+      }));
+    };
+    set({ bids: detect(bids), asks: detect(asks) });
   },
-  pushTrade: (trade) => set((state) => ({ trades: [trade, ...state.trades].slice(-100) })),
-  setConnected: (status) => set({ isConnected: status }),
-  setError: (error) => set({ error }),
-  setHoveredPrice: (price) => set({ hoveredPrice: price }),
+
+  pushTrade: (t) =>
+    set((st) => ({ trades: [t, ...st.trades].slice(0, 200) })),
+
+  setConnected: (s) => set({ isConnected: s }),
+  setError: (e) => set({ error: e }),
+  setHoveredPrice: (p) => set({ hoveredPrice: p }),
 }));
 
+// =====================================================
+//  MarketDataService (Singleton)
+// =====================================================
 
-// ------------------------------
-// MarketDataService (singleton)
-// ------------------------------
 export class MarketDataService {
-  private static instances: Map<string, MarketDataService> = new Map();
-
-  private symbol: string;
+  private static instances = new Map<string, MarketDataService>();
   private ws: WebSocket | null = null;
-  private reconnectAttempts: number = 0;
+  private symbol: string;
+  private reconnectAttempts = 0;
+  private heartbeat: NodeJS.Timeout | null = null;
 
   private constructor(symbol: string) {
     this.symbol = symbol.replace('-', '').toUpperCase();
@@ -112,65 +92,86 @@ export class MarketDataService {
     return this.instances.get(symbol)!;
   }
 
+  // -----------------------------------------------------
+  //  Connect
+  // -----------------------------------------------------
   connect() {
-    if (this.ws) {
-        this.disconnect(true); // silent disconnect for a clean state
-    }
-    
-    const url = "wss://wbs.mexc.com/ws";
-    
+    this.disconnect(true);
+
+    const url = 'wss://wbs.mexc.com/ws';
+
     try {
-        this.ws = new WebSocket(url);
-    } catch(e) {
-        console.error("WebSocket creation failed:", e);
-        useMarketDataStore.getState().setError("WebSocket connection failed.");
-        return;
+      this.ws = new WebSocket(url);
+    } catch (err) {
+      useMarketDataStore.getState().setError('WS creation failed.');
+      return;
     }
 
     this.ws.onopen = () => {
-      console.log("MEXC WebSocket connected");
       useMarketDataStore.getState().setConnected(true);
       useMarketDataStore.getState().setError(null);
+      this.reconnectAttempts = 0;
+
       this.subscribe();
-      this.reconnectAttempts = 0; // Reset on successful connection
+      this.startHeartbeat();
     };
 
-    this.ws.onmessage = (event) => {
-      this.handleMessage(event.data);
-    };
+    this.ws.onmessage = (e) => this.handleMessage(e.data);
 
     this.ws.onerror = (err) => {
-      console.error('MEXC WebSocket error:', err);
+      console.error('WS error:', err);
     };
 
-    this.ws.onclose = (event) => {
-      console.log('MEXC WebSocket closed:', event.code, event.reason);
+    this.ws.onclose = (e) => {
+      this.stopHeartbeat();
       useMarketDataStore.getState().setConnected(false);
-      
-      // Abnormal closure, likely due to sandbox or network issue
-      if (event.code === 1006) {
-        useMarketDataStore.getState().setError("Connection failed. The development environment may be blocking WebSockets. Please test in a standard browser window.");
-        // Do not attempt to reconnect in a loop if it's a sandbox issue
+
+      // Firebase Studio always triggers 1006/1008
+      if (e.code === 1006) {
+        useMarketDataStore.getState().setError(
+          'WebSocket blocked by Firebase Studio preview. Test in a normal browser.'
+        );
         return;
       }
-      
-      if (event.code !== 1000) { // Don't reconnect on normal closure
-        this.reconnect();
-      }
+
+      if (e.code !== 1000) this.reconnect();
     };
   }
 
+  // -----------------------------------------------------
+  //  Heartbeat (keeps connection alive)
+  // -----------------------------------------------------
+  private startHeartbeat() {
+    this.stopHeartbeat();
+    this.heartbeat = setInterval(() => {
+      if (this.ws?.readyState === WebSocket.OPEN) {
+        this.ws.send(JSON.stringify({ method: 'PING' }));
+      }
+    }, 15000);
+  }
+
+  private stopHeartbeat() {
+    if (this.heartbeat) clearInterval(this.heartbeat);
+    this.heartbeat = null;
+  }
+
+  // -----------------------------------------------------
+  //  Reconnect with backoff
+  // -----------------------------------------------------
   private reconnect() {
     this.reconnectAttempts++;
-    const delay = Math.min(1000 * Math.pow(2, this.reconnectAttempts), 30000); // Exponential backoff up to 30s
-    console.log(`WebSocket disconnected. Attempting to reconnect in ${delay / 1000}s...`);
+    const delay = Math.min(500 * 2 ** this.reconnectAttempts, 20000);
     setTimeout(() => this.connect(), delay);
   }
 
+  // -----------------------------------------------------
+  //  Subscription
+  // -----------------------------------------------------
   private subscribe() {
-    if (this.ws?.readyState !== WebSocket.OPEN) return;
-    const subscriptionMessage = {
-      method: "SUBSCRIPTION",
+    if (this.ws?.readyState !== 1) return;
+
+    const sub = {
+      method: 'SUBSCRIPTION',
       params: [
         `spot@public.bookTicker.v3.api@${this.symbol}`,
         `spot@public.deal.v3.api@${this.symbol}`,
@@ -179,48 +180,71 @@ export class MarketDataService {
       ],
       id: 1,
     };
-    this.ws.send(JSON.stringify(subscriptionMessage));
+
+    this.ws.send(JSON.stringify(sub));
   }
 
-  private handleMessage(rawMessage: string) {
-    const message = JSON.parse(rawMessage);
+  // -----------------------------------------------------
+  //  Message Handling
+  // -----------------------------------------------------
+  private handleMessage(raw: string) {
+    let msg: any;
+    try {
+      msg = JSON.parse(raw);
+    } catch {
+      return;
+    }
 
-    if (message.c) { // Channel-based message
-        if (message.c.includes('spot@public.bookTicker.v3.api')) {
-            const d = message.d;
-            const adaptedTicker = {
-                c: d.askPrice,
-                P: '0.0', // Not provided by this stream, would need another source
-                h: '0',     // Not provided
-                l: '0',     // Not provided
-                v: '0',     // Not provided
-                s: d.symbol
-            };
-            useMarketDataStore.getState().setTicker(adaptedTicker);
+    if (!msg.c) return;
 
-        } else if (message.c.includes('spot@public.deal.v3.api')) {
-            // Corrected: MEXC sends an array directly in `d`
-            if (Array.isArray(message.d)) {
-                message.d.forEach((trade: any) => {
-                    const adaptedTrade = { p: trade.p, q: trade.v, T: trade.t, m: trade.S === 'sell' };
-                    useMarketDataStore.getState().pushTrade(adaptedTrade);
-                });
-            }
-        } else if (message.c.includes('spot@public.depth.v3.api')) {
-            if (message.d?.bids && message.d?.asks) {
-                 useMarketDataStore.getState().setDepth(message.d.bids, message.d.asks);
-            }
+    // ---------------------- Ticker ----------------------
+    if (msg.c.includes('bookTicker')) {
+      const d = msg.d;
+      useMarketDataStore.getState().setTicker({
+        c: d.askPrice,
+        P: '0',
+        h: '0',
+        l: '0',
+        v: '0',
+        s: d.symbol,
+      });
+      return;
+    }
+
+    // ---------------------- Trades ----------------------
+    if (msg.c.includes('deal')) {
+      if (Array.isArray(msg.d)) {
+        for (const t of msg.d) {
+          useMarketDataStore.getState().pushTrade({
+            p: t.p,
+            q: t.v,
+            T: t.t,
+            m: t.S === 'sell',
+          });
         }
+      }
+      return;
+    }
+
+    // ---------------------- Depth -----------------------
+    if (msg.c.includes('depth')) {
+      if (msg.d?.bids && msg.d?.asks) {
+        useMarketDataStore.getState().setDepth(msg.d.bids, msg.d.asks);
+      }
+      return;
     }
   }
 
-  disconnect(isInternalCall = false) {
+  // -----------------------------------------------------
+  //  Disconnect
+  // -----------------------------------------------------
+  disconnect(silent = false) {
+    this.stopHeartbeat();
+
     if (this.ws) {
-        if (!isInternalCall) {
-            console.log("Disconnecting from MEXC WebSocket.");
-        }
-        this.ws.close(1000, "User-initiated disconnect");
-        this.ws = null;
+      if (!silent) console.log('Disconnecting WS...');
+      this.ws.close(1000, 'clean disconnect');
+      this.ws = null;
     }
     useMarketDataStore.getState().setConnected(false);
   }

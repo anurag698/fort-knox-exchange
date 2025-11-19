@@ -10,7 +10,9 @@ export default function OrderbookPanel({ pair }: { pair: string }) {
   const { bids, asks } = useMarketDataStore();
   const [group, setGroup] = useState("0.01");
 
-  const grouped = (orders: any[], g: string) => {
+  const grouped = (orders: any[] | undefined, g: string) => {
+    if (!orders || !Array.isArray(orders)) return [];
+
     const size = parseFloat(g);
     const map = new Map();
 
@@ -21,12 +23,9 @@ export default function OrderbookPanel({ pair }: { pair: string }) {
       map.set(bucket, prev + lvl.size);
     });
 
-    const arr = [...map.entries()].map(([p, s]) => ({
-      price: p,
-      size: s,
-    }));
-
-    return arr.sort((a, b) => a.price - b.price);
+    return [...map.entries()]
+      .map(([p, s]) => ({ price: p, size: s }))
+      .sort((a, b) => a.price - b.price);
   };
 
   const groupedBids = grouped(bids, group).sort((a, b) => b.price - a.price);

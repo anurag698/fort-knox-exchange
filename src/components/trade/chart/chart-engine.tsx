@@ -1,7 +1,9 @@
+
 "use client";
 
 import React, { useEffect, useRef, useState, useCallback } from "react";
-import { createChart, IChartApi } from "lightweight-charts";
+import { createChart, IChartApi, ISeriesApi } from "lightweight-charts";
+import { bus } from "@/components/bus";
 
 // Engine modules (from Part 13.7-A)
 import { ChartEngine } from "@/lib/chart-engine/engine-core";
@@ -43,6 +45,16 @@ export default function ChartEngineComponent({
   const drawingsRef = useRef<DrawingManager | null>(null);
   const overlaysRef = useRef<OverlayManager | null>(null);
 
+  const candleSeriesRef = useRef<ISeriesApi<"Candlestick"> | null>(null);
+  const volumeSeriesRef = useRef<ISeriesApi<"Histogram"> | null>(null);
+  const tradeMarkerSeriesRef = useRef<ISeriesApi<"Candlestick"> | null>(null);
+  const currentPositionRef = useRef<any>(null);
+  const pnlRef = useRef<any>(null);
+  const pnlLineRef = useRef<any>(null);
+  const tpLineRef = useRef<any>(null);
+  const slLineRef = useRef<any>(null);
+
+
   // Theme adaptation
   const [theme, setTheme] = useState<"light" | "dark">("dark");
 
@@ -79,6 +91,10 @@ export default function ChartEngineComponent({
     });
 
     chartRef.current = chart;
+    candleSeriesRef.current = chart.addCandlestickSeries();
+    volumeSeriesRef.current = chart.addHistogramSeries();
+    tradeMarkerSeriesRef.current = chart.addCandlestickSeries();
+
 
     // 2. Engine Instance
     const engine = new ChartEngine(chart);
@@ -319,209 +335,402 @@ export default function ChartEngineComponent({
     };
   }, [symbol, interval]);
 
-  // -----------------------------
-  // Part 13.7-B (3/3) — Indicators, Drawings, Overlays, API
-  // Paste this AFTER the Hybrid WS effect and BEFORE the return in chart-engine.tsx
-  // -----------------------------
-  useEffect(() => {
-    const engine = engineRef.current;
-    const indicators = indicatorsRef.current;
-    const drawings = drawingsRef.current;
-    const overlays = overlaysRef.current;
-    const chart = chartRef.current;
+// -----------------------------
+// Part 13.7-B (3/3) — Indicators, Drawings, Overlays, API
+// Paste this AFTER the Hybrid WS effect and BEFORE the return in chart-engine.tsx
+// -----------------------------
+useEffect(() => {
+  const engine = engineRef.current;
+  const indicators = indicatorsRef.current;
+  const drawings = drawingsRef.current;
+  const overlays = overlaysRef.current;
+  const chart = chartRef.current;
 
-    if (!engine || !indicators || !drawings || !overlays || !chart) return;
+  if (!engine || !indicators || !drawings || !overlays || !chart) return;
 
-    // -------------------------
-    // Helper: safe caller
-    // -------------------------
-    const safe = <T extends (...args: any[]) => any>(fn?: T) => {
-      return (...args: Parameters<T>) => {
-        try {
-          return fn && fn(...(args as any));
-        } catch (e) {
-          console.warn("Chart API call failed", e);
-        }
-      };
-    };
-
-    // -------------------------
-    // Indicators API
-    // -------------------------
-    const addSMA = safe((period = 20, color = "#f6e05e") => {
-      if (!indicators) return;
-      indicators.addSMA(period, color);
-    });
-
-    const removeSMA = safe((period = 20) => {
-      indicators?.removeSMA(period);
-    });
-
-    const addEMA = safe((period = 20, color = "#fb7185") => {
-      indicators?.addEMA(period, color);
-    });
-
-    const addRSI = safe((period = 14, panelId = "rsi") => {
-      indicators?.addRSI(period, panelId);
-    });
-
-    const addVWAP = safe((session = "today") => {
-      indicators?.addVWAP(session);
-    });
-
-    // -------------------------
-    // Drawing Tools API
-    // -------------------------
-    const enableFreeDraw = safe(() => {
-      drawings?.enableFreeDraw();
-    });
-
-    const enableTrendTool = safe(() => {
-      drawings?.enableTrendTool();
-    });
-
-    const addTrendLine = safe((p1: any, p2: any) => {
-      drawings?.addTrend(p1, p2);
-    });
-
-    const addFib = safe((high: any, low: any) => {
-      drawings?.addFib(high, low);
-    });
-
-    const clearDrawings = safe(() => {
-      drawings?.clearAll();
-    });
-
-    // -------------------------
-    // TP / SL and Multi-entry
-    // -------------------------
-    const setTPSL = safe((list: { price: number; type: "tp" | "sl" }[]) => {
-      overlays?.setTPSL(list);
-    });
-
-    const setEntries = safe((entries: { price: number; size: number }[]) => {
-      overlays?.setEntries(entries);
-    });
-
-    // -------------------------
-    // Trade markers (recent trades)
-    // -------------------------
-    const setTradeMarkers = safe((markers: { price: number; size: number; side: "buy" | "sell"; ts?: number }[]) => {
-      overlays?.setTradeMarkers(markers);
-    });
-
-    // -------------------------
-    // PnL overlay updater
-    // -------------------------
-    const updatePositionPnl = safe((position: { avgEntry: number; size: number; side?: "long" | "short" }) => {
-      // compute unrealized pnl and display via overlays manager
+  // -------------------------
+  // Helper: safe caller
+  // -------------------------
+  const safe = <T extends (...args: any[]) => any>(fn?: T) => {
+    return (...args: Parameters<T>) => {
       try {
-        const last = engine.getLastCandle();
-        if (!last) return;
-        const lastPrice = last.c;
-        const side = position.side ?? (position.size >= 0 ? "long" : "short");
-        const pnl = side === "long" ? (lastPrice - position.avgEntry) * Math.abs(position.size) : (position.avgEntry - lastPrice) * Math.abs(position.size);
-        overlays?.setPositionOverlay({
-          avgEntry: position.avgEntry,
-          size: position.size,
-          pnl,
-          side,
-        });
+        return fn && fn(...(args as any));
       } catch (e) {
-        console.warn("updatePositionPnl failed", e);
+        console.warn("Chart API call failed", e);
       }
+    };
+  };
+
+  // -------------------------
+  // Indicators API
+  // -------------------------
+  const addSMA = safe((period = 20, color = "#f6e05e") => {
+    if (!indicators) return;
+    indicators.addSMA(period, color);
+  });
+
+  const removeSMA = safe((period = 20) => {
+    indicators?.removeSMA(period);
+  });
+
+  const addEMA = safe((period = 20, color = "#fb7185") => {
+    indicators?.addEMA(period, color);
+  });
+
+  const addRSI = safe((period = 14, panelId = "rsi") => {
+    indicators?.addRSI(period, panelId);
+  });
+
+  const addVWAP = safe((session = "today") => {
+    indicators?.addVWAP(session);
+  });
+
+  // -------------------------
+  // Drawing Tools API
+  // -------------------------
+  const enableFreeDraw = safe(() => {
+    drawings?.enableFreeDraw();
+  });
+
+  const enableTrendTool = safe(() => {
+    drawings?.enableTrendTool();
+  });
+
+  const addTrendLine = safe((p1: any, p2: any) => {
+    drawings?.addTrend(p1, p2);
+  });
+
+  const addFib = safe((high: any, low: any) => {
+    drawings?.addFib(high, low);
+  });
+
+  const clearDrawings = safe(() => {
+    drawings?.clearAll();
+  });
+
+  // -------------------------
+  // TP / SL and Multi-entry
+  // -------------------------
+  const setTPSL = safe((list: { price: number; type: "tp" | "sl" }[]) => {
+    overlays?.setTPSL(list);
+  });
+
+  const setEntries = safe((entries: { price: number; size: number }[]) => {
+    overlays?.setEntries(entries);
+  });
+
+  // -------------------------
+  // Trade markers (recent trades)
+  // -------------------------
+  const setTradeMarkers = safe((markers: { price: number; size: number; side: "buy" | "sell"; ts?: number }[]) => {
+    overlays?.setTradeMarkers(markers);
+  });
+
+  // -------------------------
+  // PnL overlay updater
+  // -------------------------
+  const updatePositionPnl = safe((position: { avgEntry: number; size: number; side?: "long" | "short" }) => {
+    // compute unrealized pnl and display via overlays manager
+    try {
+      const last = engine.getLastCandle();
+      if (!last) return;
+      const lastPrice = last.c;
+      const side = position.side ?? (position.size >= 0 ? "long" : "short");
+      const pnl = side === "long" ? (lastPrice - position.avgEntry) * Math.abs(position.size) : (position.avgEntry - lastPrice) * Math.abs(position.size);
+      overlays?.setPositionOverlay({
+        avgEntry: position.avgEntry,
+        size: position.size,
+        pnl,
+        side,
+      });
+    } catch (e) {
+      console.warn("updatePositionPnl failed", e);
+    }
+  });
+
+  // -------------------------
+  // Expose UI API for toolbar and parent components
+  // -------------------------
+  // already passed via onEngineReady once on mount — add a second guard store on engine object
+  (engine as any).ui = {
+    addSMA,
+    removeSMA,
+    addEMA,
+    addRSI,
+    addVWAP,
+    enableFreeDraw,
+    enableTrendTool,
+    addTrendLine,
+    addFib,
+    clearDrawings,
+    setTPSL,
+    setEntries,
+    setTradeMarkers,
+    updatePositionPnl,
+    zoomIn: () => chart.timeScale().zoomIn(),
+    zoomOut: () => chart.timeScale().zoomOut(),
+    resetZoom: () => chart.timeScale().fitContent(),
+  };
+
+  // -------------------------
+  // Auto-sync some widgets:
+  // - When engine emits 'trade', add marker
+  // - When new internal-depth arrives, update depth overlay
+  // - When a final candle arrives, recompute VWAP/indicators
+  // -------------------------
+  const onTrade = (t: any) => {
+    setTradeMarkers([
+      {
+        price: t.price,
+        size: t.size,
+        side: t.side,
+        ts: t.ts,
+      },
+    ]);
+  };
+
+  const onInternalDepth = (d: any) => {
+    const bids = d.bids.map((b: any) => [b.price, b.size]);
+    const asks = d.asks.map((a: any) => [a.price, a.size]);
+    overlays?.setDepth(bids, asks, engine.getLastCandle()?.c ?? 0);
+  };
+
+  const onFinalCandle = (c: any) => {
+    // Recompute VWAP and indicators lightly
+    safe(() => indicators?.recalculateAll())();
+    // Update PnL overlays if any
+    safe(() => overlays?.refreshPositionOverlays())();
+  };
+
+  engine.eventBus.on("trade", onTrade);
+  engine.eventBus.on("internal-depth", onInternalDepth);
+  engine.eventBus.on("candle-final", onFinalCandle);
+
+  // -------------------------
+  // Cleanup
+  // -------------------------
+  return () => {
+    engine.eventBus.off("trade", onTrade);
+    engine.eventBus.off("internal-depth", onInternalDepth);
+    engine.eventBus.off("candle-final", onFinalCandle);
+    // detach ui object
+    try {
+      delete (engine as any).ui;
+    } catch {}
+  };
+}, [symbol, interval]);
+
+// -----------------------------
+// OPTIONAL: short helper export for dev console
+// -----------------------------
+useEffect(() => {
+  // attach to window for debugging in dev
+  if (process.env.NODE_ENV === "development") {
+    (window as any).__FK_CHART__ = {
+      engine: engineRef.current,
+      chart: chartRef.current,
+      indicators: indicatorsRef.current,
+      drawings: drawingsRef.current,
+      overlays: overlaysRef.current,
+    };
+  }
+  return () => {
+    if ((window as any).__FK_CHART__) delete (window as any).__FK_CHART__;
+  };
+}, []);
+
+
+// ------------------------------------------
+// 13.7-D LIVE STREAM INTEGRATION LAYER
+// ------------------------------------------
+useEffect(() => {
+  const chart = chartRef.current;
+  const candleSeries = candleSeriesRef.current;
+  const volumeSeries = volumeSeriesRef.current;
+  const tradeMarkerSeries = tradeMarkerSeriesRef.current;
+  const recalcIndicators = indicatorsRef.current?.recalculateAll;
+  const drawDepthHeatmap = (overlaysRef.current as any)?.drawDepth;
+
+
+  if (!chart || !candleSeries || !volumeSeries || !tradeMarkerSeries) return;
+
+  // Firebase Studio sandbox protection (prevent crashes)
+  const isSandbox =
+    typeof window !== "undefined" &&
+    window.location.href.includes("firebase");
+
+  // ------------------------------
+  // Candle update throttler (16 FPS)
+  // ------------------------------
+  let candleUpdateTimer: any = null;
+
+  const updateCandleThrottled = (k: any) => {
+    if (candleUpdateTimer) return;
+    candleUpdateTimer = setTimeout(() => {
+      candleUpdateTimer = null;
+
+      const t = Math.floor(k.t / 1000);
+
+      candleSeries.update({
+        time: t,
+        open: Number(k.o),
+        high: Number(k.h),
+        low: Number(k.l),
+        close: Number(k.c),
+      });
+
+      volumeSeries.update({
+        time: t,
+        value: Number(k.v),
+        color: Number(k.c) >= Number(k.o) ? "#26a69a" : "#ef5350",
+      });
+
+      // Recompute MAs / EMA20 live
+      if (typeof recalcIndicators === "function") {
+        recalcIndicators();
+      }
+    }, 60);
+  };
+
+  // ------------------------------
+  // DEPTH HEATMAP
+  // ------------------------------
+  let depthTimer: any = null;
+
+  const updateDepthThrottled = (d: any) => {
+    if (depthTimer) return;
+    depthTimer = setTimeout(() => {
+      depthTimer = null;
+      if (drawDepthHeatmap) {
+        drawDepthHeatmap({
+          bids: (d.bids || []).map(([p, s]: any) => [Number(p), Number(s)]),
+          asks: (d.asks || []).map(([p, s]: any) => [Number(p), Number(s)]),
+        });
+      }
+    }, 100);
+  };
+
+  // ------------------------------
+  // TRADE MARKERS (bubbles)
+  // ------------------------------
+  const tradeMarkers: any[] = [];
+  let tradeTimer: any = null;
+
+  const addTradeMarker = (t: any) => {
+    if (!candleSeries) return;
+
+    tradeMarkers.push({
+      time: Math.floor(t.t / 1000),
+      position: t.S === "buy" ? "belowBar" : "aboveBar",
+      color: t.S === "buy" ? "#26a69a" : "#ef5350",
+      shape: "circle",
+      text: Number(t.p).toFixed(4),
     });
 
-    // -------------------------
-    // Expose UI API for toolbar and parent components
-    // -------------------------
-    // already passed via onEngineReady once on mount — add a second guard store on engine object
-    (engine as any).ui = {
-      addSMA,
-      removeSMA,
-      addEMA,
-      addRSI,
-      addVWAP,
-      enableFreeDraw,
-      enableTrendTool,
-      addTrendLine,
-      addFib,
-      clearDrawings,
-      setTPSL,
-      setEntries,
-      setTradeMarkers,
-      updatePositionPnl,
-      zoomIn: () => chart.timeScale().zoomIn(),
-      zoomOut: () => chart.timeScale().zoomOut(),
-      resetZoom: () => chart.timeScale().fitContent(),
-    };
+    if (tradeMarkers.length > 50) tradeMarkers.shift();
 
-    // -------------------------
-    // Auto-sync some widgets:
-    // - When engine emits 'trade', add marker
-    // - When new internal-depth arrives, update depth overlay
-    // - When a final candle arrives, recompute VWAP/indicators
-    // -------------------------
-    const onTrade = (t: any) => {
-      setTradeMarkers([
-        {
-          price: t.price,
-          size: t.size,
-          side: t.side,
-          ts: t.ts,
-        },
-      ]);
-    };
+    if (tradeTimer) return;
+    tradeTimer = setTimeout(() => {
+      tradeTimer = null;
+      tradeMarkerSeries.setData(tradeMarkers as any);
+    }, 120);
+  };
 
-    const onInternalDepth = (d: any) => {
-      const bids = d.bids.map((b: any) => [b.price, b.size]);
-      const asks = d.asks.map((a: any) => [a.price, a.size]);
-      overlays?.setDepth(bids, asks, engine.getLastCandle()?.c ?? 0);
-    };
+  // ------------------------------
+  // PNL OVERLAY (Real-time)
+  // ------------------------------
+  const updatePnL = (ticker: any) => {
+    if (!currentPositionRef.current) return;
 
-    const onFinalCandle = (c: any) => {
-      // Recompute VWAP and indicators lightly
-      safe(() => indicators?.recalculateAll())();
-      // Update PnL overlays if any
-      safe(() => overlays?.refreshPositionOverlays())();
-    };
+    const lastPrice = Number(ticker.askPrice || ticker.c || ticker.p);
+    if (!lastPrice || Number.isNaN(lastPrice)) return;
 
-    engine.eventBus.on("trade", onTrade);
-    engine.eventBus.on("internal-depth", onInternalDepth);
-    engine.eventBus.on("candle-final", onFinalCandle);
+    // Recalculate PnL (net across all entries)
+    const { entries } = currentPositionRef.current;
+    const totalQty = entries.reduce((s: number, e: any) => s + Number(e.qty), 0);
+    const avg = entries.reduce((s: number, e: any) => s + Number(e.price) * Number(e.qty), 0) / totalQty;
 
-    // -------------------------
-    // Cleanup
-    // -------------------------
-    return () => {
-      engine.eventBus.off("trade", onTrade);
-      engine.eventBus.off("internal-depth", onInternalDepth);
-      engine.eventBus.off("candle-final", onFinalCandle);
-      // detach ui object
-      try {
-        delete (engine as any).ui;
-      } catch {}
-    };
-  }, [symbol, interval]);
+    const side = currentPositionRef.current.side; // "long" or "short"
+    const pnl = side === "long"
+      ? (lastPrice - avg) * totalQty
+      : (avg - lastPrice) * totalQty;
 
-  // -----------------------------
-  // OPTIONAL: short helper export for dev console
-  // -----------------------------
-  useEffect(() => {
-    // attach to window for debugging in dev
-    if (process.env.NODE_ENV === "development") {
-      (window as any).__FK_CHART__ = {
-        engine: engineRef.current,
-        chart: chartRef.current,
-        indicators: indicatorsRef.current,
-        drawings: drawingsRef.current,
-        overlays: overlaysRef.current,
-      };
+    pnlRef.current.innerText = `PnL: ${pnl.toFixed(2)} USDT`;
+
+    // Update floating PnL label on chart
+    if (pnlLineRef.current) {
+      pnlLineRef.current.applyOptions({
+        price: lastPrice,
+        title: `PnL ${pnl.toFixed(2)}`,
+      });
     }
-    return () => {
-      if ((window as any).__FK_CHART__) delete (window as any).__FK_CHART__;
-    };
-  }, []);
+  };
+
+  // ------------------------------
+  // TP / SL Real-time lines
+  // ------------------------------
+  const updateTpsl = () => {
+    if (!currentPositionRef.current) return;
+
+    const { tp, sl } = currentPositionRef.current;
+
+    if (tp && tpLineRef.current) {
+      tpLineRef.current.applyOptions({
+        price: Number(tp),
+        color: "#00e676",
+        title: "TP",
+      });
+    }
+
+    if (sl && slLineRef.current) {
+      slLineRef.current.applyOptions({
+        price: Number(sl),
+        color: "#ff5252",
+        title: "SL",
+      });
+    }
+  };
+
+  // --------------------------------------
+  // REGISTER EVENT BUS LISTENERS
+  // --------------------------------------
+  bus.on("kline", (k) => {
+    if (!isSandbox) updateCandleThrottled(k);
+  });
+
+  bus.on("depth", (d) => {
+    if (!isSandbox) updateDepthThrottled(d);
+  });
+
+  bus.on("trade", (t) => {
+    if (!isSandbox) addTradeMarker(t);
+  });
+
+  bus.on("ticker", (t) => {
+    if (!isSandbox) {
+      updatePnL(t);
+      updateTpsl();
+    }
+  });
+
+  // --------------------------------------
+  // CLEANUP
+  // --------------------------------------
+   return () => {
+    bus.off("kline", updateCandleThrottled);
+    bus.off("depth", updateDepthThrottled);
+    bus.off("trade", addTradeMarker);
+    bus.off("ticker", updatePnL);
+    bus.off("ticker", updateTpsl);
+  };
+}, [
+  chartRef,
+  candleSeriesRef,
+  volumeSeriesRef,
+  overlaysRef,
+  tradeMarkerSeriesRef,
+]);
+
 
 
   // ------------------------------------------------------------------------

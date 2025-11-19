@@ -11,7 +11,7 @@ import Link from 'next/link';
 import { Button } from '../ui/button';
 import { useMarkets } from '@/hooks/use-markets';
 import { useMarketDataStore } from '@/state/market-data-store';
-import { marketDataService } from '@/services/market-data-service';
+import { MarketDataService } from '@/services/market-data-service';
 
 
 // Mock icons for coins
@@ -42,7 +42,8 @@ export function PopularCoins() {
     // We can connect to just one of the popular markets to get some live data feel,
     // without overwhelming the connection limit. Or none at all. Let's connect to the first one.
     const firstMarketSymbol = displayMarkets[0].id;
-    marketDataService.connect(firstMarketSymbol);
+    const marketDataService = MarketDataService.get(firstMarketSymbol);
+    marketDataService.connect();
 
     return () => {
         marketDataService.disconnect();

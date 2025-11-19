@@ -1,186 +1,141 @@
 "use client";
 
-import { marketDataStore } from "@/state/market-data-store";
-import { ChartEventBus } from "@/components/trade/chart/chart-event-bus"; 
+import { bus } from "@/components/event-bus";
 
-// --------------------------------------------------
-// FIXED SINGLETON + CORRECT EXPORT SHAPE
-// --------------------------------------------------
+// -----------------------------
+// Types
+// -----------------------------
+export interface DepthLevel {
+  price: number;
+  size: number;
+}
 
-class _MarketDataService {
+export interface KlineMessage {
+  t: number;
+  o: number;
+  h: number;
+  l: number;
+  c: number;
+  v: number;
+}
+
+// -----------------------------
+// MarketDataService
+// -----------------------------
+class MarketDataService {
+  private static services = new Map<string, MarketDataService>();
+
+  private symbol: string;
   private ws: WebSocket | null = null;
-  private symbol: string = "";
-  private reconnectTimer: any = null;
+  private reconnectAttempts = 0;
 
-  connect(symbol: string) {
-    this.symbol = symbol.replace("-", "").toUpperCase();
+  private constructor(symbol: string) {
+    this.symbol = symbol.toUpperCase().replace("-", "");
+  }
 
-    // Close existing connection
+  static get(symbol: string): MarketDataService {
+    const key = symbol.toUpperCase();
+    if (!this.services.has(key)) {
+      this.services.set(key, new MarketDataService(symbol));
+    }
+    return this.services.get(key)!;
+  }
+
+  connect() {
     if (this.ws) {
-      try { this.ws.close(); } catch {}
+      try {
+        this.ws.close();
+      } catch {}
       this.ws = null;
     }
 
-    const url = "wss://wbs.mexc.com/ws";
-
     try {
-      this.ws = new WebSocket(url);
-    } catch (err) {
-      console.error("WS creation failed:", err);
-      marketDataStore.setState({ error: "WebSocket creation failed" });
+      this.ws = new WebSocket("wss://wbs.mexc.com/ws");
+    } catch (e) {
+      console.error("WS creation failed", e);
       return;
     }
 
     this.ws.onopen = () => {
-      console.log("MEXC WS connected:", this.symbol);
+      this.reconnectAttempts = 0;
 
-      marketDataStore.setState({ isConnected: true, error: null });
+      const subs = {
+        method: "SUBSCRIPTION",
+        params: [
+          `spot@public.bookTicker.v3.api@${this.symbol}`,
+          `spot@public.deal.v3.api@${this.symbol}`,
+          `spot@public.kline.v3.api@${this.symbol}@Min1`,
+          `spot@public.depth.v3.api@${this.symbol}@0`,
+        ],
+        id: Date.now(),
+      };
 
-      this.subscribe();
+      try {
+        this.ws?.send(JSON.stringify(subs));
+      } catch {}
     };
 
-    this.ws.onmessage = (msg) => {
-      this.handleMessage(msg.data);
+    this.ws.onmessage = (ev) => {
+      try {
+        const msg = JSON.parse(ev.data);
+
+        if (!msg.c) return;
+
+        // TICKER
+        if (msg.c.includes("bookTicker")) {
+          bus.emit("ticker", msg.d);
+        }
+
+        // TRADES
+        if (msg.c.includes("deal")) {
+          if (Array.isArray(msg.d.d)) {
+            for (const t of msg.d.d) {
+              bus.emit("trade", t);
+            }
+          }
+        }
+
+        // DEPTH
+        if (msg.c.includes("depth")) {
+          bus.emit("depth", {
+            bids: msg.d?.bids ?? [],
+            asks: msg.d?.asks ?? [],
+          });
+        }
+
+        // KLINE
+        if (msg.c.includes("kline")) {
+          const k = msg.d?.k;
+          if (k) bus.emit("kline", k);
+        }
+      } catch (e) {
+        console.error("WS parse error", e);
+      }
     };
 
-    this.ws.onerror = (e) => {
-      console.error("WS error:", e);
-      marketDataStore.setState({ error: "WebSocket error" });
+    this.ws.onerror = (ev) => {
+      console.error("WS error", ev);
     };
 
-    this.ws.onclose = (event) => {
-      console.warn("WS closed:", event.code, event.reason);
-      marketDataStore.setState({ isConnected: false });
-
-      if (event.code === 1006) {
-        // Firebase Studio sandbox block
-        marketDataStore.setState({
-          error: "WS blocked by Firebase Preview — test on localhost or live hosting.",
-        });
+    this.ws.onclose = () => {
+      // Skip reconnect inside Firebase Studio sandbox
+      if (typeof window !== "undefined" && window.location.href.includes("firebase")) {
         return;
       }
 
-      // Attempt reconnect
-      if (!this.reconnectTimer) {
-        this.reconnectTimer = setTimeout(() => {
-          this.connect(symbol);
-        }, 3000);
-      }
+      this.reconnectAttempts++;
+      const delay = Math.min(5000, this.reconnectAttempts * 1000);
+
+      setTimeout(() => this.connect(), delay);
     };
   }
 
-  subscribe() {
-    if (!this.ws || this.ws.readyState !== 1) return;
-
-    const msg = {
-      method: "SUBSCRIPTION",
-      params: [
-        `spot@public.bookTicker.v3.api@${this.symbol}`,
-        `spot@public.deal.v3.api@${this.symbol}`,
-        `spot@public.kline.v3.api@${this.symbol}@Min1`,
-        `spot@public.depth.v3.api@${this.symbol}@0`,
-      ],
-      id: 1,
-    };
-
-    this.ws.send(JSON.stringify(msg));
-  }
-
-  handleMessage(raw: string) {
-    let msg: any = null;
+  disconnect() {
     try {
-      msg = JSON.parse(raw);
-    } catch {
-      return;
-    }
-
-    if (!msg.c) return;
-
-    // ---------------- 1) TICKER ----------------
-    if (msg.c.includes("bookTicker")) {
-      const d = msg.d;
-      const ticker = {
-        price: parseFloat(d.a), // Use ask price for ticker
-        change: 0, // Not provided in this stream, would need another
-        high: 0,
-        low: 0,
-        volume: 0,
-        s: d.s,
-      };
-      marketDataStore.setState({ ticker });
-
-      // Forward to chart overlays
-      ChartEventBus.emit("ticker", ticker);
-      return;
-    }
-
-    // ---------------- 2) TRADES ----------------
-    if (msg.c.includes("deal")) {
-      if (Array.isArray(msg.d?.d)) {
-        msg.d.d.forEach((t: any) => {
-          const trade = {
-            p: t.p,
-            q: t.v,
-            T: t.t,
-            m: t.S === 2, // 1 for BUY, 2 for SELL in this payload
-          };
-
-          marketDataStore.getState().pushTrade(trade);
-
-          // Forward to chart trade markers
-          ChartEventBus.emit("trade", trade);
-        });
-      }
-      return;
-    }
-
-    // ---------------- 3) DEPTH ----------------
-    if (msg.c.includes("depth")) {
-      const { bids, asks } = msg.d || {};
-      if (bids && asks) {
-        marketDataStore.getState().setDepth(bids, asks);
-
-        // Forward to heatmap
-        ChartEventBus.emit("depth", { bids, asks });
-      }
-      return;
-    }
-
-    // ---------------- 4) KLINE ----------------
-    if (msg.c.includes("kline")) {
-      const k = msg.d?.k;
-      if (!k) return;
-
-      const candle = {
-        t: k.t * 1000, // convert to ms
-        o: k.o,
-        h: k.h,
-        l: k.l,
-        c: k.c,
-        v: k.v,
-      };
-
-      // Send to the Unified Chart Engine
-      ChartEventBus.emit("kline", candle);
-      return;
-    }
-  }
-
-  kill() {
-    if (this.reconnectTimer) clearTimeout(this.reconnectTimer);
-    this.reconnectTimer = null;
-
-    if (this.ws) {
-      try { this.ws.close(); } catch {}
-      this.ws = null;
-    }
-
-    marketDataStore.setState({ isConnected: false });
+      this.ws?.close();
+    } catch {}
+    this.ws = null;
   }
 }
 
-// --------------------------------------------------
-// CORRECTED EXPORT — FIXES .get() ERROR
-// --------------------------------------------------
-
-export const marketDataService = new _MarketDataService();
+export { MarketDataService };

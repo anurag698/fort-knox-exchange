@@ -18,7 +18,6 @@ import { useAssets } from '@/hooks/use-assets';
 import { useBalances } from '@/hooks/use-balances';
 import { useUser } from "@/firebase";
 import { useMarketDataStore } from '@/state/market-data-store';
-import { marketDataService } from '@/services/market-data-service';
 
 
 export default function WalletPage() {
@@ -26,35 +25,21 @@ export default function WalletPage() {
   const { data: balances, isLoading: balancesLoading, error: balancesError } = useBalances();
   const { data: assets, isLoading: assetsLoading, error: assetsError } = useAssets();
   
-  const prices = useMarketDataStore((state) => state.ticker ? { [state.ticker.price]: { price: state.ticker.price } } : {});
-  const isConnected = useMarketDataStore((state) => state.isConnected);
+  // Use the existing store to get ticker prices.
+  // The service updates this store when active on a trade page.
+  const ticker = useMarketDataStore((state) => state.ticker);
   
   const error = balancesError || assetsError;
+  const isLoading = balancesLoading || assetsLoading;
   
-  useEffect(() => {
-    if (!assets || assets.length === 0) return;
+  const prices = useMemo(() => {
+    if (!ticker?.price || !ticker.s) return {};
+    // Create a price map from the ticker data.
+    // The portfolio can show live prices for the currently viewed market.
+    const marketId = ticker.s.replace('USDT', '');
+    return { [marketId]: { price: ticker.price } };
+  }, [ticker]);
 
-    const symbols = assets
-      .filter(a => a.symbol !== 'USDT')
-      .map(a => a.symbol.toLowerCase() + 'usdt');
-      
-    if (!symbols.length) return;
-
-    // This is a simplified subscription model for the portfolio page.
-    // We'll just connect to the first market's ticker for a live feel.
-    const firstMarketSymbol = symbols[0].replace('usdt','');
-    if (firstMarketSymbol) {
-      marketDataService.get(firstMarketSymbol).connect();
-    }
-
-    return () => {
-      if(firstMarketSymbol) {
-         marketDataService.get(firstMarketSymbol).kill();
-      }
-    };
-  }, [assets]);
-
-  const isLoading = balancesLoading || assetsLoading || (Object.keys(prices).length === 0 && isConnected);
 
   const portfolioData = useMemo(() => {
     if (isLoading || !balances || !assets) {
@@ -65,7 +50,8 @@ export default function WalletPage() {
     
     return balances.map(balance => {
       const asset = assetsMap.get(balance.assetId);
-      const price = asset?.symbol === 'USDT' ? 1 : (prices[asset?.symbol.toLowerCase() + 'usdt']?.price || 0);
+      // Use price from our map, fallback to 0. USDT is always 1.
+      const price = asset?.symbol === 'USDT' ? 1 : (prices[asset?.symbol || '']?.price || 0);
       const value = balance.available * price;
       return {
         ...balance,

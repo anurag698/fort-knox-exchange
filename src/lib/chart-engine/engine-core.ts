@@ -28,6 +28,10 @@ export class EngineEventBus {
   }
 }
 
+// Create and export a singleton instance of the event bus
+export const engineBus = new EngineEventBus();
+
+
 // -------------------------
 // Theme System (Gold + Neon Blue)
 // -------------------------
@@ -258,7 +262,7 @@ export class ChartEngine {
   chart: IChartApi | null = null;
   candleSeries: ISeriesApi<"Candlestick"> | null = null;
 
-  eventBus = new EngineEventBus();
+  eventBus = engineBus; // Use the singleton instance
 
   // Data State
   candles: Candle[] = [];

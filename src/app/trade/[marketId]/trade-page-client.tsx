@@ -6,16 +6,11 @@ import { ModeSwitcher, type TradeMode } from '@/components/trade/mode-switcher';
 import { AdvancedLayout } from '@/app/trade/[marketId]/advanced-layout';
 import { ChartLayout } from '@/components/trade/chart-layout';
 import { DepthLayout } from '@/components/trade/depth-layout';
-import { MarketDataService, useMarketDataStore } from '@/lib/market-data-service';
+import { marketDataService, useMarketDataStore } from '@/lib/market-data-service';
 import { MarketHeader } from '@/components/trade/market-header';
 import FloatingOrderPanel from '@/components/trade/floating-order-panel';
-import { OrderFormAdvanced } from '@/components/trade/order-form-advanced';
-import { PnlCalculator } from '@/components/trade/pnl-calculator';
 import { Hotkeys } from '@/components/trade/hotkeys';
-import { Balances } from '@/components/trade/balances';
-import { RecentTrades } from '@/components/trade/recent-trades';
 import { UserTrades } from '@/components/trade/user-trades';
-import CanvasDepthChart from '@/components/trade/canvas-depth-chart';
 
 interface Props {
   marketId: string;
@@ -24,11 +19,10 @@ interface Props {
 export default function TradePageClient({ marketId }: Props) {
   const [mode, setMode] = useState<TradeMode>('Advanced');
   const [showOrderPanel, setShowOrderPanel] = useState(true);
-  const ticker = useMarketDataStore((s) => s.ticker);
 
   useEffect(() => {
     const symbol = marketId.replace('-', '').toLowerCase();
-    const service = MarketDataService.get(symbol);
+    const service = marketDataService.get(symbol);
     service.connect();
     return () => {
       service.disconnect();

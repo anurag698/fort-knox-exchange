@@ -1,16 +1,11 @@
 "use client";
 
-import { use } from "react";
-import ProTradingLayout from "@/components/trade/pro-trading-layout";
+import TradePageClient from "./trade-page-client";
 
-export default function Page({ params }: any) {
-  const resolved = use(params);
-  const pair = resolved.marketId ?? "BTC-USDT";
+export default function Page({ params }: { params: { marketId: string } }) {
+  const pair = params.marketId ?? "BTC-USDT";
 
   return (
-    <ProTradingLayout
-      pair={pair}
-      wsUrl={""}
-    />
+      <TradePageClient marketId={pair} />
   );
 }

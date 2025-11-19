@@ -6,7 +6,7 @@ import { ModeSwitcher, type TradeMode } from '@/components/trade/mode-switcher';
 import { AdvancedLayout } from '@/app/trade/[marketId]/advanced-layout';
 import { ChartLayout } from '@/components/trade/chart-layout';
 import { DepthLayout } from '@/components/trade/depth-layout';
-import { marketDataService } from '@/services/market-data-service';
+import marketDataService from '@/services/market-data-service';
 import { useMarketDataStore } from '@/state/market-data-store';
 import { MarketHeader } from '@/components/trade/market-header';
 import FloatingOrderPanel from '@/components/trade/floating-order-panel';
@@ -22,9 +22,9 @@ export default function TradePageClient({ marketId }: Props) {
   const [showOrderPanel, setShowOrderPanel] = useState(true);
 
   useEffect(() => {
-    marketDataService.connect(marketId);
+    marketDataService.startFeed(marketId);
     return () => {
-      marketDataService.kill();
+      marketDataService.stopFeed();
     };
   }, [marketId]);
 

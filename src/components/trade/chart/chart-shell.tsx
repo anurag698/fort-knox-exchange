@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useCallback, useMemo, useRef, useState } from "react";
@@ -7,7 +8,7 @@ import TimeframeSwitcher from "./timeframe-switcher";
 import MarketSwitcher from "./market-switcher";
 import TpSlPanel from "./tp-sl-panel";
 import PositionPanel from "./position-panel";
-import { marketDataService } from "@/services/market-data-service";
+import marketDataService from "@/services/market-data-service";
 
 export default function ChartShell({
   initialSymbol = "BTC-USDT",

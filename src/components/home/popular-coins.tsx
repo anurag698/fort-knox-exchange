@@ -11,7 +11,7 @@ import Link from 'next/link';
 import { Button } from '../ui/button';
 import { useMarkets } from '@/hooks/use-markets';
 import { useMarketDataStore } from '@/state/market-data-store';
-import { marketDataService } from '@/services/market-data-service';
+import marketDataService from '@/services/market-data-service';
 
 
 // Mock icons for coins

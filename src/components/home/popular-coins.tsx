@@ -39,13 +39,12 @@ export function PopularCoins() {
   useEffect(() => {
     if (!displayMarkets || displayMarkets.length === 0) return;
 
-    const symbol = displayMarkets[0].id;
-    const marketDataService = MarketDataService.get(symbol, "1m");
-
-    marketDataService.start();
+    const firstMarketSymbol = displayMarkets[0].id.replace('-', '');
+    const feed = MarketDataService.get(firstMarketSymbol, "1m");
+    feed.start();
 
     return () => {
-        MarketDataService.stop(symbol, "1m");
+      feed.stop();
     };
   }, [displayMarkets]);
 

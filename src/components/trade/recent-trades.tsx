@@ -28,8 +28,9 @@ export function RecentTrades({ marketId }: { marketId: string }) {
       <ul className="space-y-1 py-2">
         {trades?.map((t: any, i: number) => (
           <li key={i} className="text-sm text-[#9aa3ad] flex justify-between px-2">
-            <span className={t.side === 'BUY' ? 'text-green-400' : 'text-red-400'}>{t.price}</span>
-            <span className="opacity-80">{t.size}</span>
+            <span className={t.m ? 'text-red-400' : 'text-green-400'}>{parseFloat(t.p).toFixed(2)}</span>
+            <span className="opacity-80">{parseFloat(t.q).toFixed(4)}</span>
+            <span className="text-xs opacity-60">{new Date(t.T).toLocaleTimeString()}</span>
           </li>
         ))}
       </ul>

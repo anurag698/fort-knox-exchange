@@ -1,4 +1,3 @@
-
 "use client";
 
 import { create } from "zustand";
@@ -6,6 +5,7 @@ import { create } from "zustand";
 export const useMarketDataStore = create((set) => ({
   marketList: [],
   tickers: {},
+  trades: [],
 
   setMarketList: (list) => set({ marketList: list }),
 
@@ -15,5 +15,10 @@ export const useMarketDataStore = create((set) => ({
         ...s.tickers,
         [symbol]: data,
       },
+    })),
+  
+  pushTrade: (trade) =>
+    set((state) => ({
+      trades: [trade, ...state.trades].slice(0, 100),
     })),
 }));

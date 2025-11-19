@@ -7,27 +7,19 @@ import ResizeHandle from "@/components/ui/resize-handle";
 import ResizeRowHandle from "@/components/ui/resize-row-handle";
 import { useResizable } from "@/hooks/useResizable";
 import { OrderForm } from "./order-form";
+import OrderbookPanel from "./orderbook/orderbook-panel";
+import TradesPanel from "./trades/trades-panel";
+import MarketsSidebar from "./markets/markets-sidebar";
 
 const ProChart = dynamic(() => import("./lightweight-pro-chart"), { ssr: false });
-
-const OrderBook = dynamic(
-  () => import("./order-book"),
-  { ssr: false }
-);
-
-const RecentTrades = dynamic(
-  () => import("./recent-trades").then((m) => m.RecentTrades),
-  { ssr: false }
-);
 
 // Layout Wrapper
 export default function ProTradingLayout({
   pair,
 }: {
   pair: string;
-  wsUrl: string;
 }) {
-  const { width: leftWidth, startResize: startResizeLeft } = useResizable(900);
+  const { width: leftWidth, startResize: startResizeLeft } = useResizable(260);
 
   const [obHeight, setObHeight] = useState(220);
   const [rtHeight, setRtHeight] = useState(220);
@@ -51,8 +43,6 @@ export default function ProTradingLayout({
     };
   }, [obHeight, rtHeight]);
   
-  const wsUrl = `wss://stream.binance.com:9443/ws/${pair.toLowerCase().replace('-','')}@depth_fast@100ms/${pair.toLowerCase().replace('-','')}@trade`;
-
   return (
     <div className="w-full h-full flex overflow-hidden">
       
@@ -61,52 +51,32 @@ export default function ProTradingLayout({
         className="border-r border-[#1b2635] bg-[#0d1117]"
         style={{ width: leftWidth }}
       >
-        <ProChart
-          pair={pair}
-          interval="1m"
-          wsUrl={wsUrl}
-          height={700}
-          candlesApi={(p, i, f, t) =>
-            `/api/marketdata/candles?pair=${p}&interval=${i}&from=${f}&to=${t}`
-          }
-        />
+        <MarketsSidebar />
       </div>
 
       {/* VERTICAL RESIZE HANDLE */}
       <ResizeHandle onMouseDown={startResizeLeft} />
 
-      {/* RIGHT PANEL */}
+      {/* CENTER PANEL */}
       <div className="flex-1 flex flex-col bg-[#0d1117] overflow-hidden">
-
-        {/* ORDERBOOK */}
-        <div
-          className="border-b border-[#1b2635] p-4 overflow-auto"
-          style={{ height: obHeight }}
-        >
-          <h3 className="text-white mb-2 text-sm">Order Book</h3>
-          <OrderBook />
+        <div className="flex-grow">
+          <ProChart
+            pair={pair}
+            interval="1m"
+            height={700}
+          />
         </div>
-
-        {/* ROW HANDLE */}
-        <ResizeRowHandle onMouseDown={() => (dragging.current = "ob")} />
-
-        {/* RECENT TRADES */}
-        <div
-          className="border-b border-[#1b2635] p-4 overflow-auto"
-          style={{ height: rtHeight }}
-        >
-          <h3 className="text-white mb-2 text-sm">Recent Trades</h3>
-          <RecentTrades marketId={pair} />
+        <div className="h-[300px] border-t border-bordercolor grid grid-cols-2 gap-4 p-4">
+          <OrderbookPanel />
+          <TradesPanel />
         </div>
+      </div>
 
-        {/* ROW HANDLE */}
-        <ResizeRowHandle onMouseDown={() => (dragging.current = "rt")} />
 
-        {/* ORDER FORM */}
-        <div className="p-4 flex-1 overflow-auto">
-          <h3 className="text-white mb-2 text-sm">Trade</h3>
-          <OrderForm marketId={pair} />
-        </div>
+      {/* RIGHT PANEL */}
+      <div className="w-[320px] border-l border-bordercolor p-4">
+        <h3 className="text-white mb-2 text-sm">Trade</h3>
+        <OrderForm marketId={pair} />
       </div>
     </div>
   );

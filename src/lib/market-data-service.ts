@@ -156,11 +156,12 @@ export class MarketDataService {
 
   disconnect() {
     this.sockets.forEach((ws) => {
-      if (ws.readyState === WebSocket.OPEN) {
-        ws.close();
+      if (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING) {
+        ws.close(1000, 'Component unmounted');
       }
     });
     this.sockets = [];
+    useMarketDataStore.getState().setConnected(false);
   }
 
   public subscribeToTickers(symbols: string[]) {
@@ -182,17 +183,28 @@ export class MarketDataService {
 
   private createSocket(url: string, onMessage: (event: MessageEvent) => void) {
     const ws = new WebSocket(url);
+    
     ws.onopen = () => {
       useMarketDataStore.getState().setConnected(true);
       useMarketDataStore.getState().setError(null);
     };
+
     ws.onerror = (err) => {
       console.error('[WS ERROR]', url, err);
-      useMarketDataStore.getState().setError('WebSocket connection error.');
+      // Don't set a generic error here, onclose will handle it more specifically.
     };
-    ws.onclose = () => {
+
+    ws.onclose = (event) => {
       useMarketDataStore.getState().setConnected(false);
+      if (event.code === 1006) {
+        // This is the specific "Abnormal Closure" error.
+        console.warn("[WS SANDBOX WARNING] WebSocket connection failed (1006). This is expected in sandboxed environments like Firebase Studio's preview iframe. Test in a local server or deployed environment for live data.");
+        useMarketDataStore.getState().setError("Live data connection failed. This is expected in the Studio preview. Please test on a local server or deployed environment.");
+      } else if (event.code !== 1000) { // 1000 is a normal closure
+        useMarketDataStore.getState().setError('WebSocket connection closed unexpectedly.');
+      }
     };
+
     ws.onmessage = onMessage;
     this.sockets.push(ws);
     return ws;
@@ -206,7 +218,6 @@ export class MarketDataService {
     );
     const url = `wss://stream.binance.com:9443/ws/${streamNames.join('/')}`;
 
-    // ---- Auto-Zoom system state ----
     let lastMid = 0;
     let lastSpread = 0;
     let lastDepthSignature = '';
@@ -230,16 +241,12 @@ export class MarketDataService {
       const streamIdentifier = payload.stream || null;
       const data = payload.data || payload;
 
-      // -----------------------------------------
-      // DEPTH UPDATE
-      // -----------------------------------------
       if (data.e === 'depthUpdate' || streamIdentifier?.includes('depth')) {
         const bids = data.b || [];
         const asks = data.a || [];
 
         useMarketDataStore.getState().setDepth(bids, asks);
 
-        // ---- Auto-Zoom Trigger Logic ----
         if (bids.length > 0 && asks.length > 0) {
           const bestBid = parseFloat(bids[0][0]);
           const bestAsk = parseFloat(asks[0][0]);
@@ -247,19 +254,16 @@ export class MarketDataService {
           const mid = (bestBid + bestAsk) / 2;
           const spread = bestAsk - bestBid;
 
-          // Spread change trigger (Binance Spot threshold ~1.6%)
           if (lastSpread === 0 || Math.abs(spread - lastSpread) / spread > 0.016) {
             emitZoomEvent('spread-change');
             lastSpread = spread;
           }
 
-          // Mid-price movement trigger (~1.2%)
           if (lastMid === 0 || Math.abs(mid - lastMid) / mid > 0.012) {
             emitZoomEvent('mid-move');
             lastMid = mid;
           }
 
-          // Depth shape signature check
           const signature = computeSignature(bids, asks);
           if (signature !== lastDepthSignature) {
             emitZoomEvent('depth-shape');
@@ -268,16 +272,10 @@ export class MarketDataService {
         }
       }
 
-      // -----------------------------------------
-      // TICKER UPDATE
-      // -----------------------------------------
       if (data.e === '24hrTicker' || streamIdentifier?.includes('ticker')) {
         useMarketDataStore.getState().setTicker(data);
       }
 
-      // -----------------------------------------
-      // KLINE UPDATE
-      // -----------------------------------------
       if (data.e === 'kline' || streamIdentifier?.includes('kline')) {
         const { k } = data;
         useMarketDataStore.getState().pushKline({
@@ -289,9 +287,6 @@ export class MarketDataService {
         });
       }
 
-      // -----------------------------------------
-      // TRADE UPDATE
-      // -----------------------------------------
       if (data.e === 'trade' || streamIdentifier?.includes('trade')) {
         useMarketDataStore.getState().pushTrade(data);
       }

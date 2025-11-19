@@ -1,132 +1,278 @@
+
 "use client";
 
 import { bus } from "@/components/bus";
 
 /**
- * Market Data Service for Fort Knox Exchange
- * MEXC Socket → Event Bus → Zustand Store / Chart Engine
+ * Part 13.7-E
+ * Unified Event-Bridge for:
+ *  - FKX WebSocket (primary)
+ *  - MEXC WebSocket (fallback)
+ *  - Offline simulator (Firebase Studio safe mode)
+ *
+ * This replaces older market-data-service entirely.
  */
 
-class MarketDataService {
-  private static instances: Map<string, MarketDataService> = new Map();
+type Listener = (data: any) => void;
 
-  private symbol: string;
-  private ws: WebSocket | null = null;
-  private reconnectAttempts = 0;
+class HybridFeed {
+  symbol: string;
+  interval: string;
 
-  private constructor(symbol: string) {
-    this.symbol = symbol.toUpperCase().replace("-", "");
+  fkxWS: WebSocket | null = null;
+  mexcWS: WebSocket | null = null;
+
+  fkxConnected = false;
+  mexcConnected = false;
+
+  fkxFailed = false;
+  mexcFailed = false;
+
+  offlineTimer: any = null;
+
+  constructor(symbol: string, interval: string) {
+    this.symbol = symbol.toUpperCase();
+    this.interval = interval;
   }
 
-  // ----------------------------------------------------
-  // Static Getter
-  // ----------------------------------------------------
-  static get(symbol: string): MarketDataService {
-    const key = symbol.toUpperCase().replace("-", "");
+  // ------------------------------------------------------------
+  // START ROUTER
+  // ------------------------------------------------------------
+  start() {
+    this.connectFKX();
 
-    if (!this.instances.has(key)) {
-      this.instances.set(key, new MarketDataService(key));
-    }
-    return this.instances.get(key)!;
+    // Safety fallback timeout
+    setTimeout(() => {
+      if (!this.fkxConnected && !this.mexcConnected) {
+        console.warn("[HybridFeed] No WS available → Offline Mode");
+        this.startOffline();
+      }
+    }, 2500);
   }
 
-  // ----------------------------------------------------
-  // Connect to MEXC
-  // ----------------------------------------------------
-  connect() {
-    if (this.ws) {
-      try {
-        this.ws.close();
-      } catch {}
-      this.ws = null;
-    }
+  // ------------------------------------------------------------
+  // STOP ROUTER
+  // ------------------------------------------------------------
+  stop() {
+    if (this.fkxWS) this.fkxWS.close();
+    if (this.mexcWS) this.mexcWS.close();
+    if (this.offlineTimer) clearInterval(this.offlineTimer);
+  }
 
-    try {
-      this.ws = new WebSocket("wss://wbs.mexc.com/ws");
-    } catch (err) {
-      console.error("WS creation failed:", err);
-      return;
-    }
+  // ------------------------------------------------------------
+  // OFFLINE SIMULATOR (for Firebase Studio)
+  // ------------------------------------------------------------
+  startOffline() {
+    if (this.offlineTimer) return;
 
-    this.ws.onopen = () => {
-      this.reconnectAttempts = 0;
+    console.warn("[HybridFeed] Offline fallback activated.");
 
-      const subs = {
-        method: "SUBSCRIPTION",
-        params: [
-          `spot@public.bookTicker.v3.api@${this.symbol}`,
-          `spot@public.deal.v3.api@${this.symbol}`,
-          `spot@public.kline.v3.api@${this.symbol}@Min1`,
-          `spot@public.depth.v3.api@${this.symbol}@0`,
-        ],
-        id: Date.now(),
+    let last = Date.now();
+
+    this.offlineTimer = setInterval(() => {
+      last += 60_000;
+
+      const o = 100 + Math.random() * 2;
+      const c = o + (Math.random() - 0.5) * 4;
+
+      const k = {
+        t: last,
+        o,
+        h: Math.max(o, c) + Math.random(),
+        l: Math.min(o, c) - Math.random(),
+        c,
+        v: Math.random() * 5,
+        final: false,
       };
 
-      try {
-        this.ws?.send(JSON.stringify(subs));
-      } catch {}
-    };
+      bus.emit("kline", k);
 
-    this.ws.onmessage = (ev) => {
-      try {
-        const msg = JSON.parse(ev.data);
-        if (!msg.c) return;
+      // Simulate trades
+      bus.emit("trade", {
+        t: last,
+        p: c,
+        size: Math.random() * 0.1,
+        side: Math.random() > 0.5 ? "buy" : "sell",
+      });
 
-        // -------- TICKER ----------
-        if (msg.c.includes("bookTicker")) {
-          bus.emit("ticker", msg.d);
-        }
+      // Simulate depth
+      bus.emit("depth", {
+        bids: [[c - 1, Math.random() * 4]],
+        asks: [[c + 1, Math.random() * 4]],
+        mid: c,
+      });
 
-        // -------- TRADES ----------
-        if (msg.c.includes("deal") && Array.isArray(msg.d)) {
-          msg.d.forEach((trade: any) => {
-            bus.emit("trade", trade);
-          });
-        }
-
-        // -------- DEPTH ----------
-        if (msg.c.includes("depth")) {
-          bus.emit("depth", {
-            bids: msg.d?.bids ?? [],
-            asks: msg.d?.asks ?? [],
-          });
-        }
-
-        // -------- KLINE ----------
-        if (msg.c.includes("kline") && msg.d?.kline) {
-          bus.emit("kline", msg.d.kline);
-        }
-      } catch (err) {
-        console.error("WS parse error", err);
-      }
-    };
-
-    this.ws.onerror = (err) => {
-      console.error("WS error", err);
-    };
-
-    this.ws.onclose = () => {
-      // Firebase Studio sandbox block – do not reconnect
-      if (typeof window !== "undefined" && window.location.href.includes("firebase")) {
-        return;
-      }
-
-      this.reconnectAttempts++;
-      const delay = Math.min(5000, this.reconnectAttempts * 1000);
-
-      setTimeout(() => this.connect(), delay);
-    };
+      // Simulate ticker
+      bus.emit("ticker", {
+        lastPrice: c,
+        askPrice: c + 0.5,
+        bidPrice: c - 0.5,
+        vol: Math.random() * 100,
+      });
+    }, 1500);
   }
 
-  disconnect() {
+  stopOffline() {
+    if (this.offlineTimer) {
+      clearInterval(this.offlineTimer);
+      this.offlineTimer = null;
+    }
+  }
+
+  // ------------------------------------------------------------
+  // FKX WS (Primary)
+  // ------------------------------------------------------------
+  connectFKX() {
     try {
-      this.ws?.close();
-    } catch {}
-    this.ws = null;
+      this.fkxWS = new WebSocket("wss://api.fortknox.com/ws");
+
+      this.fkxWS.onopen = () => {
+        this.fkxConnected = true;
+
+        this.fkxWS?.send(
+          JSON.stringify({
+            type: "subscribe",
+            channel: "kline",
+            symbol: this.symbol,
+            interval: this.interval,
+          })
+        );
+
+        this.stopOffline();
+        console.log("[FKX WS] Connected");
+      };
+
+      this.fkxWS.onerror = () => {
+        this.fkxFailed = true;
+        console.warn("[FKX WS] error");
+      };
+
+      this.fkxWS.onclose = () => {
+        this.fkxConnected = false;
+        this.fkxFailed = true;
+        console.warn("[FKX WS] closed");
+
+        if (!this.mexcConnected) this.connectMEXC();
+        else this.startOffline();
+      };
+
+      this.fkxWS.onmessage = (ev) => {
+        try {
+          const msg = JSON.parse(ev.data);
+
+          if (msg.type === "kline" && msg.candle) {
+            bus.emit("kline", msg.candle);
+          }
+
+          if (msg.type === "depth") {
+            bus.emit("depth", msg.depth);
+          }
+
+          if (msg.type === "trade") {
+            bus.emit("trade", msg.trade);
+          }
+
+          if (msg.type === "ticker") {
+            bus.emit("ticker", msg.ticker);
+          }
+        } catch (e) {
+          console.error("[FKX WS] parse error", e);
+        }
+      };
+    } catch (err) {
+      console.error("[FKX WS] failed", err);
+      this.fkxFailed = true;
+    }
+  }
+
+  // ------------------------------------------------------------
+  // MEXC WS (Fallback)
+  // ------------------------------------------------------------
+  connectMEXC() {
+    try {
+      this.mexcWS = new WebSocket("wss://wbs.mexc.com/ws");
+
+      this.mexcWS.onopen = () => {
+        this.mexcConnected = true;
+
+        this.mexcWS?.send(
+          JSON.stringify({
+            method: "SUBSCRIPTION",
+            params: [`spot@public.kline.v3.api@${this.symbol}@Min1`],
+            id: 99,
+          })
+        );
+
+        console.log("[MEXC WS] Connected fallback");
+      };
+
+      this.mexcWS.onerror = () => {
+        this.mexcFailed = true;
+      };
+
+      this.mexcWS.onclose = () => {
+        this.mexcConnected = false;
+        this.mexcFailed = true;
+
+        if (!this.fkxConnected) this.startOffline();
+      };
+
+      this.mexcWS.onmessage = (ev) => {
+        try {
+          const msg = JSON.parse(ev.data);
+
+          // KLINE
+          if (msg.c && msg.c.includes("kline")) {
+            const d = msg.d;
+            if (d) {
+              const candle = {
+                t: d.ts,
+                o: Number(d.o),
+                h: Number(d.h),
+                l: Number(d.l),
+                c: Number(d.c),
+                v: Number(d.v),
+                final: d.e === "kline_end",
+              };
+              bus.emit("kline", candle);
+            }
+          }
+
+          // TRADES
+          if (msg.c && msg.c.includes("trade")) {
+            bus.emit("trade", {
+              t: msg.d.ts,
+              p: Number(msg.d.p),
+              size: Number(msg.d.v),
+              side: msg.d.S,
+            });
+          }
+        } catch (e) {}
+      };
+    } catch (err) {
+      this.mexcFailed = true;
+    }
   }
 }
 
-// ----------------------------------------------------
-// EXPORT CORRECTLY
-// ----------------------------------------------------
-export { MarketDataService };
+// ------------------------------------------------------------
+// SERVICE SINGLETON CACHE
+// ------------------------------------------------------------
+const cache: Record<string, HybridFeed> = {};
+
+export const MarketDataService = {
+  get(symbol: string, interval: string) {
+    const key = `${symbol}_${interval}`;
+
+    if (!cache[key]) {
+      cache[key] = new HybridFeed(symbol, interval);
+    }
+
+    return cache[key];
+  },
+
+  stop(symbol: string, interval: string) {
+    const key = `${symbol}_${interval}`;
+    if (cache[key]) cache[key].stop();
+  },
+};

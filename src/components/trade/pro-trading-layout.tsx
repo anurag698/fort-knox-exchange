@@ -1,11 +1,9 @@
+
 "use client";
 
 import React, { useState, useRef, useEffect } from "react";
 import ThemeToggle from "@/components/theme/theme-toggle";
-import MarketsSidebar from "./markets/markets-sidebar";
 import OrderForm from "./orderform/order-form";
-import OrderbookPanel from "./orderbook/orderbook-panel";
-import TradesPanel from "./trades/trades-panel";
 import { useUser } from "@/firebase";
 import Link from "next/link";
 import { Button } from "../ui/button";
@@ -13,12 +11,29 @@ import { LogIn } from "lucide-react";
 import ChartToolbar from "./chart/chart-toolbar";
 import PositionsPanel from "./positions/positions-panel";
 import ChartShell from "./chart/chart-shell";
+import { MarketHeader } from "./market-header";
+import OrderBook from "./order-book";
+import { RecentTrades } from "./recent-trades";
+import { Balances } from "./balances";
+import { OpenOrdersPanel } from "./open-orders-panel";
+import marketDataService from "@/services/market-data-service";
+import { cn } from "@/lib/utils";
 
 export default function ProTradingLayout({ marketId }: { marketId: string }) {
   const { user, isUserLoading } = useUser();
   const [interval, setInterval] = useState("1m");
   const [chartType, setChartType] = useState<"candles" | "line" | "area">("candles");
   const chartRef = useRef<any>(null);
+
+  useEffect(() => {
+    if (marketId) {
+      const symbol = marketId.replace("-", "").toUpperCase();
+      marketDataService.startFeed(symbol, "1m");
+    }
+    return () => {
+      marketDataService.stopFeed();
+    };
+  }, [marketId]);
 
   const handleAddEntry = (price: number, size: number) => {
     chartRef.current?.addEntry(price, size);
@@ -56,17 +71,9 @@ export default function ProTradingLayout({ marketId }: { marketId: string }) {
         <div className="flex items-center gap-4">
           <Link href="/">
             <span className="font-sora text-lg font-semibold tracking-wide text-primary">
-              Fort Knox Exchange
+              Fort Knox
             </span>
           </Link>
-          <div className="hidden md:flex items-center gap-6 text-sm text-secondary-foreground">
-            <span>24h High: --</span>
-            <span>24h Low: --</span>
-            <span>24h Volume: --</span>
-            <span className="text-primary font-semibold">
-              {marketId}
-            </span>
-          </div>
         </div>
 
         <div className="flex items-center gap-4">
@@ -83,63 +90,33 @@ export default function ProTradingLayout({ marketId }: { marketId: string }) {
       </header>
 
       {/* ---------------- CORE TRADING GRID ---------------- */}
-      <main className="flex flex-1 overflow-hidden">
+       <div className="grid flex-1 grid-cols-12 grid-rows-12 gap-2 p-2 overflow-hidden">
+        
+        <div className="col-span-12 row-span-2">
+            <MarketHeader marketId={marketId} />
+        </div>
 
-        {/* ----------- LEFT SIDEBAR: MARKETS LIST ----------- */}
-        <aside className="w-[260px] min-w-[260px] max-w-[260px] border-r border-border bg-card">
-          <MarketsSidebar />
-        </aside>
+        <div className="col-span-12 xl:col-span-2 row-span-10 xl:row-span-10">
+          <OrderBook />
+        </div>
 
-        {/* ------------------- CENTER: CHART ------------------- */}
-        <section className="flex-1 flex flex-col border-r border-border">
-          {/* CHART */}
-          <div className="flex-1 min-h-[400px] bg-background p-2">
-            <ChartToolbar 
-              ref={chartRef}
-              interval={interval}
-              setInterval={setInterval}
-              chartType={chartType}
-              setChartType={setChartType}
-              onReset={() => { (chartRef.current as any)?.reset() }}
-              setTP={handleSetTP}
-              setSL={handleSetSL}
-              onAddEntry={handleAddEntry}
-              onRemoveEntry={handleRemoveEntry}
-              addTP={handleAddTP}
-              removeTP={handleRemoveTP}
-              setLiquidationPrice={handleSetLiquidationPrice}
-            />
-            <ChartShell
-              ref={chartRef}
-              symbol={marketId}
-              interval={interval}
-              chartType={chartType}
-              setLiquidationPrice={handleSetLiquidationPrice}
-            />
-          </div>
+        <div className="col-span-12 xl:col-span-7 row-span-6 xl:row-span-7 relative h-full">
+            <ChartShell initialSymbol={marketId} />
+        </div>
 
-          {/* BOTTOM PANELS — ORDERBOOK + TRADES */}
-          <div className="h-[320px] grid grid-cols-2 border-t border-border bg-card">
-            <div className="col-span-1 border-r border-border">
-              <OrderbookPanel pair={marketId} />
-            </div>
-            <div className="col-span-1">
-              <TradesPanel pair={marketId} />
-            </div>
-          </div>
-        </section>
+        <div className="col-span-12 xl:col-span-3 row-span-10 xl:row-span-10 flex flex-col gap-2">
+            <RecentTrades marketId={marketId} />
+        </div>
 
-        {/* ---------------- RIGHT SIDEBAR: ORDER FORM ---------------- */}
-        <aside className="w-[310px] min-w-[310px] border-l border-border bg-card p-2 grid grid-rows-2 gap-2">
-          <div className="row-span-1">
-            <OrderForm marketId={marketId} />
-          </div>
-          <div className="row-span-1">
-             <PositionsPanel />
-          </div>
-        </aside>
+        <div className="col-span-12 xl:col-span-4 row-span-3 xl:row-span-3">
+          <OrderForm marketId={marketId} />
+        </div>
 
-      </main>
+        <div className="col-span-12 xl:col-span-3 row-span-3 xl:row-span-3 flex flex-col gap-2">
+           <Balances marketId={marketId} />
+           <OpenOrdersPanel marketId={marketId} />
+        </div>
+      </div>
     </div>
   );
 }

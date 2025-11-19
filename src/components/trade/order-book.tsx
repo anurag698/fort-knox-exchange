@@ -4,20 +4,26 @@
 import { useMarketDataStore } from "@/state/market-data-store";
 import { useState, useMemo } from "react";
 import { cn } from "@/lib/utils";
+import { useMarkets } from "@/hooks/use-markets";
 
 export default function OrderBook() {
-  const bids = useMarketDataStore((s) => s.bids);
-  const asks = useMarketDataStore((s) => s.asks);
+  const depth = useMarketDataStore((s) => s.depth);
+  const symbol = useMarketDataStore((s) => s.symbol);
+  const { data: markets } = useMarkets();
+  const market = useMemo(() => markets?.find(m => m.id.replace('-','') === symbol), [markets, symbol]);
+  
+  const [bin, setBin] = useState("0.1"); // default grouping size
 
-  const [bin, setBin] = useState("1"); // default grouping size: 1 unit
+  const pricePrecision = market?.pricePrecision ?? 2;
+  const qtyPrecision = market?.quantityPrecision ?? 4;
+
 
   /* ----------------------------------------------------
      SAFE GROUPING FUNCTION
-     (Prevents crashes in Firebase Studio when data empty)
   -----------------------------------------------------*/
   const grouped = useMemo(() => {
     const size = Number(bin);
-    if (!size || Number.isNaN(size)) return { bids: [], asks: [] };
+    if (!size || Number.isNaN(size) || !depth) return { bids: [], asks: [] };
 
     const groupSide = (orders: any[]) => {
       if (!Array.isArray(orders)) return [];
@@ -38,18 +44,13 @@ export default function OrderBook() {
     };
 
     return {
-      bids: groupSide(bids),
-      asks: groupSide(asks),
+      bids: groupSide(depth.bids),
+      asks: groupSide(depth.asks),
     };
-  }, [bids, asks, bin]);
+  }, [depth, bin]);
 
-  const maxBid = grouped.bids.length
-    ? Math.max(...grouped.bids.map((b) => b.size))
-    : 1;
-
-  const maxAsk = grouped.asks.length
-    ? Math.max(...grouped.asks.map((a) => a.size))
-    : 1;
+  const maxBid = grouped.bids.length ? Math.max(...grouped.bids.map((b) => b.size)) : 1;
+  const maxAsk = grouped.asks.length ? Math.max(...grouped.asks.map((a) => a.size)) : 1;
 
   /* ----------------------------------------------------
      RENDER ONE ORDER ROW
@@ -75,13 +76,13 @@ export default function OrderBook() {
         />
 
         {/* Content */}
-        <div className="relative z-10 flex-1 flex justify-between">
+        <div className="relative z-10 flex-1 flex justify-between font-mono">
           <span
             className={type === "bid" ? "text-chartgreen" : "text-chartred"}
           >
-            {price.toFixed(2)}
+            {price.toFixed(pricePrecision)}
           </span>
-          <span className="text-foreground/70">{size.toFixed(4)}</span>
+          <span className="text-foreground/70">{size.toFixed(qtyPrecision)}</span>
         </div>
       </div>
     );
@@ -110,7 +111,7 @@ export default function OrderBook() {
 
       {/* ASKS */}
       <div className="flex-1 overflow-auto flex flex-col-reverse">
-        {grouped.asks.length === 0 ? (
+        {(!depth || grouped.asks.length === 0) ? (
           <div className="p-3 text-xs text-muted-foreground flex-1 flex items-center justify-center">
             No asks available
           </div>
@@ -130,13 +131,13 @@ export default function OrderBook() {
       </div>
 
       {/* MID PRICE BAR */}
-      <div className="px-3 py-2 text-center border-y bg-muted/50 text-sm font-semibold text-accent">
-        Mid Market Price
+      <div className="px-3 py-2 text-center border-y bg-muted/50 text-sm font-semibold text-accent-foreground">
+        {depth?.mid?.toFixed(pricePrecision) ?? '...'}
       </div>
 
       {/* BIDS */}
       <div className="flex-1 overflow-auto">
-        {grouped.bids.length === 0 ? (
+        {(!depth || grouped.bids.length === 0) ? (
           <div className="p-3 text-xs text-muted-foreground flex-1 flex items-center justify-center">
             No bids available
           </div>

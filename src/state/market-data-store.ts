@@ -1,75 +1,68 @@
-"use client";
+
+// ======================================================
+// MARKET DATA STORE (Unified MEXC + Engine Layer)
+// ======================================================
 
 import { create } from "zustand";
-
-export type ProcessedOrder = {
-  price: number;
-  size: number;
-  isWall: boolean;
-};
-
-export type TickerData = {
-  price: number;
-  change: number;
-  high: number;
-  low: number;
-  volume: number;
-};
+import { adaptDepth, adaptKline, adaptTicker, adaptTrades } from "@/services/data-adapter";
 
 interface MarketDataState {
-  ticker: TickerData | null;
-  bids: ProcessedOrder[];
-  asks: ProcessedOrder[];
-  trades: any[];
-  isConnected: boolean;
-  error: string | null;
+  symbol: string;
 
-  setTicker: (data: TickerData) => void;
-  setDepth: (bids?: any[], asks?: any[]) => void;
-  pushTrade: (data: any) => void;
-  setConnected: (v: boolean) => void;
-  setError: (s: string | null) => void;
+  ticker: any;
+  depth: { bids: any[]; asks: any[] };
+  trades: any[];
+  klines: any[];
+
+  setSymbol: (s: string) => void;
+
+  applyTicker: (d: any) => void;
+  applyDepth: (d: any) => void;
+  applyTrades: (arr: any[]) => void;
+  applyKline: (d: any) => void;
+
+  reset: () => void;
 }
 
-export const useMarketDataStore = create<MarketDataState>((set) => ({
+export const useMarketDataStore = create<MarketDataState>((set, get) => ({
+  symbol: "BTCUSDT",
+
   ticker: null,
-  bids: [],
-  asks: [],
+  depth: { bids: [], asks: [] },
   trades: [],
-  isConnected: false,
-  error: null,
+  klines: [],
 
-  setTicker: (data) => set({ ticker: data }),
-
-  setDepth: (bids, asks) => {
-    if (!Array.isArray(bids) || !Array.isArray(asks))
-      return set({ bids: [], asks: [] });
-
-    const detectWalls = (lvls: any[]) => {
-      if (!lvls.length) return [];
-
-      const top = lvls.slice(0, 20);
-      const avg = top.reduce((acc, lvl) => acc + Number(lvl[1] || 0), 0) / top.length;
-      const wall = avg * 3;
-
-      return lvls.map((lvl) => ({
-        price: Number(lvl[0] || 0),
-        size: Number(lvl[1] || 0),
-        isWall: Number(lvl[1] || 0) >= wall,
-      }));
-    };
-
+  setSymbol: (s) =>
     set({
-      bids: detectWalls(bids),
-      asks: detectWalls(asks),
-    });
-  },
+      symbol: s,
+      depth: { bids: [], asks: [] },
+      trades: [],
+      klines: [],
+      ticker: null,
+    }),
 
-  pushTrade: (t) =>
-    set((s) => ({
-      trades: [t, ...s.trades].slice(0, 120),
+  applyTicker: (d) => set({ ticker: adaptTicker(d) }),
+
+  applyDepth: (d) =>
+    set({
+      depth: adaptDepth(d),
+    }),
+
+  applyTrades: (arr) =>
+    set({
+      trades: adaptTrades(arr),
+    }),
+
+  applyKline: (k) =>
+    set((state) => ({
+      klines: [...state.klines, adaptKline(k)].slice(-500),
     })),
 
-  setConnected: (v) => set({ isConnected: v }),
-  setError: (s) => set({ error: s }),
+  reset: () =>
+    set({
+      ticker: null,
+      depth: { bids: [], asks: [] },
+      trades: [],
+      klines: [],
+    }),
 }));

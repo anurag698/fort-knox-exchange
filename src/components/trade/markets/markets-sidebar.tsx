@@ -1,41 +1,31 @@
-
 // src/components/trade/markets/markets-sidebar.tsx
 "use client";
 
 import React from "react";
-import { useRouter } from "next/navigation";
-import { useMarketDataStore } from "@/state/market-data-store";
 import marketDataService from "@/services/market-data-service";
+import { useMarketDataStore } from "@/state/market-data-store";
+import { useRouter } from "next/navigation";
 
-type Market = { id: string; label?: string };
-
-export default function MarketsSidebar({ markets }: { markets?: Market[] }) {
+export default function MarketsSidebar({ markets }: { markets?: { id: string; label?: string }[] }) {
   const router = useRouter();
-  const symbol = useMarketDataStore((s) => s.symbol);
-
-  // fallback markets if none provided
+  const current = useMarketDataStore((s) => s.symbol);
   const list = markets ?? [
     { id: "BTC-USDT", label: "BTC/USDT" },
     { id: "ETH-USDT", label: "ETH/USDT" },
     { id: "NOMOX-USDT", label: "NOMOX/USDT" },
+    { id: "POL-USDT", label: "POL/USDT" },
   ];
 
   return (
     <aside className="markets-sidebar">
-      <div className="header">Markets</div>
+      <h4>Markets</h4>
       <ul>
-        {list.map((m) => {
+        {list.map(m => {
           const sym = m.id.replace("-", "").toUpperCase();
-          const active = symbol === sym;
+          const active = current === sym;
           return (
             <li key={m.id} className={active ? "active" : ""}>
-              <button
-                onClick={() => {
-                  // start feed for selected market and navigate to trade page
-                  marketDataService.startFeed(sym, "1m");
-                  router.push(`/trade/${m.id}`);
-                }}
-              >
+              <button onClick={() => { marketDataService.startFeed(sym, "1m"); router.push(`/trade/${m.id}`); }}>
                 {m.label ?? m.id}
               </button>
             </li>

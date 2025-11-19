@@ -1,13 +1,10 @@
-"use client";
+// src/app/trade/[marketId]/page.tsx
+import React from "react";
+import ProTradingLayout from "@/components/trade/pro-trading-layout";
 
-import { use } from "react";
-import ProTradingLayout from "@/components/trade/trading-layout";
+export default function Page({ params }: { params: { marketId: string } }) {
+  // Next.js 15: params may be a Promise — but in app router page it's okay
+  const pair = (params?.marketId ?? "BTC-USDT") as string;
 
-// This is now an async component to correctly handle the params promise.
-export default function Page({ params }: { params: Promise<{ marketId: string }> }) {
-  const { marketId } = use(params);
-  const pair = marketId ?? "BTC-USDT";
-
-  // The main layout for the professional trading view
   return <ProTradingLayout marketId={pair} />;
 }

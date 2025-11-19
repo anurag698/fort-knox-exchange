@@ -19,6 +19,7 @@ export default function OrderForm({ marketId, price }: Props) {
     ? marketId.replace(/USDT|-/g, "")
     : "";
 
+
   /* ------------------------------------------------------------
      TOTAL CALCULATION
   ------------------------------------------------------------ */
@@ -36,17 +37,9 @@ export default function OrderForm({ marketId, price }: Props) {
     const fakeBalance = 1000;
     const livePrice = price ?? 0;
 
-    if (type === "market") {
-      if (livePrice > 0) {
-        const qty = fakeBalance * (p / 100) / livePrice;
-        setAmount(qty.toFixed(6));
-      }
-    } else {
-      const lp = Number(limitPrice) || livePrice;
-      if (lp > 0) {
-        const qty = fakeBalance * (p / 100) / lp;
-        setAmount(qty.toFixed(6));
-      }
+    if (livePrice > 0) {
+      const qty = fakeBalance * (p / 100) / livePrice;
+      setAmount(qty.toFixed(6));
     }
   };
 

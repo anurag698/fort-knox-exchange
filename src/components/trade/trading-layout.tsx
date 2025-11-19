@@ -1,20 +1,22 @@
+
 "use client";
 
 import React, { useState } from "react";
-import ThemeToggle from "@/components/ui/theme-toggle";
+import ThemeToggle from "@/components/theme/theme-toggle";
 
 // Panels (placeholders for now, will be built in later parts)
 import MarketsSidebar from "@/components/trade/markets/markets-sidebar";
 import TradingChart from "@/components/trade/chart/lightweight-pro-chart";
-import OrderForm from "@/components/trade/orderform/order-form";
-import OrderbookPanel from "@/components/trade/orderbook/orderbook-panel";
-import TradesPanel from "@/components/trade/trades/trades-panel";
+import OrderForm from "./orderform/order-form";
+import OrderbookPanel from "./orderbook/orderbook-panel";
+import TradesPanel from "./trades/trades-panel";
 import { useUser } from "@/firebase";
 import Link from "next/link";
 import { Button } from "../ui/button";
 import { LogIn } from "lucide-react";
 import ChartToolbar from "./chart/chart-toolbar";
 import PositionsPanel from "./positions/positions-panel";
+import ChartShell from "./chart/chart-shell";
 
 export default function ProTradingLayout({ marketId }: { marketId: string }) {
   const { user, isUserLoading } = useUser();
@@ -73,7 +75,11 @@ export default function ProTradingLayout({ marketId }: { marketId: string }) {
               chartType={chartType}
               setChartType={setChartType}
             />
-            <TradingChart pair={marketId} interval={interval} />
+            <ChartShell
+              symbol={marketId}
+              interval={interval}
+              chartType={chartType}
+            />
           </div>
 
           {/* BOTTOM PANELS — ORDERBOOK + TRADES */}
@@ -90,7 +96,7 @@ export default function ProTradingLayout({ marketId }: { marketId: string }) {
         {/* ---------------- RIGHT SIDEBAR: ORDER FORM ---------------- */}
         <aside className="w-[310px] min-w-[310px] border-l border-border bg-card p-2 grid grid-rows-2 gap-2">
           <div className="row-span-1">
-            <OrderForm pair={marketId} />
+            <OrderForm marketId={marketId} />
           </div>
           <div className="row-span-1">
              <PositionsPanel />

@@ -1,16 +1,17 @@
-// src/components/trade/lightweight-pro-chart.tsx
 "use client";
 
-import React, { useEffect, useRef, useState, useCallback } from "react";
 import {
   createChart,
   CrosshairMode,
   ISeriesApi,
-  DeepPartial,
-  ChartOptions,
-  IChartApi,
+  Time,
 } from "lightweight-charts";
-import { useTheme } from "next-themes";
+import React, {
+  useEffect,
+  useRef,
+  useCallback,
+  useState,
+} from "react";
 
 type Candle = {
   t: number;
@@ -21,46 +22,37 @@ type Candle = {
   v: number;
 };
 
-type DepthTuple = [number, number];
-
+type Orderbook = {
+  bids: [number, number][];
+  asks: [number, number][];
+};
 
 export default function LightweightProChart({
-  pair = "BTC-USDT",
+  symbol = "BTCUSDT",
   interval = "1m",
-  height = 700,
+  height = 600,
 }: {
-  pair?: string;
+  symbol?: string;
   interval?: string;
   height?: number;
 }) {
-  // Refs
-  const containerRef = useRef<HTMLDivElement | null>(null);
-  const chartRef = useRef<IChartApi | null>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const chartRef = useRef<any>(null);
   const candleSeriesRef = useRef<ISeriesApi<"Candlestick"> | null>(null);
   const volumeSeriesRef = useRef<ISeriesApi<"Histogram"> | null>(null);
-  const wsRef = useRef<WebSocket | null>(null);
-  const depthCanvasRef = useRef<HTMLCanvasElement | null>(null);
-  const { theme } = useTheme();
 
-  // UI
+  const wsRef = useRef<WebSocket | null>(null);
+  const fallbackTimer = useRef<NodeJS.Timeout | null>(null);
+
   const [connected, setConnected] = useState(false);
 
-  // -------------------------
-  // THEME AWARE COLORS
-  // -------------------------
-  const chartColors = {
-    background: theme === "light" ? "#F7F9FC" : "#0D111A",
-    text: theme === "light" ? "#1A1F2C" : "#E6EDF3",
-    border: theme ===- "light" ? "#E2E8F0" : "#1E2735",
-    grid: theme === "light" ? "#E2E8F0" : "#131D2E",
-  };
+  /* ----------------------------------------------
+     DRAW DEPTH HEATMAP  (SAFE FOR FIREBASE STUDIO)
+  -----------------------------------------------*/
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
-
-  // --------------------------------------------
-  // DEPTH HEATMAP DRAWING (memoized)
-  // --------------------------------------------
-   const drawDepth = useCallback((depthData: { bids: DepthTuple[]; asks: DepthTuple[] }) => {
-    const canvas = depthCanvasRef.current;
+  const drawHeatmap = useCallback((ob: Orderbook | null) => {
+    const canvas = canvasRef.current;
     const container = containerRef.current;
     if (!canvas || !container) return;
 
@@ -68,295 +60,288 @@ export default function LightweightProChart({
     if (!ctx) return;
 
     const rect = container.getBoundingClientRect();
-    const W = rect.width * devicePixelRatio;
-    const H = rect.height * devicePixelRatio;
+    const w = rect.width;
+    const h = rect.height;
 
-    if (canvas.width !== W || canvas.height !== H) {
-      canvas.width = W;
-      canvas.height = H;
-      canvas.style.width = rect.width + "px";
-      canvas.style.height = rect.height + "px";
-      ctx.setTransform(devicePixelRatio, 0, 0, devicePixelRatio, 0, 0);
-    }
-    
-    ctx.clearRect(0, 0, rect.width, rect.height);
-    
-    const { bids, asks } = depthData;
-    if (!bids.length || !asks.length) return;
+    canvas.width = w * devicePixelRatio;
+    canvas.height = h * devicePixelRatio;
+    canvas.style.width = `${w}px`;
+    canvas.style.height = `${h}px`;
+    ctx.setTransform(devicePixelRatio, 0, 0, devicePixelRatio, 0, 0);
 
-    const maxBid = Math.max(...bids.map((b) => b[1]));
-    const maxAsk = Math.max(...asks.map((a) => a[1]));
+    ctx.clearRect(0, 0, w, h);
 
-    const drawSide = (arr: DepthTuple[], isBid: boolean) => {
-      const rows = Math.min(arr.length, 120);
-      for (let i = 0; i < rows; i++) {
-        const size = arr[i][1];
-        const intensity = size / (isBid ? maxBid : maxAsk);
+    if (!ob || !Array.isArray(ob.bids) || !Array.isArray(ob.asks)) return;
 
-        ctx.fillStyle = isBid
-          ? `rgba(26, 193, 134, ${0.04 + intensity * 0.18})` // Green
-          : `rgba(245, 78, 93, ${0.04 + intensity * 0.18})`; // Red
+    const maxBid = Math.max(...ob.bids.map((b) => b[1]), 1);
+    const maxAsk = Math.max(...ob.asks.map((a) => a[1]), 1);
 
-        const y = (i / rows) * rect.height;
-        const width = (rect.width / 2) * intensity;
+    const mid = w / 2;
 
-        ctx.fillRect(
-          isBid ? rect.width / 2 - width : rect.width / 2,
-          y,
-          width,
-          Math.max(3, rect.height / rows - 1)
-        );
+    const draw = (data: [number, number][], left: boolean) => {
+      for (let i = 0; i < Math.min(data.length, 60); i++) {
+        const [_, size] = data[i];
+        const intensity = size / (left ? maxBid : maxAsk);
+        const barW = intensity * (w / 2);
+
+        ctx.fillStyle = left
+          ? `rgba(0,200,120,${0.1 + intensity * 0.2})`
+          : `rgba(220,40,60,${0.1 + intensity * 0.2})`;
+
+        const y = (i / 60) * h;
+        const x = left ? mid - barW : mid;
+
+        ctx.fillRect(x, y, barW, h / 60 - 1);
       }
     };
 
-    drawSide(bids, true);
-    drawSide(asks, false);
-
+    draw(ob.bids, true);
+    draw(ob.asks, false);
   }, []);
 
+  /* ----------------------------------------------
+     CREATE CHART
+  -----------------------------------------------*/
+  useEffect(() => {
+    if (!containerRef.current) return;
 
+    const chart = createChart(containerRef.current, {
+      height,
+      layout: {
+        background: { color: "transparent" },
+        textColor: "#d6e3f0",
+      },
+      grid: {
+        vertLines: { color: "#0f1720" },
+        horzLines: { color: "#0f1720" },
+      },
+      crosshair: { mode: CrosshairMode.Normal },
+      rightPriceScale: {
+        borderColor: "#1e2636",
+      },
+      timeScale: {
+        borderColor: "#1e2636",
+        rightOffset: 12,
+      },
+    });
 
-// ------------------------------
-// CREATE CHART + SERIES SETUP
-// ------------------------------
-useEffect(() => {
-  if (!containerRef.current) return;
+    chartRef.current = chart;
 
-  const container = containerRef.current;
+    const candleSeries = chart.addCandlestickSeries({
+      upColor: "#26a69a",
+      downColor: "#ef5350",
+      wickUpColor: "#26a69a",
+      wickDownColor: "#ef5350",
+      borderUpColor: "#26a69a",
+      borderDownColor: "#ef5350",
+    });
+    candleSeriesRef.current = candleSeries;
 
-  // CHART OPTIONS
-  const chart = createChart(container, {
-    layout: {
-      background: { color: chartColors.background },
-      textColor: chartColors.text
-    },
-    grid: {
-      vertLines: { color: chartColors.grid },
-      horzLines: { color: chartColors.grid }
-    },
-    crosshair: { mode: CrosshairMode.Normal },
-    timeScale: {
-      borderColor: chartColors.border,
-      rightOffset: 8,
-      timeVisible: true,
-    },
-    rightPriceScale: {
-      borderColor: chartColors.border,
-    },
-  });
+    const volumeSeries = chart.addHistogramSeries({
+      priceFormat: { type: "volume" },
+      scaleMargins: {
+        top: 0.8,
+        bottom: 0,
+      },
+    });
+    volumeSeriesRef.current = volumeSeries;
 
-  chartRef.current = chart;
+    return () => {
+      chart.remove();
+      chartRef.current = null;
+    };
+  }, [height]);
 
-  // CANDLE SERIES
-  const candleSeries = chart.addCandlestickSeries({
-    upColor: "#1AC186",
-    downColor: "#F54E5D",
-    borderUpColor: "#1AC186",
-    borderDownColor: "#F54E5D",
-    wickUpColor: "#1AC186",
-    wickDownColor: "#F54E5D",
-  });
-
-  candleSeriesRef.current = candleSeries;
-
-  // VOLUME SERIES
-  const volumeSeries = chart.addHistogramSeries({
-    priceFormat: { type: "volume" },
-    scaleMargins: { top: 0.8, bottom: 0 },
-  });
-
-  volumeSeriesRef.current = volumeSeries;
-
-  // DEPTH HEATMAP CANVAS
-  const canvas = document.createElement("canvas");
-  canvas.style.position = "absolute";
-  canvas.style.left = "0";
-  canvas.style.top = "0";
-  canvas.style.pointerEvents = "none";
-  canvas.style.zIndex = "5";
-
-  container.appendChild(canvas);
-  depthCanvasRef.current = canvas;
-
-  // Resize Observer
-  const obs = new ResizeObserver(() => {
-    chart.applyOptions({ width: container.clientWidth, height });
-    drawDepth({ bids: [], asks: [] });
-  });
-
-  obs.observe(container);
-
-  return () => {
-    obs.disconnect();
-    chart.remove();
-  };
-}, [height, drawDepth, chartColors]);
-
-
-
-// ------------------------------
-// LOAD INITIAL HISTORICAL CANDLES
-// ------------------------------
-useEffect(() => {
-  let mounted = true;
-
-  (async () => {
+  /* ----------------------------------------------
+     LOAD HISTORICAL CANDLES (MEXC REST)
+  -----------------------------------------------*/
+  const loadHistory = async () => {
     try {
-      const to = Math.floor(Date.now() / 1000);
-      const from = to - 60 * 60 * 24 * 2; // last 48h
+      const res = await fetch(
+        `https://api.mexc.com/api/v3/klines?symbol=${symbol}&interval=${interval}&limit=500`
+      );
+      const raw = await res.json();
+      if (!Array.isArray(raw)) return;
 
-      // Using the internal API route for historical data
-      const url = `/api/mexc/candles?pair=${pair}&interval=${interval}&from=${from}&to=${to}`;
-      const res = await fetch(url);
-      const data = await res.json();
-
-      if (!mounted || !candleSeriesRef.current) return;
-
-      const formatted = data.map((c: any) => ({
-        time: Math.floor(c.t / 1000),
-        open: Number(c.o),
-        high: Number(c.h),
-        low: Number(c.l),
-        close: Number(c.c),
+      const candles: Candle[] = raw.map((c: any) => ({
+        t: c[0],
+        o: Number(c[1]),
+        h: Number(c[2]),
+        l: Number(c[3]),
+        c: Number(c[4]),
+        v: Number(c[5]),
       }));
 
-      candleSeriesRef.current.setData(formatted);
-
-      // Volume data
-      const vols = data.map((c: any) => ({
-        time: Math.floor(c.t / 1000),
-        value: Number(c.v),
-        color: c.c >= c.o ? "rgba(26, 193, 134, 0.5)" : "rgba(245, 78, 93, 0.5)",
+      const formatted = candles.map((c) => ({
+        time: c.t / 1000 as Time,
+        open: c.o,
+        high: c.h,
+        low: c.l,
+        close: c.c,
       }));
 
+      candleSeriesRef.current?.setData(formatted);
+
+      const vols = candles.map((c) => ({
+        time: c.t / 1000 as Time,
+        value: c.v,
+        color: c.c >= c.o ? "#26a69a" : "#ef5350",
+      }));
       volumeSeriesRef.current?.setData(vols);
     } catch (e) {
-      console.error("Historical candles error:", e);
-    }
-  })();
-
-  return () => {
-    mounted = false;
-  };
-}, [pair, interval, height]);
-
-
-
-
-// ------------------------------
-// LIVE MEXC KLINE FEED
-// ------------------------------
-useEffect(() => {
-  if (!pair || !interval) return;
-
-  let mounted = true;
-  const symbol = pair.replace("-", "").toUpperCase();
-  const mexcInterval = interval === '1d' ? 'Day1' : `Min${interval.replace('m','').replace('h','')}`;
-
-
-  const ws = new WebSocket("wss://wbs.mexc.com/ws");
-  wsRef.current = ws;
-
-  ws.onopen = () => {
-    setConnected(true);
-    if (ws.readyState === WebSocket.OPEN) {
-      ws.send(
-        JSON.stringify({
-          method: "SUBSCRIPTION",
-          params: [`spot@public.kline.v3.api@${symbol}@${mexcInterval}`],
-        })
-      );
+      console.warn("Failed history", e);
     }
   };
 
-
-  ws.onmessage = (ev) => {
-    if (!mounted) return;
-
+  /* ----------------------------------------------
+     CONNECT REALTIME WS (MEXC v3)
+     + Safe fallback if WS blocked (Firebase Studio)
+  -----------------------------------------------*/
+  const connectWS = () => {
     try {
-      const msg = JSON.parse(ev.data);
-
-      if (msg.c?.includes("kline.v3.api")) {
-        const d = msg.d.k;
-        const candle = {
-          time: Math.floor(d.t),
-          open: Number(d.o),
-          high: Number(d.h),
-          low: Number(d.l),
-          close: Number(d.c),
-        };
-
-        candleSeriesRef.current?.update(candle);
-
-        volumeSeriesRef.current?.update({
-          time: candle.time,
-          value: Number(d.v),
-          color: d.c >= d.o ? "rgba(26, 193, 134, 0.5)" : "rgba(245, 78, 93, 0.5)",
-        });
-      }
+      wsRef.current = new WebSocket("wss://wbs.mexc.com/ws");
     } catch (e) {
-      console.error("Kline WS parse error:", e);
+      return fallbackPolling();
     }
-  };
 
+    wsRef.current.onopen = () => {
+      setConnected(true);
 
-  ws.onerror = (err) => {
-    console.error("Kline WS error", err);
-  };
-
-  ws.onclose = () => {
-    setConnected(false);
-  };
-
-  return () => {
-    mounted = false;
-    ws.close(1000);
-  };
-}, [pair, interval]);
-
-
-
-
-// ------------------------------
-// DEPTH HEATMAP WS
-// ------------------------------
-useEffect(() => {
-  const symbol = pair.replace("-", "").toUpperCase();
-  const ws = new WebSocket("wss://wbs.mexc.com/ws");
-
-  ws.onopen = () => {
-    if (ws.readyState === WebSocket.OPEN) {
-      ws.send(
+      wsRef.current?.send(
         JSON.stringify({
           method: "SUBSCRIPTION",
-          params: [`spot@public.depth.v3.api@${symbol}@0`],
+          params: [`spot@public.kline.v3.api@${symbol}@${interval}`],
+          id: 1,
         })
       );
-    }
-  };
+    };
 
-  ws.onmessage = (ev) => {
-    try {
-      const msg = JSON.parse(ev.data);
-      if (msg.c?.includes("depth.v3.api")) {
-        const bids = msg.d.bids.map((b: any) => [parseFloat(b.p), parseFloat(b.v)]);
-        const asks = msg.d.asks.map((a: any) => [parseFloat(a.p), parseFloat(a.v)]);
-        drawDepth({ bids, asks });
+    wsRef.current.onmessage = (ev) => {
+      let msg: any;
+      try {
+        msg = JSON.parse(ev.data);
+      } catch {
+        return;
       }
-    } catch {}
+
+      if (!msg || !msg.d?.k) return;
+
+      const k = msg.d.k;
+
+      candleSeriesRef.current?.update({
+        time: k.t / 1000 as Time,
+        open: Number(k.o),
+        high: Number(k.h),
+        low: Number(k.l),
+        close: Number(k.c),
+      });
+
+      volumeSeriesRef.current?.update({
+        time: k.t / 1000 as Time,
+        value: Number(k.v),
+        color: Number(k.c) >= Number(k.o) ? "#26a69a" : "#ef5350",
+      });
+    };
+
+    wsRef.current.onclose = (ev) => {
+      setConnected(false);
+
+      if (ev.code === 1006) {
+        fallbackPolling();
+        return;
+      }
+    };
   };
-  
-  ws.onerror = () => {};
-  ws.onclose = () => {};
 
-  return () => ws.close(1000);
-}, [pair, drawDepth]);
+  /* ----------------------------------------------
+     FALLBACK POLLING (Firebase Studio Safe Mode)
+  -----------------------------------------------*/
+  const fallbackPolling = () => {
+    if (fallbackTimer.current) return;
 
+    const safePoll = async () => {
+      try {
+        const res = await fetch(
+          `https://api.mexc.com/api/v3/klines?symbol=${symbol}&interval=${interval}&limit=1`
+        );
 
-// ------------------------------
-// RENDER
-// ------------------------------
-return (
-  <div ref={containerRef} className="relative w-full h-full" />
-);
+        const raw = await res.json();
+        if (!Array.isArray(raw)) return;
+
+        const c = raw[0];
+        candleSeriesRef.current?.update({
+          time: c[0] / 1000,
+          open: Number(c[1]),
+          high: Number(c[2]),
+          low: Number(c[3]),
+          close: Number(c[4]),
+        });
+      } catch {}
+
+      fallbackTimer.current = setTimeout(safePoll, 2500);
+    };
+
+    safePoll();
+  };
+
+  /* ----------------------------------------------
+     INIT EFFECT
+  -----------------------------------------------*/
+  useEffect(() => {
+    loadHistory();
+    connectWS();
+
+    return () => {
+      wsRef.current?.close();
+      wsRef.current = null;
+
+      if (fallbackTimer.current) {
+        clearTimeout(fallbackTimer.current);
+        fallbackTimer.current = null;
+      }
+    };
+  }, [symbol, interval]);
+
+  /* ----------------------------------------------
+     DEPTH CANVAS LAYER
+  -----------------------------------------------*/
+  useEffect(() => {
+    if (!containerRef.current) return;
+
+    const canvas = document.createElement("canvas");
+    canvas.style.position = "absolute";
+    canvas.style.left = "0";
+    canvas.style.top = "0";
+    canvas.style.pointerEvents = "none";
+    canvas.style.zIndex = "2";
+
+    containerRef.current.appendChild(canvas);
+    canvasRef.current = canvas;
+
+    drawHeatmap(null);
+
+    return () => {
+      canvas.remove();
+      canvasRef.current = null;
+    };
+  }, [drawHeatmap]);
+
+  /* ----------------------------------------------
+     RENDER
+  -----------------------------------------------*/
+  return (
+    <div
+      ref={containerRef}
+      style={{
+        width: "100%",
+        height,
+        position: "relative",
+      }}
+    >
+      {/* status badge */}
+      <div className="absolute top-2 right-2 z-30 px-3 py-1 rounded-md text-xs text-white bg-black/30">
+        {connected ? "Live" : "Fallback"}
+      </div>
+    </div>
+  );
 }

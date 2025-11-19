@@ -2,7 +2,7 @@
 "use client";
 
 import { createContext, useContext, useEffect, useRef, useState, ReactNode } from "react";
-import { useMarketDataStore } from "@/lib/market-data-service";
+import { useMarketDataStore } from "@/state/market-data-store";
 import { submitHybridOrder } from "@/lib/order-client";
 import { HybridOrderRequest, OrderType } from "@/lib/order-types";
 import { useOpenOrdersStore } from "@/lib/open-orders-store";
@@ -30,7 +30,7 @@ export function useTriggerEngine() {
 export function TriggerEngineProvider({ children }: { children: ReactNode }) {
   const [orders, setOrders] = useState<TriggerOrder[]>([]);
   const ticker = useMarketDataStore((s) => s.ticker);
-  const lastPrice = ticker?.c ? parseFloat(ticker.c) : null;
+  const lastPrice = ticker?.price ? ticker.price : null;
   const openOrdersStore = useOpenOrdersStore.getState();
 
   const checking = useRef(false);

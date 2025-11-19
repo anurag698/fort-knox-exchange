@@ -1,10 +1,11 @@
+
 'use client';
 
 import React from 'react';
 import Portal from '@/components/ui/portal';
 import { OrderFormAdvanced } from './order-form-advanced';
 import { PnlCalculator } from './pnl-calculator';
-import { useMarketDataStore } from '@/lib/market-data-service';
+import { useMarketDataStore } from '@/state/market-data-store';
 
 function OrderPanelInner({ marketId }: { marketId: string }) {
   const ticker = useMarketDataStore((s) => s.ticker);
@@ -14,7 +15,7 @@ function OrderPanelInner({ marketId }: { marketId: string }) {
        <div className="w-[360px] bg-[#07121a]/95 border border-[#1f2937] rounded-xl shadow-xl p-4 text-sm">
         <OrderFormAdvanced marketId={marketId} />
         <div className="mt-4">
-            <PnlCalculator price={ticker?.c ? parseFloat(ticker.c) : 0} />
+            <PnlCalculator price={ticker?.price ? ticker.price : 0} />
           </div>
       </div>
     </div>

@@ -17,8 +17,8 @@ import type { Asset } from '@/lib/types';
 import { useAssets } from '@/hooks/use-assets';
 import { useBalances } from '@/hooks/use-balances';
 import { useUser } from "@/firebase";
-import { useMarketDataStore } from '@/lib/market-data-service';
-import { marketDataService } from '@/lib/market-data-service';
+import { useMarketDataStore } from '@/state/market-data-store';
+import { marketDataService } from '@/services/market-data-service';
 
 
 export default function WalletPage() {
@@ -26,7 +26,7 @@ export default function WalletPage() {
   const { data: balances, isLoading: balancesLoading, error: balancesError } = useBalances();
   const { data: assets, isLoading: assetsLoading, error: assetsError } = useAssets();
   
-  const prices = useMarketDataStore((state) => state.ticker ? { [state.ticker.s.toLowerCase()]: { price: parseFloat(state.ticker.c) } } : {});
+  const prices = useMarketDataStore((state) => state.ticker ? { [state.ticker.price]: { price: state.ticker.price } } : {});
   const isConnected = useMarketDataStore((state) => state.isConnected);
   
   const error = balancesError || assetsError;
@@ -49,7 +49,7 @@ export default function WalletPage() {
 
     return () => {
       if(firstMarketSymbol) {
-         marketDataService.get(firstMarketSymbol).disconnect();
+         marketDataService.get(firstMarketSymbol).kill();
       }
     };
   }, [assets]);

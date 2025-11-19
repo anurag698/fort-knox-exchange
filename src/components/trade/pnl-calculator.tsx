@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect } from "react";
@@ -16,7 +17,7 @@ export function PnlCalculator({ price }: { price?: number }) {
     <div className="space-y-3 text-sm text-neutral-200">
       <div className="flex justify-between">
         <span>Last Price:</span>
-        <span className="text-yellow-400">{price}</span>
+        <span className="text-yellow-400">{price || '...'}</span>
       </div>
 
       <div className="space-y-2">

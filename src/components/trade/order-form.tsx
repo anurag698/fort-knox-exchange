@@ -18,7 +18,7 @@ import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { cn } from '@/lib/utils';
 import { useBalances } from '@/hooks/use-balances';
 import { Alert } from '@/components/ui/alert';
-import { useMarketDataStore } from '@/lib/market-data-service';
+import { useMarketDataStore } from '@/state/market-data-store';
 
 const orderSchema = z.object({
   price: z.coerce.number().optional(),
@@ -41,7 +41,7 @@ export function OrderForm({ selectedPrice, marketId }: { selectedPrice?: number;
   const baseBalance = balances?.find(b => b.assetId === baseAsset)?.available ?? 0;
   const quoteBalance = balances?.find(b => b.assetId === quoteAsset)?.available ?? 0;
   const ticker = useMarketDataStore((s) => s.ticker);
-  const marketPrice = ticker?.c ? parseFloat(ticker.c) : 0;
+  const marketPrice = ticker?.price ? ticker.price : 0;
 
 
   const defaultValues: Partial<OrderFormValues> = {

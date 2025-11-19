@@ -10,13 +10,16 @@ import { useMemo, useState, useEffect } from 'react';
 import Link from 'next/link';
 import { Button } from '../ui/button';
 import { useMarkets } from '@/hooks/use-markets';
-import { useMarketDataStore, type TickerData, MarketDataService } from '@/lib/market-data-service';
+import { useMarketDataStore } from '@/state/market-data-store';
+import { MarketDataService } from '@/services/market-data-service';
+import type { TickerData } from '@/state/market-data-store';
+
 
 // Mock icons for coins
 const coinIcons: { [key: string]: React.ElementType } = {
   BTC: Bitcoin,
   ETH: () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m6 12 6-9 6 9-6 9Z"/><path d="M6 12h12"/></svg>,
-  SOL: () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2v20"/><path d="M18.36 18.36 5.64 5.64"/><path d="m18.36 5.64-12.72 12.72"/></svg>,
+  SOL: () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0_0_24_24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2v20"/><path d="M18.36 18.36 5.64 5.64"/><path d="m18.36 5.64-12.72 12.72"/></svg>,
   ADA: Circle,
   MATIC: Circle,
   DOGE: Circle,
@@ -44,7 +47,7 @@ export function PopularCoins() {
     service.connect();
 
     return () => {
-        service.disconnect();
+        service.kill();
     };
   }, [displayMarkets]);
 
@@ -82,12 +85,12 @@ export function PopularCoins() {
       <ul className="space-y-1">
         {displayMarkets.map(market => {
           // Use the single ticker from the store, but only if it matches the market we are displaying
-          const marketSymbol = market.id.replace('-', '').toLowerCase();
-          const tickerData = ticker?.s.toLowerCase() === marketSymbol ? ticker : null;
+          const marketSymbol = market.id.replace('-', '');
+          const tickerData = ticker?.price ? ticker : null;
 
-          const price = tickerData?.c ?? 0;
-          const change = tickerData?.P ?? 0;
-          const isPositive = parseFloat(change) >= 0;
+          const price = tickerData?.price ?? 0;
+          const change = tickerData?.change ?? 0;
+          const isPositive = parseFloat(String(change)) >= 0;
           const Icon = coinIcons[market.baseAssetId] || coinIcons.DEFAULT;
 
           return (
@@ -98,9 +101,9 @@ export function PopularCoins() {
                  <div className="text-muted-foreground">{market.baseAssetId}</div>
               </div>
               <div className="text-right">
-                <div className="font-mono font-medium">${parseFloat(price).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
+                <div className="font-mono font-medium">${parseFloat(String(price)).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
                 <div className={cn("text-sm", isPositive ? 'text-green-500' : 'text-red-500')}>
-                  {isPositive ? '+' : ''}{parseFloat(change).toFixed(2)}%
+                  {isPositive ? '+' : ''}{parseFloat(String(change)).toFixed(2)}%
                 </div>
               </div>
             </li>

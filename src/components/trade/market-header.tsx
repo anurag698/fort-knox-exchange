@@ -1,7 +1,8 @@
+
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { useMarketDataStore } from '@/lib/market-data-service';
+import { useMarketDataStore } from '@/state/market-data-store';
 import { cn } from '@/lib/utils';
 import {
   Popover,
@@ -42,8 +43,8 @@ export function MarketHeader({ marketId }: MarketHeaderProps) {
   const [lastPrice, setLastPrice] = useState<number | null>(null);
 
   useEffect(() => {
-    if (ticker?.c) {
-      const newPrice = parseFloat(ticker.c);
+    if (ticker?.price) {
+      const newPrice = ticker.price;
       if (lastPrice !== null && newPrice !== lastPrice) {
         setFlash(newPrice > lastPrice ? 'up' : 'down');
         const t = setTimeout(() => setFlash(''), 400);
@@ -51,7 +52,7 @@ export function MarketHeader({ marketId }: MarketHeaderProps) {
       }
       setLastPrice(newPrice);
     }
-  }, [ticker?.c, lastPrice]);
+  }, [ticker?.price, lastPrice]);
 
 
   const assetsMap = new Map(assets?.map(a => [a.id, a]));
@@ -69,7 +70,7 @@ export function MarketHeader({ marketId }: MarketHeaderProps) {
     return <Skeleton className="h-12 w-full" />;
   }
 
-  const priceChangePercent = ticker?.P ? parseFloat(ticker.P) : 0;
+  const priceChangePercent = ticker?.change ? ticker.change : 0;
   const priceColor = priceChangePercent > 0 ? 'text-green-500' : priceChangePercent < 0 ? 'text-red-500' : 'text-foreground';
   const flashClass = flash === 'up' ? 'flash-green' : flash === 'down' ? 'flash-red' : '';
 
@@ -135,7 +136,7 @@ export function MarketHeader({ marketId }: MarketHeaderProps) {
             <p className="text-muted-foreground">Last Price</p>
             {ticker ? (
                 <p className={cn("font-semibold text-lg transition-colors", flashClass)}>
-                    {parseFloat(ticker.c).toFixed(currentMarket?.pricePrecision || 2)}
+                    {ticker.price.toFixed(currentMarket?.pricePrecision || 2)}
                 </p>
             ) : <Skeleton className="h-6 w-24 mt-1" />}
         </div>
@@ -149,15 +150,15 @@ export function MarketHeader({ marketId }: MarketHeaderProps) {
         </div>
         <div>
             <p className="text-muted-foreground">24h High</p>
-            {ticker ? <p className="font-mono">{parseFloat(ticker.h).toFixed(currentMarket?.pricePrecision || 2)}</p> : <Skeleton className="h-5 w-20 mt-1" />}
+            {ticker ? <p className="font-mono">{ticker.high.toFixed(currentMarket?.pricePrecision || 2)}</p> : <Skeleton className="h-5 w-20 mt-1" />}
         </div>
         <div>
             <p className="text-muted-foreground">24h Low</p>
-            {ticker ? <p className="font-mono">{parseFloat(ticker.l).toFixed(currentMarket?.pricePrecision || 2)}</p> : <Skeleton className="h-5 w-20 mt-1" />}
+            {ticker ? <p className="font-mono">{ticker.low.toFixed(currentMarket?.pricePrecision || 2)}</p> : <Skeleton className="h-5 w-20 mt-1" />}
         </div>
          <div>
             <p className="text-muted-foreground">24h Volume({baseAsset?.symbol})</p>
-            {ticker ? <p className="font-mono">{parseFloat(ticker.v).toLocaleString(undefined, { maximumFractionDigits: 0 })}</p> : <Skeleton className="h-5 w-24 mt-1" />}
+            {ticker ? <p className="font-mono">{ticker.volume.toLocaleString(undefined, { maximumFractionDigits: 0 })}</p> : <Skeleton className="h-5 w-24 mt-1" />}
         </div>
       </div>
     </div>

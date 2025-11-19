@@ -2,7 +2,7 @@
 'use client';
 
 import React, { useRef, useEffect, useCallback, useMemo, useState } from 'react';
-import { useMarketDataStore } from '@/lib/market-data-service';
+import { useMarketDataStore } from '@/state/market-data-store';
 import { useMarkets } from '@/hooks/use-markets';
 
 interface CanvasDepthChartProps {

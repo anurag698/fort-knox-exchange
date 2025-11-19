@@ -16,6 +16,7 @@ import OrderBook from "./order-book";
 import { RecentTrades } from "./recent-trades";
 import { Balances } from "./balances";
 import { OpenOrdersPanel } from "./open-orders-panel";
+import { startMarketDataSubscriber } from "@/services/market-data-subscriber";
 import marketDataService from "@/services/market-data-service";
 import { cn } from "@/lib/utils";
 
@@ -24,8 +25,9 @@ export default function ProTradingLayout({ marketId }: { marketId: string }) {
   const [interval, setInterval] = useState("1m");
   const [chartType, setChartType] = useState<"candles" | "line" | "area">("candles");
   const chartRef = useRef<any>(null);
-
+  
   useEffect(() => {
+    startMarketDataSubscriber();
     if (marketId) {
       const symbol = marketId.replace("-", "").toUpperCase();
       marketDataService.startFeed(symbol, "1m");

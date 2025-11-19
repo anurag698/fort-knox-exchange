@@ -17,7 +17,6 @@ import {
   OverlayManager,
 } from "@/lib/chart-engine/engine-overlays";
 import { LiquidationManager } from "@/lib/chart-engine/engine-liquidations";
-import marketDataService from "@/services/market-data-service";
 
 interface ChartEngineProps {
   symbol: string;        // e.g. BTCUSDT
@@ -51,6 +50,13 @@ export default function ChartEngineComponent({
 
   const candleSeriesRef = useRef<ISeriesApi<"Candlestick"> | null>(null);
   const volumeSeriesRef = useRef<ISeriesApi<"Histogram"> | null>(null);
+  const tradeMarkerSeriesRef = useRef<ISeriesApi<"Candlestick"> | null>(null);
+  const currentPositionRef = useRef<any>(null);
+  const pnlRef = useRef<any>(null);
+  const pnlLineRef = useRef<any>(null);
+  const tpLineRef = useRef<any>(null);
+  const slLineRef = useRef<any>(null);
+
 
   // Theme adaptation
   const [theme, setTheme] = useState<"light" | "dark">("dark");
@@ -73,15 +79,15 @@ export default function ChartEngineComponent({
       },
       grid: {
         vertLines: { color: theme === "dark" ? "#07111D" : "#E1E5EE" },
-        horzLines: { color: theme === 'dark' ? '#07111D' : '#E1E5EE' },
+        horzLines: { color: theme === "dark" ? "#07111D" : "#E1E5EE" },
       },
       width: container.clientWidth,
       height,
       rightPriceScale: {
-        borderColor: theme === 'dark' ? '#12263F' : '#D5DFEF',
+        borderColor: theme === "dark" ? "#12263F" : "#D5DFEF",
       },
       timeScale: {
-        borderColor: theme === 'dark' ? '#12263F' : '#D5DFEF',
+        borderColor: theme === "dark" ? "#12263F" : "#D5DFEF",
         rightOffset: 8,
       },
       crosshair: { mode: 1 as any },
@@ -89,16 +95,8 @@ export default function ChartEngineComponent({
 
     chartRef.current = chart;
     candleSeriesRef.current = chart.addCandlestickSeries();
-    volumeSeriesRef.current = chart.addHistogramSeries({
-      priceFormat: { type: 'volume' },
-      priceScaleId: '', // Place on a separate scale
-    });
-    chart.priceScale('').applyOptions({
-        scaleMargins: {
-            top: 0.8, // 80% of the chart height for the main series
-            bottom: 0,
-        },
-    });
+    volumeSeriesRef.current = chart.addHistogramSeries();
+    tradeMarkerSeriesRef.current = chart.addCandlestickSeries();
 
 
     // 2. Engine Instance
@@ -140,19 +138,213 @@ export default function ChartEngineComponent({
       // Cleanup
       resizeObserver.current?.disconnect();
       resizeObserver.current = null;
+
       engine.destroy();
       indicators.destroy();
       drawings.destroy();
       overlays.destroy();
       liquidations.destroy();
+
       chart.remove();
       chartRef.current = null;
+      engineRef.current = null;
+      indicatorsRef.current = null;
+      drawingsRef.current = null;
+      overlaysRef.current = null;
+      liquidationsRef.current = null;
     };
   }, [theme, height, onEngineReady]);
-
   
+  // ------------------------------------------------------------------------
+  // HYBRID KLINE ROUTER (FKX primary, MEXC secondary, offline fallback)
+  // ------------------------------------------------------------------------
+  useEffect(() => {
+    const engine = engineRef.current;
+    if (!engine) return;
+  
+    let fkxWS: WebSocket | null = null;
+    let mexcWS: WebSocket | null = null;
+    let offlineTimer: NodeJS.Timeout | null = null;
+  
+    let fkxConnected = false;
+    let mexcConnected = false;
+    let fkxFailed = false;
+    let mexcFailed = false;
+  
+    // -------------------------------------------------------------
+    // OFFLINE SIMULATOR (Firebase Studio safety)
+    // -------------------------------------------------------------
+    const startOfflineFallback = () => {
+      if (offlineTimer) return;
+  
+      console.warn("[FKX-Engine] Offline fallback enabled.");
+  
+      offlineTimer = setInterval(() => {
+        const last = engine.getLastCandle();
+        const t = (last?.t || Date.now()) + 60_000;
+  
+        const simulated = {
+          t,
+          o: last ? last.c : 100,
+          h: last ? last.c + Math.random() * 2 : 100.5,
+          l: last ? last.c - Math.random() * 2 : 99.5,
+          c: last ? last.c + (Math.random() - 0.5) * 3 : 101,
+          v: Math.random() * 5,
+          final: false,
+        };
+  
+        engine.applyRealtimeCandle(simulated, interval);
+      }, 1500);
+    };
+  
+    const stopOfflineFallback = () => {
+      if (offlineTimer) {
+        clearInterval(offlineTimer);
+        offlineTimer = null;
+      }
+    };
+  
+    // -------------------------------------------------------------
+    // FKX WEBSOCKET (Primary)
+    // -------------------------------------------------------------
+    const connectFKX = () => {
+      try {
+        fkxWS = new WebSocket("wss://api.fortknox.com/ws");
+  
+        fkxWS.onopen = () => {
+          fkxConnected = true;
+          fkxWS?.send(
+            JSON.stringify({
+              type: "subscribe",
+              channel: "kline",
+              symbol,
+              interval,
+            })
+          );
+          stopOfflineFallback();
+          console.log("[FKX WS] Connected.");
+        };
+  
+        fkxWS.onerror = () => {
+          fkxFailed = true;
+          console.warn("[FKX WS] Error.");
+        };
+  
+        fkxWS.onclose = () => {
+          fkxConnected = false;
+          console.warn("[FKX WS] Closed.");
+          fkxFailed = true;
+  
+          // Try fallback to MEXC
+          if (!mexcConnected && !mexcFailed) connectMEXC();
+          else startOfflineFallback();
+        };
+  
+        fkxWS.onmessage = (ev) => {
+          try {
+            const msg = JSON.parse(ev.data);
+  
+            if (msg.type === "kline" && msg.candle) {
+              engine.applyRealtimeCandle(msg.candle, interval);
+            }
+          } catch (e) {
+            console.error("[FKX WS] Parse error:", e);
+          }
+        };
+      } catch (e) {
+        fkxFailed = true;
+        console.error("[FKX WS] Failed to connect:", e);
+      }
+    };
+  
+    // -------------------------------------------------------------
+    // MEXC WEBSOCKET (Fallback)
+    // -------------------------------------------------------------
+    const connectMEXC = () => {
+      try {
+        const normalized = symbol.toLowerCase();
+        const stream = `${normalized}@kline_${interval.replace("m", "")}m`;
+  
+        mexcWS = new WebSocket(`wss://wbs.mexc.com/ws`);
+  
+        mexcWS.onopen = () => {
+          mexcConnected = true;
+          mexcWS?.send(
+            JSON.stringify({
+              method: "SUBSCRIPTION",
+              params: [`spot@public.kline.v3.api@${symbol}@Min1`],
+              id: 1,
+            })
+          );
+  
+          console.log("[MEXC WS] Fallback connected.");
+        };
+  
+        mexcWS.onerror = () => {
+          mexcFailed = true;
+          console.warn("[MEXC WS] Error.");
+        };
+  
+        mexcWS.onclose = () => {
+          mexcConnected = false;
+          mexcFailed = true;
+          console.warn("[MEXC WS] Closed.");
+  
+          if (!fkxConnected) startOfflineFallback();
+        };
+  
+        mexcWS.onmessage = (ev) => {
+          try {
+            const msg = JSON.parse(ev.data);
+            if (msg.c && msg.c.includes("kline")) {
+              const d = msg.d;
+              if (d) {
+                const candle = {
+                  t: d.ts,
+                  o: parseFloat(d.o),
+                  h: parseFloat(d.h),
+                  l: parseFloat(d.l),
+                  c: parseFloat(d.c),
+                  v: parseFloat(d.v),
+                  final: d.e === "kline_end",
+                };
+                engine.applyRealtimeCandle(candle, interval);
+              }
+            }
+          } catch (e) {
+            console.error("[MEXC WS] Parse error:", e);
+          }
+        };
+      } catch (e) {
+        mexcFailed = true;
+        console.error("[MEXC WS] Failed to connect:", e);
+      }
+    };
+  
+    // -------------------------------------------------------------
+    // BOOTSTRAP: FKX → MEXC → OFFLINE
+    // -------------------------------------------------------------
+    connectFKX();
+  
+    const timeout = setTimeout(() => {
+      if (!fkxConnected && !mexcConnected) {
+        console.warn("[Hybrid Router] FKX & MEXC both not connected → offline mode.");
+        startOfflineFallback();
+      }
+    }, 3000);
+  
+    // Cleanup on unmount
+    return () => {
+      clearTimeout(timeout);
+  
+      if (fkxWS) fkxWS.close();
+      if (mexcWS) mexcWS.close();
+      stopOfflineFallback();
+    };
+  }, [symbol, interval]);
+
   // -----------------------------
-  // Data Subscription and UI API
+  // Part 13.7-B (3/3) — Indicators, Drawings, Overlays, API
   // -----------------------------
   useEffect(() => {
     const engine = engineRef.current;
@@ -160,12 +352,12 @@ export default function ChartEngineComponent({
     const drawings = drawingsRef.current;
     const overlays = overlaysRef.current;
     const chart = chartRef.current;
-    const candleSeries = candleSeriesRef.current;
-    const volumeSeries = volumeSeriesRef.current;
   
-    if (!engine || !indicators || !drawings || !overlays || !chart || !candleSeries || !volumeSeries) return;
+    if (!engine || !indicators || !drawings || !overlays || !chart) return;
   
+    // -------------------------
     // Helper: safe caller
+    // -------------------------
     const safe = <T extends (...args: any[]) => any>(fn?: T) => {
       return (...args: Parameters<T>) => {
         try {
@@ -176,70 +368,375 @@ export default function ChartEngineComponent({
       };
     };
   
-    // Expose UI API for toolbar and parent components
-    (engine as any).ui = {
-      addSMA: safe((period = 20, color = "#f6e05e") => indicators.addSMA(period, color)),
-      removeSMA: safe((period = 20) => indicators.removeSMA(period)),
-      addEMA: safe((period = 20, color = "#fb7185") => indicators.addEMA(period, color)),
-      addRSI: safe((period = 14, panelId = "rsi") => indicators.addRSI(period, panelId)),
-      addVWAP: safe((session = "today") => indicators.addVWAP(session)),
-      enableFreeDraw: safe(() => drawings.enableFreeDraw()),
-      enableTrendTool: safe(() => drawings.enableTrendTool()),
-      addTrendLine: safe((p1: any, p2: any) => drawings.addTrend(p1, p2)),
-      addFib: safe((high: any, low: any) => drawings.addFib(high, low)),
-      clearDrawings: safe(() => drawings.clearAll()),
-      setTPSL: safe((list: { price: number; type: "tp" | "sl" }[]) => overlays.setTPSL(list)),
-      setEntries: safe((entries: { price: number; size: number }[]) => overlays.setEntries(entries)),
-      setTradeMarkers: safe((markers: { price: number; size: number; side: "buy" | "sell"; ts?: number }[]) => overlays.setTradeMarkers(markers)),
-      updatePositionPnl: safe((position: { avgEntry: number; size: number; side?: "long" | "short" }) => {
+    // -------------------------
+    // Indicators API
+    // -------------------------
+    const addSMA = safe((period = 20, color = "#f6e05e") => {
+      if (!indicators) return;
+      indicators.addSMA(period, color);
+    });
+  
+    const removeSMA = safe((period = 20) => {
+      indicators?.removeSMA(period);
+    });
+  
+    const addEMA = safe((period = 20, color = "#fb7185") => {
+      indicators?.addEMA(period, color);
+    });
+  
+    const addRSI = safe((period = 14, panelId = "rsi") => {
+      indicators?.addRSI(period, panelId);
+    });
+  
+    const addVWAP = safe((session = "today") => {
+      indicators?.addVWAP(session);
+    });
+  
+    // -------------------------
+    // Drawing Tools API
+    // -------------------------
+    const enableFreeDraw = safe(() => {
+      drawings?.enableFreeDraw();
+    });
+  
+    const enableTrendTool = safe(() => {
+      drawings?.enableTrendTool();
+    });
+  
+    const addTrendLine = safe((p1: any, p2: any) => {
+      drawings?.addTrend(p1, p2);
+    });
+  
+    const addFib = safe((high: any, low: any) => {
+      drawings?.addFib(high, low);
+    });
+  
+    const clearDrawings = safe(() => {
+      drawings?.clearAll();
+    });
+  
+    // -------------------------
+    // TP / SL and Multi-entry
+    // -------------------------
+    const setTPSL = safe((list: { price: number; type: "tp" | "sl" }[]) => {
+      overlays?.setTPSL(list);
+    });
+  
+    const setEntries = safe((entries: { price: number; size: number }[]) => {
+      overlays?.setEntries(entries);
+    });
+  
+    // -------------------------
+    // Trade markers (recent trades)
+    // -------------------------
+    const setTradeMarkers = safe((markers: { price: number; size: number; side: "buy" | "sell"; ts?: number }[]) => {
+      overlays?.setTradeMarkers(markers);
+    });
+  
+    // -------------------------
+    // PnL overlay updater
+    // -------------------------
+    const updatePositionPnl = safe((position: { avgEntry: number; size: number; side?: "long" | "short" }) => {
+      // compute unrealized pnl and display via overlays manager
+      try {
         const last = engine.getLastCandle();
         if (!last) return;
-        const pnl = (position.side === "long" ? (last.c - position.avgEntry) : (position.avgEntry - last.c)) * Math.abs(position.size);
-        overlays.setPositionOverlay({ ...position, pnl });
-      }),
+        const lastPrice = last.c;
+        const side = position.side ?? (position.size >= 0 ? "long" : "short");
+        const pnl = side === "long" ? (lastPrice - position.avgEntry) * Math.abs(position.size) : (position.avgEntry - lastPrice) * Math.abs(position.size);
+        overlays?.setPositionOverlay({
+          avgEntry: position.avgEntry,
+          size: position.size,
+          pnl,
+          side,
+        });
+      } catch (e) {
+        console.warn("updatePositionPnl failed", e);
+      }
+    });
+  
+    // -------------------------
+    // Expose UI API for toolbar and parent components
+    // -------------------------
+    // already passed via onEngineReady once on mount — add a second guard store on engine object
+    (engine as any).ui = {
+      addSMA,
+      removeSMA,
+      addEMA,
+      addRSI,
+      addVWAP,
+      enableFreeDraw,
+      enableTrendTool,
+      addTrendLine,
+      addFib,
+      clearDrawings,
+      setTPSL,
+      setEntries,
+      setTradeMarkers,
+      updatePositionPnl,
       zoomIn: () => chart.timeScale().zoomIn(),
       zoomOut: () => chart.timeScale().zoomOut(),
       resetZoom: () => chart.timeScale().fitContent(),
     };
-    
-    // Event listeners for data from the bus
+  
+    // -------------------------
+    // Auto-sync some widgets:
+    // - When engine emits 'trade', add marker
+    // - When new internal-depth arrives, update depth overlay
+    // - When a final candle arrives, recompute VWAP/indicators
+    // -------------------------
+    const onTrade = (t: any) => {
+      setTradeMarkers([
+        {
+          price: t.price,
+          size: t.size,
+          side: t.side,
+          ts: t.ts,
+        },
+      ]);
+    };
+  
+    const onInternalDepth = (d: any) => {
+      const bids = d.bids.map((b: any) => [b.price, b.size]);
+      const asks = d.asks.map((a: any) => [a.price, a.size]);
+      overlays?.setDepth(bids, asks, engine.getLastCandle()?.c ?? 0);
+    };
+  
+    const onFinalCandle = (c: any) => {
+      // Recompute VWAP and indicators lightly
+      safe(() => indicators?.recalculateAll())();
+      // Update PnL overlays if any
+      safe(() => overlays?.refreshPositionOverlays())();
+    };
+  
+    engine.eventBus.on("trade", onTrade);
+    engine.eventBus.on("internal-depth", onInternalDepth);
+    engine.eventBus.on("candle-final", onFinalCandle);
+  
+    // -------------------------
+    // Cleanup
+    // -------------------------
+    return () => {
+      engine.eventBus.off("trade", onTrade);
+      engine.eventBus.off("internal-depth", onInternalDepth);
+      engine.eventBus.off("candle-final", onFinalCandle);
+      // detach ui object
+      try {
+        delete (engine as any).ui;
+      } catch {}
+    };
+  }, [symbol, interval]);
+
+  // -----------------------------
+  // 13.7-D LIVE STREAM INTEGRATION LAYER
+  // -----------------------------
+  useEffect(() => {
+    const chart = chartRef.current;
+    const candleSeries = candleSeriesRef.current;
+    const volumeSeries = volumeSeriesRef.current;
+    const tradeMarkerSeries = tradeMarkerSeriesRef.current;
+    const indicators = indicatorsRef.current;
+    const overlays = overlaysRef.current;
+
+    if (!chart || !candleSeries || !volumeSeries || !tradeMarkerSeries || !indicators || !overlays) return;
+  
+    // Firebase Studio sandbox protection (prevent crashes)
+    const isSandbox =
+      typeof window !== "undefined" &&
+      window.location.href.includes("firebase");
+  
+    // ------------------------------
+    // Candle update throttler (16 FPS)
+    // ------------------------------
     let candleUpdateTimer: any = null;
-    const onKline = (k: any) => {
+  
+    const updateCandleThrottled = (k: any) => {
       if (candleUpdateTimer) return;
       candleUpdateTimer = setTimeout(() => {
         candleUpdateTimer = null;
-        const time = Math.floor(k.t / 1000) as any;
-        candleSeries.update({ time, open: k.o, high: k.h, low: k.l, close: k.c });
-        volumeSeries.update({ time, value: k.v, color: k.c >= k.o ? '#26a69a' : '#ef5350' });
-        engine.applyRealtimeCandle(k, interval);
-        indicators.recalculateAll();
-        overlays.refreshPositionOverlays();
+  
+        const t = Math.floor(k.t / 1000);
+  
+        candleSeries.update({
+          time: t,
+          open: Number(k.o),
+          high: Number(k.h),
+          low: Number(k.l),
+          close: Number(k.c),
+        });
+  
+        volumeSeries.update({
+          time: t,
+          value: Number(k.v),
+          color: Number(k.c) >= Number(k.o) ? "#26a69a" : "#ef5350",
+        });
+  
+        // Recompute MAs / EMA20 live
+        if (typeof indicators.recalculateAll === "function") {
+            indicators.recalculateAll();
+        }
       }, 60);
     };
-
-    let depthTimer: any = null;
-    const onDepth = (d: any) => {
-        if (depthTimer) return;
-        depthTimer = setTimeout(() => {
-            depthTimer = null;
-            overlays.setDepth(d.bids || [], d.asks || [], d.mid);
-        }, 100);
-    };
-    
-    const onTrade = (t: any) => overlays.setTradeMarkers([{ price: t.p, size: t.q, side: t.S, ts: t.t }]);
-
-    bus.on("kline", onKline);
-    bus.on("depth", onDepth);
-    bus.on("trade", onTrade);
   
-    // Cleanup
-    return () => {
-      bus.off("kline", onKline);
-      bus.off("depth", onDepth);
-      bus.off("trade", onTrade);
-      if ((engine as any).ui) delete (engine as any).ui;
+    // ------------------------------
+    // DEPTH HEATMAP
+    // ------------------------------
+    let depthTimer: any = null;
+  
+    const updateDepthThrottled = (d: any) => {
+      if (depthTimer) return;
+      depthTimer = setTimeout(() => {
+        depthTimer = null;
+        if (overlays.setDepth) {
+            overlays.setDepth(d.bids || [], d.asks || [], d.mid);
+        }
+      }, 100);
     };
-  }, [symbol, interval]);
+  
+    // ------------------------------
+    // TRADE MARKERS (bubbles)
+    // ------------------------------
+    const tradeMarkers: any[] = [];
+    let tradeTimer: any = null;
+  
+    const addTradeMarker = (t: any) => {
+      if (!candleSeries) return;
+  
+      tradeMarkers.push({
+        time: Math.floor(t.t / 1000),
+        position: t.S === "buy" ? "belowBar" : "aboveBar",
+        color: t.S === "buy" ? "#26a69a" : "#ef5350",
+        shape: "circle",
+        text: Number(t.p).toFixed(4),
+      });
+  
+      if (tradeMarkers.length > 50) tradeMarkers.shift();
+  
+      if (tradeTimer) return;
+      tradeTimer = setTimeout(() => {
+        tradeTimer = null;
+        if(tradeMarkerSeries) {
+            tradeMarkerSeries.setData(tradeMarkers as any);
+        }
+      }, 120);
+    };
+  
+    // ------------------------------
+    // PNL OVERLAY (Real-time)
+    // ------------------------------
+    const updatePnL = (ticker: any) => {
+      if (!currentPositionRef.current) return;
+  
+      const lastPrice = Number(ticker.askPrice || ticker.c || ticker.p);
+      if (!lastPrice || Number.isNaN(lastPrice)) return;
+  
+      // Recalculate PnL (net across all entries)
+      const { entries } = currentPositionRef.current;
+      const totalQty = entries.reduce((s: number, e: any) => s + Number(e.qty), 0);
+      const avg = entries.reduce((s: number, e: any) => s + Number(e.price) * Number(e.qty), 0) / totalQty;
+  
+      const side = currentPositionRef.current.side; // "long" or "short"
+      const pnl = side === "long"
+        ? (lastPrice - avg) * totalQty
+        : (avg - lastPrice) * totalQty;
+  
+      if(pnlRef.current) {
+        pnlRef.current.innerText = `PnL: ${pnl.toFixed(2)} USDT`;
+      }
+  
+      // Update floating PnL label on chart
+      if (pnlLineRef.current) {
+        pnlLineRef.current.applyOptions({
+          price: lastPrice,
+          title: `PnL ${pnl.toFixed(2)}`,
+        });
+      }
+    };
+  
+    // ------------------------------
+    // TP / SL Real-time lines
+    // ------------------------------
+    const updateTpsl = () => {
+      if (!currentPositionRef.current) return;
+  
+      const { tp, sl } = currentPositionRef.current;
+  
+      if (tp && tpLineRef.current) {
+        tpLineRef.current.applyOptions({
+          price: Number(tp),
+          color: "#00e676",
+          title: "TP",
+        });
+      }
+  
+      if (sl && slLineRef.current) {
+        slLineRef.current.applyOptions({
+          price: Number(sl),
+          color: "#ff5252",
+          title: "SL",
+        });
+      }
+    };
+  
+    // --------------------------------------
+    // REGISTER EVENT BUS LISTENERS
+    // --------------------------------------
+    bus.on("kline", (k) => {
+        if (!isSandbox) updateCandleThrottled(k);
+    });
+
+    bus.on("depth", (d) => {
+        if (!isSandbox) updateDepthThrottled(d);
+    });
+
+    bus.on("trade", (t) => {
+        if (!isSandbox) addTradeMarker(t);
+    });
+
+    bus.on("ticker", (t) => {
+        if (!isSandbox) {
+            updatePnL(t);
+            updateTpsl();
+        }
+    });
+  
+    // --------------------------------------
+    // CLEANUP
+    // --------------------------------------
+     return () => {
+      bus.off("kline", updateCandleThrottled);
+      bus.off("depth", updateDepthThrottled);
+      bus.off("trade", addTradeMarker);
+      bus.off("ticker", updatePnL);
+      bus.off("ticker", updateTpsl);
+    };
+  }, [
+    chartRef,
+    candleSeriesRef,
+    volumeSeriesRef,
+    overlaysRef,
+    tradeMarkerSeriesRef,
+  ]);
+
+  // -----------------------------
+  // OPTIONAL: short helper export for dev console
+  // -----------------------------
+  useEffect(() => {
+    // attach to window for debugging in dev
+    if (process.env.NODE_ENV === "development") {
+      (window as any).__FK_CHART__ = {
+        engine: engineRef.current,
+        chart: chartRef.current,
+        indicators: indicatorsRef.current,
+        drawings: drawingsRef.current,
+        overlays: overlaysRef.current,
+      };
+    }
+    return () => {
+      if ((window as any).__FK_CHART__) delete (window as any).__FK_CHART__;
+    };
+  }, []);
+
 
   // ------------------------------------------------------------------------
   // THEME LISTENER (auto-switch when Fort Knox theme changes)

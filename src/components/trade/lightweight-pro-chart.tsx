@@ -1,3 +1,4 @@
+
 // src/components/trade/lightweight-pro-chart.tsx
 "use client";
 
@@ -195,43 +196,55 @@ export default function LightweightProChart({
     ma20Ref.current = chart.addLineSeries({ color: "#a78bfa", lineWidth: 1 });
     ema20Ref.current = chart.addLineSeries({ color: "#fb7185", lineWidth: 1 });
 
-    // RSI line in the same chart but bottom area (use scaleMargins)
+    // RSI line in the same chart but bottom area (use scaleMargins trick)
     rsiRef.current = chart.addLineSeries({
       color: "#ffd166",
       lineWidth: 1,
       priceLineVisible: false,
     });
-    // we'll place RSI values using scaleMargins trick on same chart (keeps DOM simple).
-    // Note: for more exact separate panes, create a second chart element stacked; this is a compact approach.
 
     // crosshair tooltip DOM
     const tooltip = document.createElement("div");
     tooltip.style.cssText = "position:absolute;display:none;padding:6px;background:rgba(0,0,0,0.6);color:#fff;border-radius:4px;font-size:12px;pointer-events:none;z-index:10";
     container.appendChild(tooltip);
 
-    chart.subscribeCrosshairMove((param) => {
-      if (!param || !param.time) {
-        tooltip.style.display = "none";
-        return;
-      }
-      const bars = candleSeriesRef.current?.barsInLogicalRange?.(param?.time as any);
-      // lightweight-charts provides seriesPrices map; fetch series price values:
-      const price = param.seriesPrices && param.seriesPrices.get(candleSeries);
-      // build tooltip
-      let html = "";
-      if (price && typeof price === "object") {
-        html = `O:${(price as any).open?.toFixed(6) ?? "-"} H:${(price as any).high?.toFixed(6) ?? "-"} L:${(price as any).low?.toFixed(6) ?? "-"} C:${(price as any).close?.toFixed(6) ?? "-"}<br/>V:${((price as any).volume ?? "-")}`;
-      } else {
-        // fallback if no seriesPrices
-        html = `time:${String(param.time)}`
-      }
-      tooltip.innerHTML = html;
-      tooltip.style.display = "block";
-      const x = param.point?.x ?? 10;
-      const y = param.point?.y ?? 10;
-      tooltip.style.left = `${x + 12}px`;
-      tooltip.style.top = `${y + 12}px`;
-    });
+    const handleCrosshairMove = (param: any) => {
+        if (!param || !param.time || !candleSeriesRef.current) {
+            tooltip.style.display = 'none';
+            return;
+        }
+
+        const range = candleSeriesRef.current.logicalRange();
+
+        if (!range || range.from == null || range.to == null || range.to < range.from || isNaN(range.from) || isNaN(range.to)) {
+            return;
+        }
+        
+        const bars = candleSeriesRef.current.barsInLogicalRange(range);
+        if (!bars) return;
+
+        const price = param.seriesPrices.get(candleSeriesRef.current);
+        if (!price) {
+            tooltip.style.display = 'none';
+            return;
+        }
+      
+        let html = "";
+        if (price && typeof price === "object") {
+            html = `O:${price.open?.toFixed(6) ?? "-"} H:${price.high?.toFixed(6) ?? "-"} L:${price.low?.toFixed(6) ?? "-"} C:${price.close?.toFixed(6) ?? "-"}<br/>V:${(price.volume ?? "-")}`;
+        } else {
+            html = `time:${String(param.time)}`
+        }
+
+        tooltip.innerHTML = html;
+        tooltip.style.display = "block";
+        const x = param.point?.x ?? 10;
+        const y = param.point?.y ?? 10;
+        tooltip.style.left = `${x + 12}px`;
+        tooltip.style.top = `${y + 12}px`;
+    };
+
+    chart.subscribeCrosshairMove(handleCrosshairMove);
 
     // resize observer
     const ro = new ResizeObserver(() => {
@@ -241,6 +254,7 @@ export default function LightweightProChart({
 
     return () => {
       ro.disconnect();
+      chart.unsubscribeCrosshairMove(handleCrosshairMove);
       chart.remove();
       chartRef.current = null;
     };

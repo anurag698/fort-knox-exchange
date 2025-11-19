@@ -47,6 +47,7 @@ const ChartEngine = forwardRef<any, ChartEngineProps>(({
   const depthCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const wsRef = useRef<WebSocket | null>(null);
   const [ready, setReady] = useState(false);
+  const lastPriceRef = useRef<number>(0);
 
   const sma5SeriesRef = useRef<any>(null);
   const sma20SeriesRef = useRef<any>(null);
@@ -58,6 +59,7 @@ const ChartEngine = forwardRef<any, ChartEngineProps>(({
   const rsiSeries = useRef<any>(null);
   const shapes = useRef<any[]>([]);
   const tradeMarkersRef = useRef<any[]>([]);
+  const pendingOrdersRef = useRef<{ id: string; price: number; side: "buy" | "sell"; size: number }[]>([]);
   
   const positionRef = useRef<{
     side: "long" | "short" | null;
@@ -230,6 +232,34 @@ const ChartEngine = forwardRef<any, ChartEngineProps>(({
     });
   }
 
+  function renderOrderLines() {
+    if (!chartRef.current) return;
+  
+    // Reset previous lines
+    chartRef.current.removeAllPriceLines?.();
+  
+    // Re-render entry lines, TP/SL, liquidation, etc.
+    renderMultiEntryLines();
+    renderAllTPs();
+    renderLiquidationLine();
+  
+    const colors = {
+      buy: "#00ffbf",
+      sell: "#ff4668",
+    };
+  
+    pendingOrdersRef.current.forEach((o) => {
+      chartRef.current.createPriceLine({
+        price: o.price,
+        color: colors[o.side],
+        lineWidth: 2,
+        lineStyle: 0,
+        axisLabelVisible: true,
+        title: `${o.side.toUpperCase()} • ${o.price.toFixed(2)} (${o.size} BTC)`,
+      });
+    });
+  }
+
   function pushTradeMarker(trade: { p: number; T: number; m: boolean; v: number }) {
     if (!candleSeriesRef.current) return;
     const marker = { time: Math.floor(trade.T / 1000), position: trade.m ? 'aboveBar' : 'belowBar', shape: trade.m ? 'arrowDown' : 'arrowUp', color: trade.m ? '#ff4668' : '#00ffbf', text: `${trade.v}`, size: 2 };
@@ -309,7 +339,7 @@ const ChartEngine = forwardRef<any, ChartEngineProps>(({
     chart.priceScale("right").applyOptions({ borderColor: pnlColor });
     
     const markers: any[] = [...tradeMarkersRef.current];
-    markers.push({ price: lastPrice, position: 'right', color: pnlColor, shape: 'circle', text: `${pct >= 0 ? "+" : ""}${pct.toFixed(2)}%  (${pnlUSD >= 0 ? "+" : ""}${pnlUSD.toFixed(2)}$)` });
+    markers.push({ time: Math.floor(Date.now() / 1000), position: 'right', color: pnlColor, shape: 'circle', text: `${pct >= 0 ? "+" : ""}${pct.toFixed(2)}%  (${pnlUSD >= 0 ? "+" : ""}${pnlUSD.toFixed(2)}$)` });
 
     tpTargetsRef.current.forEach(tp => {
         const isLong = pos.side === "long";
@@ -344,21 +374,58 @@ const ChartEngine = forwardRef<any, ChartEngineProps>(({
     obs.observe(containerRef.current);
     
     let startPoint: any = null;
+    let draggingOrderId: string | null = null;
+    let draggingTp = false;
+    let draggingSl = false;
+    let draggingTP: string | null = null;
+    
     const handlePointerDown = (e: PointerEvent) => {
       const tool = getDrawingTool();
-      if (tool === "none") return;
-      const chart = chartRef.current;
-      const series = candleSeriesRef.current;
-      if (!chart || !series) return;
-      const rect = containerRef.current!.getBoundingClientRect();
-      const x = e.clientX - rect.left;
-      const y = e.clientY - rect.top;
-      const time = chart.timeScale().coordinateToTime(x);
-      const price = series.coordinateToPrice(y);
-      if (!time || !price) return;
-      startPoint = { time, price };
+      if (tool !== "none") {
+        const rect = containerRef.current!.getBoundingClientRect();
+        const x = e.clientX - rect.left;
+        const y = e.clientY - rect.top;
+        const time = chart.timeScale().coordinateToTime(x);
+        const price = series.coordinateToPrice(y);
+        if (!time || !price) return;
+        startPoint = { time, price };
+      } else if (e.altKey) {
+        const rect = containerRef.current!.getBoundingClientRect();
+        const price = candleSeriesRef.current!.coordinateToPrice(e.clientY - rect.top);
+        if (!price) return;
+        const last = lastPriceRef.current;
+        const side = price < last ? "buy" : "sell";
+        const id = "O" + Math.floor(Math.random() * 999999);
+        pendingOrdersRef.current.push({ id, price, size: 0.1, side });
+        renderOrderLines();
+      } else {
+        const rect = containerRef.current!.getBoundingClientRect();
+        const y = e.clientY - rect.top;
+        const { tp, sl } = tpSlRef.current;
+        const tpY = tp ? candleSeriesRef.current!.priceToCoordinate(tp) : null;
+        const slY = sl ? candleSeriesRef.current!.priceToCoordinate(sl) : null;
+        if (tpY && Math.abs(tpY - y) < 8) draggingTp = true;
+        if (slY && Math.abs(slY - y) < 8) draggingSl = true;
+        tpTargetsRef.current.forEach(tp => {
+          const yTp = candleSeriesRef.current!.priceToCoordinate(tp.price);
+          if (yTp && Math.abs(yTp - y) < 8) draggingTP = tp.id;
+        });
+        pendingOrdersRef.current.forEach((o) => {
+            const yOrder = candleSeriesRef.current!.priceToCoordinate(o.price);
+            if (yOrder && Math.abs(yOrder - y) < 8) {
+              draggingOrderId = o.id;
+            }
+        });
+      }
     };
     const handlePointerUp = (e: PointerEvent) => {
+      if(draggingTp || draggingSl || draggingTP || draggingOrderId) {
+        draggingTp = false;
+        draggingSl = false;
+        draggingTP = null;
+        draggingOrderId = null;
+        return;
+      }
       if (!startPoint) return;
       const tool = getDrawingTool();
       const chart = chartRef.current;
@@ -375,10 +442,6 @@ const ChartEngine = forwardRef<any, ChartEngineProps>(({
       startPoint = null;
     };
     
-    let draggingTp = false;
-    let draggingSl = false;
-    let draggingTP: string | null = null;
-
     const onPointerMove = (e: PointerEvent) => {
       const tool = getDrawingTool();
       if (tool !== "none") return;
@@ -393,29 +456,32 @@ const ChartEngine = forwardRef<any, ChartEngineProps>(({
           const tp = tpTargetsRef.current.find(t => t.id === draggingTP);
           if (tp) { tp.price = price; renderAllTPs(); }
       }
+      if (draggingOrderId) {
+        const order = pendingOrdersRef.current.find((o) => o.id === draggingOrderId);
+        if (order) {
+            order.price = price;
+            renderOrderLines();
+        }
+      }
     };
-    const onPointerDown = (e: PointerEvent) => {
-      if(!candleSeriesRef.current || !containerRef.current) return;
-      const { tp, sl } = tpSlRef.current;
-      const rect = containerRef.current.getBoundingClientRect();
-      const y = e.clientY - rect.top;
-      const tpY = tp ? candleSeriesRef.current.priceToCoordinate(tp) : null;
-      const slY = sl ? candleSeriesRef.current.priceToCoordinate(sl) : null;
-      if (tpY && Math.abs(tpY - y) < 8) draggingTp = true;
-      if (slY && Math.abs(slY - y) < 8) draggingSl = true;
-      tpTargetsRef.current.forEach(tp => {
-        const yTp = candleSeriesRef.current!.priceToCoordinate(tp.price);
-        if (yTp && Math.abs(yTp - y) < 8) draggingTP = tp.id;
-      });
+
+    const onContextMenu = (e: MouseEvent) => {
+        e.preventDefault();
+        const rect = containerRef.current!.getBoundingClientRect();
+        const y = e.clientY - rect.top;
+        const price = candleSeriesRef.current!.coordinateToPrice(y);
+        if (!price) return;
+        pendingOrdersRef.current = pendingOrdersRef.current.filter(
+            (o) => Math.abs(o.price - price) > 1e-2
+        );
+        renderOrderLines();
     };
-    const onPointerUp = () => { draggingTp = false; draggingSl = false; draggingTP = null; };
 
     const el = containerRef.current;
     el.addEventListener("pointerdown", handlePointerDown);
     el.addEventListener("pointerup", handlePointerUp);
-    el.addEventListener("pointerdown", onPointerDown);
     el.addEventListener("pointermove", onPointerMove);
-    el.addEventListener("pointerup", onPointerUp);
+    el.addEventListener("contextmenu", onContextMenu);
 
     const canvas = document.createElement("canvas");
     canvas.style.position = "absolute"; canvas.style.left = "0"; canvas.style.top = "0"; canvas.style.pointerEvents = "none"; canvas.style.zIndex = "2";
@@ -426,9 +492,8 @@ const ChartEngine = forwardRef<any, ChartEngineProps>(({
       obs.disconnect();
       el.removeEventListener("pointerdown", handlePointerDown);
       el.removeEventListener("pointerup", handlePointerUp);
-      el.removeEventListener("pointerdown", onPointerDown);
       el.removeEventListener("pointermove", onPointerMove);
-      el.removeEventListener("pointerup", onPointerUp);
+      el.removeEventListener("contextmenu", onContextMenu);
       chart.remove();
       chartRef.current = null;
       if (depthCanvasRef.current) depthCanvasRef.current.remove();
@@ -476,11 +541,13 @@ const ChartEngine = forwardRef<any, ChartEngineProps>(({
           const c = msg.d.candle;
           const last = { time: Math.floor(c.t / 1000), open: Number(c.o), high: Number(c.h), low: Number(c.l), close: Number(c.c) };
           candleSeriesRef.current?.update(last);
+          lastPriceRef.current = last.close;
           volumeSeriesRef.current?.update({ time: last.time, value: Number(c.v), color: last.close >= last.open ? "#26a69a" : "#ef5350" });
           renderMultiEntryLines();
           renderPositionOverlay(last.close);
           renderLiquidationLine();
           drawLiquidationZone(last.close);
+          renderOrderLines();
         }
         if (msg.c?.includes("deal.v3.api")) {
           if (Array.isArray(msg.d.deals)) {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useImperativeHandle, forwardRef } from "react";
+import { useState } from "react";
 import { cn } from "@/lib/utils";
 import {
   LineChart,
@@ -67,7 +67,7 @@ const DrawToggle = ({ tool, label }: any) => {
 };
 
 
-const ChartToolbar = forwardRef<any, Props>(({
+const ChartToolbar = ({
   interval,
   setInterval,
   chartType,
@@ -80,7 +80,7 @@ const ChartToolbar = forwardRef<any, Props>(({
   addTP,
   removeTP,
   setLiquidationPrice,
-}, ref) => {
+}: Props) => {
   const [indOpen, setIndOpen] = useState(false);
   const [drawOpen, setDrawOpen] = useState(false);
 
@@ -279,7 +279,5 @@ const ChartToolbar = forwardRef<any, Props>(({
       </div>
     </div>
   );
-});
-
-ChartToolbar.displayName = "ChartToolbar";
+};
 export default ChartToolbar;

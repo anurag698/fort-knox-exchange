@@ -22,7 +22,7 @@ The heart of the application is the professional trading UI, designed to be on p
 - **Modular Trading Layout**: A multi-panel layout (`/trade/[marketId]`) that includes an advanced chart, order book, recent trades feed, and order management panels.
 - **Market Selection**: A searchable popover in the header allows users to easily switch between different trading pairs (e.g., BTC-USDT, ETH-USDT).
 - **Real-Time Data Feeds**:
-    - **Order Book**: Live bid and ask walls with depth visualization, streamed directly via WebSocket.
+    - **Order Book**: Live bid and ask walls with depth visualization, streamed directly via WebSocket from sources like MEXC.
     - **Recent Trades**: A real-time feed of the latest market trades for the selected pair.
 - **Order Forms**: Tabbed forms for placing **Market** and **Limit** orders. Includes a percentage slider to quickly select order size based on available balance.
 - **Balance Display**: A dedicated panel shows the user's available balances for the base and quote assets of the current market.
@@ -74,12 +74,14 @@ A comprehensive system for managing user funds securely and transparently.
 
 ---
 
-## 5. Decentralized Swap
+## 5. Hybrid Order Routing & Execution
 
-For users who prefer non-custodial trading, the platform integrates a decentralized exchange aggregator.
+Fort Knox employs a sophisticated hybrid execution model to ensure the best possible trading experience.
 
-- **1inch-Powered Swap Widget**: The `/swap` page features a widget that connects directly to the user's MetaMask (or other Web3) wallet.
-- **Best Rate Execution**: It uses the 1inch API to find the most efficient trading routes across multiple decentralized exchanges, ensuring the user gets the best possible rate for their on-chain swap.
+- **Internal Matching Engine**: For flagship assets like **NOMOX-USDT**, all trades are executed on Fort Knox's own high-speed, internal matching engine. This provides full control over liquidity and the trading environment.
+- **External Data for Internal Markets**: While execution is internal, these markets use external data feeds (e.g., from MEXC) for charting, order book visualization, and live ticker prices. This ensures the user experience feels connected to the broader market.
+- **Smart Order Routing (SOR)**: For all other markets (e.g., BTC-USDT, ETH-USDT), the trade router intelligently decides the best execution venue. It first checks the internal order book for a better price and, if not available, routes the trade to a DEX aggregator like **1inch** to tap into deep, external liquidity.
+- **Decentralized Swap**: For users who prefer non-custodial trading, the platform integrates a decentralized exchange aggregator. The `/swap` page features a widget that connects directly to the user's MetaMask (or other Web3) wallet and uses the 1inch API to find the most efficient trading routes.
 
 ---
 

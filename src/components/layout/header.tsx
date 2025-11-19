@@ -22,6 +22,7 @@ import { signOut } from 'firebase/auth';
 import { useRouter, usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 import type { UserProfile } from "@/lib/types";
+import WalletDrawer from '@/components/wallet/wallet-drawer';
 
 
 const mainLinks = [
@@ -114,60 +115,63 @@ export default function Header() {
         {isUserLoading ? (
          <Avatar className="h-9 w-9 animate-pulse bg-muted rounded-full" />
         ) : user ? (
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" className="relative h-9 w-9 rounded-full">
-              <Avatar className="h-9 w-9">
-                {user.photoURL ? (
-                  <AvatarImage src={user.photoURL} alt="User avatar" />
-                ) : userAvatar ? (
-                  <AvatarImage src={userAvatar.imageUrl} alt="User avatar" data-ai-hint={userAvatar.imageHint} />
-                ) : null}
-                <AvatarFallback>{getAvatarFallback()}</AvatarFallback>
-              </Avatar>
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent className="w-56" align="end" forceMount>
-            <DropdownMenuLabel className="font-normal">
-              <div className="flex flex-col space-y-1">
-                <p className="text-sm font-medium leading-none">
-                  {userProfile?.username || user.email?.split('@')[0]}
-                </p>              
-                <p className="text-xs leading-none text-muted-foreground">
-                  {user.email}
-                </p>
-              </div>
-            </DropdownMenuLabel>
-            <DropdownMenuSeparator />
-             {isAdmin && (
-                <>
-                <DropdownMenuItem asChild>
-                    <Link href={adminLink.href}>
-                        <adminLink.icon className="mr-2 h-4 w-4" />
-                        <span>{adminLink.label}</span>
-                    </Link>
-                </DropdownMenuItem>
-                <DropdownMenuItem asChild>
-                    <Link href={seedDataLink.href}>
-                        <seedDataLink.icon className="mr-2 h-4 w-4" />
-                        <span>{seedDataLink.label}</span>
-                    </Link>
-                </DropdownMenuItem>
-                </>
-             )}
-            <DropdownMenuItem asChild>
-              <Link href="/settings">
-                <Settings className="mr-2 h-4 w-4" />
-                <span>Settings</span>
-              </Link>
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={handleSignOut}>
-              <LogOut className="mr-2 h-4 w-4" />
-              <span>Log out</span>
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+        <>
+          <WalletDrawer />
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" className="relative h-9 w-9 rounded-full">
+                <Avatar className="h-9 w-9">
+                  {user.photoURL ? (
+                    <AvatarImage src={user.photoURL} alt="User avatar" />
+                  ) : userAvatar ? (
+                    <AvatarImage src={userAvatar.imageUrl} alt="User avatar" data-ai-hint={userAvatar.imageHint} />
+                  ) : null}
+                  <AvatarFallback>{getAvatarFallback()}</AvatarFallback>
+                </Avatar>
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent className="w-56" align="end" forceMount>
+              <DropdownMenuLabel className="font-normal">
+                <div className="flex flex-col space-y-1">
+                  <p className="text-sm font-medium leading-none">
+                    {userProfile?.username || user.email?.split('@')[0]}
+                  </p>              
+                  <p className="text-xs leading-none text-muted-foreground">
+                    {user.email}
+                  </p>
+                </div>
+              </DropdownMenuLabel>
+              <DropdownMenuSeparator />
+               {isAdmin && (
+                  <>
+                  <DropdownMenuItem asChild>
+                      <Link href={adminLink.href}>
+                          <adminLink.icon className="mr-2 h-4 w-4" />
+                          <span>{adminLink.label}</span>
+                      </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                      <Link href={seedDataLink.href}>
+                          <seedDataLink.icon className="mr-2 h-4 w-4" />
+                          <span>{seedDataLink.label}</span>
+                      </Link>
+                  </DropdownMenuItem>
+                  </>
+               )}
+              <DropdownMenuItem asChild>
+                <Link href="/settings">
+                  <Settings className="mr-2 h-4 w-4" />
+                  <span>Settings</span>
+                </Link>
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={handleSignOut}>
+                <LogOut className="mr-2 h-4 w-4" />
+                <span>Log out</span>
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </>
         ) : (
           <Button asChild variant="outline" size="sm">
             <Link href="/auth">

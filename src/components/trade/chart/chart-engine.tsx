@@ -59,6 +59,12 @@ const ChartEngine = forwardRef<any, ChartEngineProps>(({
   const shapes = useRef<any[]>([]);
   const tradeMarkersRef = useRef<any[]>([]);
   
+  const positionRef = useRef<{
+    side: "long" | "short" | null;
+  }>({
+    side: "long",
+  });
+
   const entriesRef = useRef<
     { price: number; size: number; id: string }[]
   >([
@@ -74,11 +80,15 @@ const ChartEngine = forwardRef<any, ChartEngineProps>(({
     sl: null,
   });
 
-  const positionRef = { current: {
-    side: "long" as "long" | "short" | null,
-  }};
-
   const tpTargetsRef = useRef<{ id: string; price: number; size: number; }[]>([]);
+
+  const liquidationRef = useRef<{
+    price: number | null;
+    side: "long" | "short" | null;
+  }>({
+    price: null,
+    side: null,
+  });
 
   useImperativeHandle(ref, () => ({
       addTP: (price: number, size: number) => addTP(price, size),
@@ -96,7 +106,8 @@ const ChartEngine = forwardRef<any, ChartEngineProps>(({
       reset: () => {
         shapes.current.forEach(s => chartRef.current.removeTool(s));
         shapes.current = [];
-      }
+      },
+      setLiquidationPrice: (price: number, side: "long" | "short") => setLiquidationPrice(price, side),
   }));
 
   const BLOCK_WS = isFirebaseStudio();
@@ -199,6 +210,26 @@ const ChartEngine = forwardRef<any, ChartEngineProps>(({
     renderTpSlLines();
   }
 
+  function setLiquidationPrice(price: number, side: "long" | "short") {
+    liquidationRef.current.price = price;
+    liquidationRef.current.side = side;
+    renderLiquidationLine();
+  }
+
+  function renderLiquidationLine() {
+    if (!chartRef.current) return;
+    const { price } = liquidationRef.current;
+    if (!price) return;
+    chartRef.current.createPriceLine({
+      price,
+      color: "#ff4668",
+      lineWidth: 2,
+      lineStyle: 1,
+      axisLabelVisible: true,
+      title: `LIQUIDATION • ${price.toFixed(2)}`,
+    });
+  }
+
   function pushTradeMarker(trade: { p: number; T: number; m: boolean; v: number }) {
     if (!candleSeriesRef.current) return;
     const marker = { time: Math.floor(trade.T / 1000), position: trade.m ? 'aboveBar' : 'belowBar', shape: trade.m ? 'arrowDown' : 'arrowUp', color: trade.m ? '#ff4668' : '#00ffbf', text: `${trade.v}`, size: 2 };
@@ -238,6 +269,31 @@ const ChartEngine = forwardRef<any, ChartEngineProps>(({
     ctx.fillRect(0, top, rect.width, height);
   }
 
+  function drawLiquidationZone(currentPrice: number) {
+    const liq = liquidationRef.current.price;
+    if (!liq || !depthCanvasRef.current || !containerRef.current) return;
+    const chart = chartRef.current;
+    const canvas = depthCanvasRef.current;
+    const container = containerRef.current;
+    const ctx = canvas.getContext("2d");
+    if(!ctx) return;
+    const rect = container.getBoundingClientRect();
+    canvas.width = rect.width * devicePixelRatio;
+    canvas.height = rect.height * devicePixelRatio;
+    ctx.setTransform(devicePixelRatio, 0, 0, devicePixelRatio, 0, 0);
+    ctx.clearRect(0, 0, rect.width, rect.height);
+    const yLiq = chart.priceScale("right").priceToCoordinate(liq);
+    const yCur = chart.priceScale("right").priceToCoordinate(currentPrice);
+    if (!yLiq || !yCur) return;
+    const distance = Math.abs(yLiq - yCur);
+    const maxDanger = 140; // px threshold
+    const opacity = Math.min(1, 1 - distance / maxDanger);
+    ctx.fillStyle = `rgba(255, 70, 104, ${opacity * 0.25})`;
+    const y = Math.min(yLiq, yCur);
+    const h = Math.abs(yLiq - yCur);
+    ctx.fillRect(0, y, rect.width, h);
+  }
+
   function renderPositionOverlay(lastPrice: number) {
     const chart = chartRef.current;
     if (!chart || !candleSeriesRef.current) return;
@@ -261,7 +317,7 @@ const ChartEngine = forwardRef<any, ChartEngineProps>(({
         const diffTP = isLong ? tp.price - entry : entry - tp.price;
         const pctTP = (diffTP / entry) * 100;
         const pnlUSDTP = diffTP * (tp.size / 100) * size;
-        markers.push({ price: tp.price, position: "right", color: "#32ff7e", shape: "circle", text: `${tp.id}: ${pctTP.toFixed(2)}% / $${pnlUSDTP.toFixed(2)}` });
+        markers.push({ time: Math.floor(Date.now() / 1000), price: tp.price, position: "right", color: "#32ff7e", shape: "circle", text: `${tp.id}: ${pctTP.toFixed(2)}% / $${pnlUSDTP.toFixed(2)}` });
     });
 
     candleSeriesRef.current.setMarkers(markers);
@@ -423,6 +479,8 @@ const ChartEngine = forwardRef<any, ChartEngineProps>(({
           volumeSeriesRef.current?.update({ time: last.time, value: Number(c.v), color: last.close >= last.open ? "#26a69a" : "#ef5350" });
           renderMultiEntryLines();
           renderPositionOverlay(last.close);
+          renderLiquidationLine();
+          drawLiquidationZone(last.close);
         }
         if (msg.c?.includes("deal.v3.api")) {
           if (Array.isArray(msg.d.deals)) {

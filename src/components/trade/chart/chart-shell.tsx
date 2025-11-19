@@ -8,22 +8,24 @@ type Props = {
   symbol: string;
   interval: string;
   chartType: "candles" | "line" | "area";
+  setLiquidationPrice: (price: number, side: "long" | "short") => void;
 };
 
 // Helper to detect Firebase Studio environment safely
 function isFirebaseStudio() {
   if (typeof window === "undefined") return false;
   try {
-    return window.self !== window.top;
+    // Check for specific hostnames or iframe context
+    return window.self !== window.top || window.location.hostname.includes('firebaseapp.com') || window.location.hostname.includes('web.app');
   } catch (e) {
     return true; // Assume iframe if access is restricted
   }
 }
 
-const ChartShell = forwardRef<any, Props>(({ symbol, interval, chartType }, ref) => {
+const ChartShell = forwardRef<any, Props>(({ symbol, interval, chartType, setLiquidationPrice }, ref) => {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const [ready, setReady] = useState(false);
-  const [BLOCK_WS, setBLOCK_WS] = useState(true); // Default to blocking
+  const [BLOCK_WS, setBLOCK_WS] = useState(true);
 
   useEffect(() => {
     setBLOCK_WS(isFirebaseStudio());

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useImperativeHandle, forwardRef } from "react";
 import { cn } from "@/lib/utils";
 import {
   LineChart,
@@ -25,6 +25,7 @@ type Props = {
   onRemoveEntry: (id: string) => void;
   addTP: (price: number, size: number) => void;
   removeTP: (id: string) => void;
+  setLiquidationPrice: (price: number, side: "long" | "short") => void;
 };
 
 const Toggle = ({ label, keyName }: any) => {
@@ -66,7 +67,7 @@ const DrawToggle = ({ tool, label }: any) => {
 };
 
 
-export default function ChartToolbar({
+const ChartToolbar = forwardRef<any, Props>(({
   interval,
   setInterval,
   chartType,
@@ -78,7 +79,8 @@ export default function ChartToolbar({
   onRemoveEntry,
   addTP,
   removeTP,
-}: Props) {
+  setLiquidationPrice,
+}, ref) => {
   const [indOpen, setIndOpen] = useState(false);
   const [drawOpen, setDrawOpen] = useState(false);
 
@@ -253,6 +255,17 @@ export default function ChartToolbar({
       >
         – Remove TP Target
       </button>
+      
+      <button
+        onClick={() => {
+          const p = parseFloat(prompt("Set Liquidation Price:") || "");
+          if (!p) return;
+          setLiquidationPrice(p, "long"); // Assuming long for now, would be dynamic
+        }}
+        className="px-2 py-1 text-xs rounded bg-surface2 hover:bg-surface3"
+      >
+        Set Liq Price
+      </button>
 
 
       {/* ---------------- RESET CHART ---------------- */}
@@ -266,4 +279,7 @@ export default function ChartToolbar({
       </div>
     </div>
   );
-}
+});
+
+ChartToolbar.displayName = "ChartToolbar";
+export default ChartToolbar;

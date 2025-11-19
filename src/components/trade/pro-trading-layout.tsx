@@ -44,6 +44,10 @@ export default function ProTradingLayout({ marketId }: { marketId: string }) {
     chartRef.current?.removeTP(id);
   };
 
+  const handleSetLiquidationPrice = (price: number, side: "long" | "short") => {
+    chartRef.current?.setLiquidationPrice(price, side);
+  };
+
   return (
     <div className="flex flex-col h-screen w-screen bg-background text-foreground overflow-hidden -m-8">
 
@@ -91,6 +95,7 @@ export default function ProTradingLayout({ marketId }: { marketId: string }) {
           {/* CHART */}
           <div className="flex-1 min-h-[400px] bg-background p-2">
             <ChartToolbar 
+              ref={chartRef}
               interval={interval}
               setInterval={setInterval}
               chartType={chartType}
@@ -102,12 +107,14 @@ export default function ProTradingLayout({ marketId }: { marketId: string }) {
               onRemoveEntry={handleRemoveEntry}
               addTP={handleAddTP}
               removeTP={handleRemoveTP}
+              setLiquidationPrice={handleSetLiquidationPrice}
             />
             <ChartShell
               ref={chartRef}
               symbol={marketId}
               interval={interval}
               chartType={chartType}
+              setLiquidationPrice={handleSetLiquidationPrice}
             />
           </div>
 

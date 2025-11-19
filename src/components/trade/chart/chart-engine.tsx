@@ -59,13 +59,40 @@ export default function ChartEngine({
   const bbMiddleSeries = useRef<any>(null);
   const bbLowerSeries = useRef<any>(null);
   const rsiSeries = useRef<any>(null);
-
   const shapes = useRef<any[]>([]);
+  const tradeMarkersRef = useRef<any[]>([]);
 
   /* ---------------------------------------------------------
      1. Block WS if Firebase Studio is detected
 --------------------------------------------------------- */
   const BLOCK_WS = isFirebaseStudio();
+  
+  function pushTradeMarker(trade: { p: number; T: number; m: boolean; v: number }) {
+    if (!candleSeriesRef.current) return;
+
+    const price = trade.p;
+    const time = Math.floor(trade.T / 1000);
+    const isSell = trade.m; // MEXC uses m=true ⇒ sell
+
+    // Marker object for lightweight-charts
+    const marker = {
+        time,
+        position: isSell ? 'aboveBar' : 'belowBar',
+        shape: isSell ? 'arrowDown' : 'arrowUp',
+        color: isSell ? '#ff4668' : '#00ffbf',     // Neon premium colors
+        text: `${trade.v}`,
+        size: 2,
+    };
+
+    tradeMarkersRef.current.push(marker);
+
+    // Keep only last 300 markers
+    if (tradeMarkersRef.current.length > 300) {
+        tradeMarkersRef.current.splice(0, tradeMarkersRef.current.length - 300);
+    }
+
+    candleSeriesRef.current.setMarkers([...tradeMarkersRef.current]);
+  }
 
   function createShape(tool: string, p1: any, p2: any) {
     const chart = chartRef.current;
@@ -238,6 +265,9 @@ export default function ChartEngine({
 --------------------------------------------------------- */
   const loadHistory = async () => {
     try {
+      tradeMarkersRef.current = [];
+      if (candleSeriesRef.current) candleSeriesRef.current.setMarkers([]);
+
       const end = Math.floor(Date.now() / 1000);
       const start = end - 60 * 60 * 24; // 24h
 
@@ -300,7 +330,10 @@ export default function ChartEngine({
     ws.onopen = () => {
       ws.send(JSON.stringify({
         method: "SUBSCRIPTION",
-        params: [`spot@public.kline.v3.api@${symbol}@${interval}`],
+        params: [
+          `spot@public.kline.v3.api@${symbol}@${interval}`,
+          `spot@public.deal.v3.api@${symbol}`
+        ],
         id: 1001,
       }));
     };
@@ -308,11 +341,26 @@ export default function ChartEngine({
     ws.onmessage = (ev: MessageEvent) => {
       try {
         const msg = JSON.parse(ev.data);
-        if (!msg.c || !msg.c.includes("kline")) return;
-        const c = msg.d.candle;
-        const last = { time: Math.floor(c.t / 1000), open: Number(c.o), high: Number(c.h), low: Number(c.l), close: Number(c.c) };
-        candleSeriesRef.current?.update(last);
-        volumeSeriesRef.current?.update({ time: last.time, value: Number(c.v), color: last.close >= last.open ? "#26a69a" : "#ef5350" });
+        if (!msg.c) return;
+
+        if (msg.c.includes("kline")) {
+            const c = msg.d.candle;
+            const last = { time: Math.floor(c.t / 1000), open: Number(c.o), high: Number(c.h), low: Number(c.l), close: Number(c.c) };
+            candleSeriesRef.current?.update(last);
+            volumeSeriesRef.current?.update({ time: last.time, value: Number(c.v), color: last.close >= last.open ? "#26a69a" : "#ef5350" });
+        }
+
+        if (msg.c.includes("spot@public.deal.v3.api")) {
+            const deals = msg.d?.deals || [];
+            deals.forEach((t: any) => {
+              pushTradeMarker({
+                p: Number(t.p),
+                T: Number(t.t),
+                m: t.S === 2, // 1 for BUY, 2 for SELL in MEXC v3 deal
+                v: Number(t.v),
+              });
+            });
+        }
       } catch (_) {}
     };
 

@@ -17,7 +17,7 @@ import type { Asset } from '@/lib/types';
 import { useAssets } from '@/hooks/use-assets';
 import { useBalances } from '@/hooks/use-balances';
 import { useUser } from "@/firebase";
-import { useMarketDataStore } from '@/hooks/use-market-data-store';
+import { useMarketDataStore } from '@/lib/market-data-service';
 import { marketDataService } from '@/lib/market-data-service';
 
 
@@ -26,7 +26,7 @@ export default function WalletPage() {
   const { data: balances, isLoading: balancesLoading, error: balancesError } = useBalances();
   const { data: assets, isLoading: assetsLoading, error: assetsError } = useAssets();
   
-  const prices = useMarketDataStore((state) => state.tickers);
+  const prices = useMarketDataStore((state) => state.ticker ? { [state.ticker.s.toLowerCase()]: { price: parseFloat(state.ticker.c) } } : {});
   const isConnected = useMarketDataStore((state) => state.isConnected);
   
   const error = balancesError || assetsError;
@@ -40,10 +40,17 @@ export default function WalletPage() {
       
     if (!symbols.length) return;
 
-    marketDataService.subscribeToTickers(symbols);
+    // This is a simplified subscription model for the portfolio page.
+    // We'll just connect to the first market's ticker for a live feel.
+    const firstMarketSymbol = symbols[0].replace('usdt','');
+    if (firstMarketSymbol) {
+      marketDataService.get(firstMarketSymbol).connect();
+    }
 
     return () => {
-      marketDataService.unsubscribeFromTickers(symbols);
+      if(firstMarketSymbol) {
+         marketDataService.get(firstMarketSymbol).disconnect();
+      }
     };
   }, [assets]);
 

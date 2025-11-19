@@ -113,8 +113,7 @@ export class MarketDataService {
 
   connect() {
     if (this.ws) {
-        // If there's an existing WebSocket, disconnect it first to ensure a clean state
-        this.disconnect(true); // silent disconnect
+        this.disconnect(true); // silent disconnect for a clean state
     }
     
     const url = "wss://wbs.mexc.com/ws";
@@ -149,7 +148,7 @@ export class MarketDataService {
       
       // Abnormal closure, likely due to sandbox or network issue
       if (event.code === 1006) {
-        useMarketDataStore.getState().setError("Connection failed. This may be due to development environment restrictions (e.g., Firebase Studio). Test in a standard browser window.");
+        useMarketDataStore.getState().setError("Connection failed. The development environment may be blocking WebSockets. Please test in a standard browser window.");
         // Do not attempt to reconnect in a loop if it's a sandbox issue
         return;
       }
@@ -175,7 +174,7 @@ export class MarketDataService {
         `spot@public.bookTicker.v3.api@${this.symbol}`,
         `spot@public.deal.v3.api@${this.symbol}`,
         `spot@public.kline.v3.api@${this.symbol}@Min1`,
-        `spot@public.depth.v3.api@${this.symbol}@0`, // Corrected: Added @0 for full depth
+        `spot@public.depth.v3.api@${this.symbol}@0`,
       ],
       id: 1,
     };

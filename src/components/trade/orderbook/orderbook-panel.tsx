@@ -1,105 +1,54 @@
+
+// src/components/trade/orderbook/orderbook-panel.tsx
 "use client";
 
-import { useEffect, useState } from "react";
-import { useMarketDataStore } from "@/stores/market-data-store";
-import { cn } from "@/lib/utils";
+import React, { useMemo } from "react";
+import { useMarketDataStore } from "@/state/market-data-store";
 
-const GROUPS = ["0.01", "0.1", "1.0"];
+function bucketed(orders: { price: number; size: number }[] | undefined, size = 1) {
+  if (!orders || orders.length === 0) return [];
+  const map = new Map<number, number>();
+  orders.forEach((lvl) => {
+    if (!lvl.price || !lvl.size) return;
+    const bucket = Math.round(lvl.price / size) * size;
+    map.set(bucket, (map.get(bucket) || 0) + lvl.size);
+  });
+  const arr = Array.from(map.entries()).map(([price, size]) => ({ price, size }));
+  return arr.sort((a, b) => b.price - a.price);
+}
 
-export default function OrderbookPanel({ pair }: { pair: string }) {
-  const { bids, asks } = useMarketDataStore();
-  const [group, setGroup] = useState("0.01");
+export default function OrderbookPanel({ depthBucket = 0.5 }: { depthBucket?: number }) {
+  const depth = useMarketDataStore((s) => s.depth);
 
-  const grouped = (orders: any[] | undefined, g: string) => {
-    if (!orders || !Array.isArray(orders)) return [];
-
-    const size = parseFloat(g);
-    const map = new Map();
-
-    orders.forEach((lvl) => {
-      if (!lvl.price || !lvl.size) return;
-      const bucket = Math.round(lvl.price / size) * size;
-      const prev = map.get(bucket) || 0;
-      map.set(bucket, prev + lvl.size);
-    });
-
-    return [...map.entries()]
-      .map(([p, s]) => ({ price: p, size: s }))
-      .sort((a, b) => a.price - b.price);
-  };
-
-  const groupedBids = grouped(bids, group).sort((a, b) => b.price - a.price);
-  const groupedAsks = grouped(asks, group).sort((a, b) => a.price - b.price);
-
-  const maxBid = groupedBids.length ? Math.max(...groupedBids.map((x) => x.size)) : 1;
-  const maxAsk = groupedAsks.length ? Math.max(...groupedAsks.map((x) => x.size)) : 1;
-
-  const bestBid = groupedBids[0]?.price ?? 0;
-  const bestAsk = groupedAsks[0]?.price ?? 0;
-  const spread = bestAsk && bestBid ? (bestAsk - bestBid).toFixed(6) : "--";
+  const bids = useMemo(() => bucketed(depth?.bids, depthBucket), [depth, depthBucket]);
+  const asks = useMemo(() => bucketed(depth?.asks, depthBucket), [depth, depthBucket]);
 
   return (
-    <div className="flex flex-col h-full p-3 text-[var(--text-primary)]">
-
-      {/* ---------------- HEADER ---------------- */}
-      <div className="flex items-center justify-between pb-2 border-b border-[var(--border-color)]">
-        <span className="font-semibold text-sm">Order Book</span>
-
-        <div className="flex items-center gap-1">
-          {GROUPS.map((g) => (
-            <button
-              key={g}
-              onClick={() => setGroup(g)}
-              className={cn(
-                "px-2 py-1 text-xs rounded-md border transition",
-                group === g
-                  ? "text-[var(--brand-blue)] border-[var(--brand-blue)]"
-                  : "text-[var(--text-secondary)] border-[var(--border-color)]"
-              )}
-            >
-              {g}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* ---------------- ASKS ---------------- */}
-      <div className="flex-1 overflow-auto pt-2">
-        {groupedAsks
-          .slice(0, 15)
-          .reverse()
-          .map((lvl, i) => (
-            <div key={i} className="relative flex justify-between items-center py-0.5 text-xs">
-              {/* Heat background */}
-              <div
-                className="absolute right-0 top-0 bottom-0 bg-[#F54E5D]/20"
-                style={{ width: `${(lvl.size / maxAsk) * 100}%` }}
-              />
-
-              <span className="relative text-[var(--text-primary)]">{lvl.price.toFixed(6)}</span>
-              <span className="relative text-[var(--text-secondary)]">{lvl.size.toFixed(4)}</span>
-            </div>
-          ))}
-      </div>
-
-      {/* ---------------- SPREAD ---------------- */}
-      <div className="py-2 flex items-center justify-center text-[var(--text-secondary)] text-xs">
-        Spread: <span className="ml-1 text-[var(--brand-gold)] font-semibold">{spread}</span>
-      </div>
-
-      {/* ---------------- BIDS ---------------- */}
-      <div className="flex-1 overflow-auto pb-2">
-        {groupedBids.slice(0, 15).map((lvl, i) => (
-          <div key={i} className="relative flex justify-between items-center py-0.5 text-xs">
-            <div
-              className="absolute right-0 top-0 bottom-0 bg-[#1AC186]/20"
-              style={{ width: `${(lvl.size / maxBid) * 100}%` }}
-            />
-
-            <span className="relative text-[var(--text-primary)]">{lvl.price.toFixed(6)}</span>
-            <span className="relative text-[var(--text-secondary)]">{lvl.size.toFixed(4)}</span>
+    <div className="orderbook-panel">
+      <div className="header">Order Book</div>
+      <div style={{ display: "flex", gap: 12 }}>
+        <div style={{ flex: 1 }}>
+          <div className="subhead">Bids</div>
+          <div className="list">
+            {bids.map((b) => (
+              <div key={b.price} style={{ display: "flex", justifyContent: "space-between" }}>
+                <div>{b.price.toFixed(6)}</div>
+                <div>{b.size.toFixed(4)}</div>
+              </div>
+            ))}
           </div>
-        ))}
+        </div>
+        <div style={{ flex: 1 }}>
+          <div className="subhead">Asks</div>
+          <div className="list">
+            {asks.map((a) => (
+              <div key={a.price} style={{ display: "flex", justifyContent: "space-between" }}>
+                <div>{a.price.toFixed(6)}</div>
+                <div>{a.size.toFixed(4)}</div>
+              </div>
+            ))}
+          </div>
+        </div>
       </div>
     </div>
   );

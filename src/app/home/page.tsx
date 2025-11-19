@@ -3,7 +3,7 @@
 
 import Link from 'next/link';
 import { Button } from "@/components/ui/button";
-import { PopularCoins } from '@/components/home/popular-coins';
+import PopularCoins from '@/components/home/popular-coins';
 import { NewsFeed } from '@/components/home/news-feed';
 import { DownloadApp } from '@/components/home/download-app';
 import { Faq } from '@/components/home/faq';

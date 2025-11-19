@@ -146,6 +146,13 @@ export class MarketDataService {
     this.ws.onclose = (event) => {
       console.log('MEXC WebSocket closed:', event.code, event.reason);
       useMarketDataStore.getState().setConnected(false);
+      
+      if (event.code === 1006) {
+        useMarketDataStore.getState().setError("Connection failed. This may be due to development environment restrictions (e.g., Firebase Studio). Test in a standard browser window.");
+        // Do not auto-reconnect on 1006 as it will likely fail repeatedly in a sandbox
+        return;
+      }
+      
       // Don't auto-reconnect on normal close or if already handling it
       if (event.code !== 1000 && !this.reconnectTimer) {
         this.reconnectTimer = setTimeout(() => this.connect(), 5000); // Reconnect after 5s
@@ -186,9 +193,12 @@ export class MarketDataService {
         useMarketDataStore.getState().setTicker(adaptedTicker);
       } else if (message.c.includes('spot@public.deal.v3.api')) {
         const d = message.d;
-        // Adapt to old trade format
-        const adaptedTrade = { p: d.p, q: d.v, T: d.T, m: d.S === 'sell' };
-        useMarketDataStore.getState().pushTrade(adaptedTrade);
+        if(d?.d?.length) { // trades come in an array
+            d.d.forEach((trade: any) => {
+                const adaptedTrade = { p: trade.p, q: trade.v, T: trade.t, m: trade.S === 'sell' };
+                useMarketDataStore.getState().pushTrade(adaptedTrade);
+            });
+        }
       } else if (message.c.includes('spot@public.depth.v3.api')) {
           if (message.d?.bids && message.d?.asks) {
               useMarketDataStore.getState().setDepth(message.d.bids, message.d.asks);

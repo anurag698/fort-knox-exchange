@@ -26,6 +26,14 @@ type ChartEngineProps = {
   height?: number;
 };
 
+// Position state (replace with real balances later)
+const positionRef = {
+  side: "long" as "long" | "short" | null,
+  size: 1.2,
+  entry: 24586.0,
+};
+
+
 /* ---------------------------------------------------------
    DETECT FIREBASE STUDIO ENVIRONMENT
 --------------------------------------------------------- */
@@ -47,6 +55,7 @@ export default function ChartEngine({
   const chartRef = useRef<any | null>(null);
   const candleSeriesRef = useRef<ISeriesApi<"Candlestick"> | null>(null);
   const volumeSeriesRef = useRef<ISeriesApi<"Histogram"> | null>(null);
+  const depthCanvasRef = useRef<HTMLCanvasElement | null>(null);
 
   const wsRef = useRef<WebSocket | null>(null);
   const [ready, setReady] = useState(false);
@@ -131,6 +140,91 @@ export default function ChartEngine({
     }
   
     return null;
+  }
+
+  function renderPositionOverlay(lastPrice: number) {
+    const pos = positionRef;
+    if (!pos.entry) return;
+
+    const chart = chartRef.current;
+    if (!chart) return;
+
+    const lineColor = pos.side === "long" ? "#4ea3f1" : "#ff4668";
+
+    // ENTRY LINE — stays fixed
+    chart.createPriceLine({
+      price: pos.entry,
+      color: lineColor,
+      lineWidth: 2,
+      lineStyle: 2,
+      axisLabelVisible: true,
+      title: `Entry • ${pos.entry.toFixed(2)} (${pos.size} BTC)`,
+    });
+
+    // PnL calculation
+    const diff = pos.side === "long"
+      ? lastPrice - pos.entry
+      : pos.entry - lastPrice;
+
+    const pct = (diff / pos.entry) * 100;
+    const pnlUSD = diff * pos.size;
+
+    const pnlColor = diff >= 0 ? "#00ffbf" : "#ff4668";
+
+    // FLOATING LABEL (like Binance)
+    chart.priceScale("right").applyOptions({
+      borderColor: pnlColor,
+    });
+
+    const label = {
+      price: lastPrice,
+      position: "right" as const,
+      color: pnlColor,
+      shape: "circle" as const,
+      text: `${pct >= 0 ? "+" : ""}${pct.toFixed(2)}%  (${pnlUSD >= 0 ? "+" : ""}${pnlUSD.toFixed(2)}$)`,
+    };
+
+    candleSeriesRef.current?.setMarkers([
+      ...tradeMarkersRef.current,
+      label,
+    ]);
+
+    // BACKGROUND ZONE
+    drawPnLZone(pos.entry, lastPrice, pos.side);
+  }
+
+  function drawPnLZone(entry: number, last: number, side: "long" | "short" | null) {
+    const canvas = depthCanvasRef.current;
+    const container = containerRef.current;
+    if (!canvas || !container) return;
+  
+    const ctx = canvas.getContext("2d");
+    if(!ctx) return;
+    const rect = container.getBoundingClientRect();
+  
+    canvas.width = rect.width * devicePixelRatio;
+    canvas.height = rect.height * devicePixelRatio;
+  
+    ctx.setTransform(devicePixelRatio, 0, 0, devicePixelRatio, 0, 0);
+    ctx.clearRect(0, 0, rect.width, rect.height);
+  
+    const chart = chartRef.current;
+    const priceToY = (p: number) =>
+      chart.priceScale("right").priceToCoordinate(p) ?? 0;
+  
+    const yEntry = priceToY(entry);
+    const yLast = priceToY(last);
+  
+    const profitable = side === "long" ? last >= entry : last <= entry;
+  
+    ctx.fillStyle = profitable
+      ? "rgba(0,255,191,0.07)"
+      : "rgba(255,70,104,0.07)";
+  
+    const top = Math.min(yEntry, yLast);
+    const height = Math.abs(yEntry - yLast);
+  
+    ctx.fillRect(0, top, rect.width, height);
   }
 
   /* ---------------------------------------------------------
@@ -250,6 +344,16 @@ export default function ChartEngine({
     el.addEventListener("pointerdown", handlePointerDown);
     el.addEventListener("pointerup", handlePointerUp);
 
+    // Depth Canvas for PnL Zone
+    const canvas = document.createElement("canvas");
+    canvas.style.position = "absolute";
+    canvas.style.left = "0";
+    canvas.style.top = "0";
+    canvas.style.pointerEvents = "none";
+    canvas.style.zIndex = "2"; // Below main chart, above background
+    el.appendChild(canvas);
+    depthCanvasRef.current = canvas;
+
 
     return () => {
       obs.disconnect();
@@ -257,6 +361,7 @@ export default function ChartEngine({
       el.removeEventListener("pointerup", handlePointerUp);
       chart.remove();
       chartRef.current = null;
+      if (depthCanvasRef.current) depthCanvasRef.current.remove();
     };
   }, [height]);
 
@@ -348,6 +453,7 @@ export default function ChartEngine({
             const last = { time: Math.floor(c.t / 1000), open: Number(c.o), high: Number(c.h), low: Number(c.l), close: Number(c.c) };
             candleSeriesRef.current?.update(last);
             volumeSeriesRef.current?.update({ time: last.time, value: Number(c.v), color: last.close >= last.open ? "#26a69a" : "#ef5350" });
+            renderPositionOverlay(last.close);
         }
 
         if (msg.c.includes("spot@public.deal.v3.api")) {

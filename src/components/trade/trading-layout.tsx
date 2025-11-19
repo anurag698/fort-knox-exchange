@@ -71,7 +71,7 @@ export default function ProTradingLayout({ marketId }: { marketId: string }) {
               <OrderbookPanel pair={marketId} />
             </div>
             <div className="w-1/2">
-              <TradesPanel pair={marketId} />
+              <TradesPanel />
             </div>
           </div>
         </section>

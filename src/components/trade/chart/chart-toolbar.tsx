@@ -4,7 +4,7 @@ import { useState } from "react";
 import { cn } from "@/lib/utils";
 import {
   LineChart,
-  Candle,
+  CandlestickChart,
   Wand2,
   Eraser,
   ChevronDown,
@@ -85,7 +85,7 @@ export default function ChartToolbar({
               : "text-[var(--text-secondary)] hover:text-accent"
           )}
         >
-          <Candle size={16} />
+          <CandlestickChart size={16} />
         </button>
 
         <button

@@ -1,9 +1,12 @@
+
 // src/services/market-data-adapter.ts
 "use client";
 
 import { bus } from "@/components/bus";
 import marketDataService from "@/services/market-data-service";
 import { useMarketDataStore } from "@/state/market-data-store";
+import type { Candle, Trade, Depth, Ticker } from "@/lib/market-types";
+
 
 /**
  * MarketDataAdapter (Pure Push Model)
@@ -22,30 +25,10 @@ import { useMarketDataStore } from "@/state/market-data-store";
  *   marketDataAdapter.off("kline", cb);
  */
 
-type Kline = {
-  t: number;
-  o: number;
-  h: number;
-  l: number;
-  c: number;
-  v: number;
-  final?: boolean;
-};
-
-type Trade = {
-  p: number | string;
-  v?: number | string;
-  size?: number;
-  q?: number;
-  S?: "buy" | "sell";
-  t?: number;
-};
-
-type DepthPayload = {
-  bids?: [number | string, number | string][];
-  asks?: [number | string, number | string][];
-  mid?: number;
-};
+type KlineRaw = any;
+type TradeRaw = any;
+type DepthRaw = any;
+type TickerRaw = any;
 
 type AdapterStatus = "idle" | "starting" | "running" | "stopped" | "error" | "offline";
 
@@ -124,7 +107,7 @@ class MarketDataAdapter {
     this.fnKline = (raw: any) => {
       try {
         // normalize MEXC/FKX/Offline shape -> Kline
-        const k: Kline = {
+        const k: Candle = {
           t: Number(raw.t || raw.ts || raw.time || raw[0] || Date.now()),
           o: Number(raw.o ?? raw.open ?? raw[1] ?? 0),
           h: Number(raw.h ?? raw.high ?? raw[2] ?? 0),
@@ -143,14 +126,14 @@ class MarketDataAdapter {
         }
 
         // immediate push
-        useMarketDataStore.getState().pushKline(k);
+        useMarketDataStore.getState().setKline(this.symbol!, k);
 
         // set throttle timer to flush last pending if any
         this.klineTimer = setTimeout(() => {
           this.klineTimer = null;
           const pending = (this as any)._pendingK;
           if (pending) {
-            useMarketDataStore.getState().pushKline(pending);
+            useMarketDataStore.getState().setKline(this.symbol!, pending);
             delete (this as any)._pendingK;
           }
         }, throttleMs);
@@ -163,18 +146,13 @@ class MarketDataAdapter {
       try {
         // normalize trade
         const t: Trade = {
-          p: Number(raw.p ?? raw.price ?? raw[0] ?? raw.lastPrice ?? 0),
-          v: Number(raw.v ?? raw.q ?? raw.size ?? raw[1] ?? 0),
-          S: raw.S ?? raw.side ?? (raw.m ? (raw.m ? "sell" : "buy") : undefined),
-          t: Number(raw.t ?? raw.ts ?? Date.now()),
+          p: Number(raw.p ?? raw.price ?? raw[0] ?? 0),
+          q: Number(raw.q ?? raw.v ?? raw.size ?? raw[1] ?? 0),
+          side: raw.S ?? raw.side ?? (raw.m ? "sell" : "buy"),
+          ts: Number(raw.t ?? raw.ts ?? Date.now()),
         };
 
-        useMarketDataStore.getState().pushTrade({
-          p: Number(t.p),
-          q: Number(t.v ?? t.q),
-          S: (t.S as "buy" | "sell") || (t.p ? "buy" : "sell"),
-          t: t.t || Date.now(),
-        });
+        useMarketDataStore.getState().pushTrade(this.symbol!, t);
       } catch (e) {
         console.warn("adapter.trade failed", e);
       }
@@ -182,8 +160,8 @@ class MarketDataAdapter {
 
     this.fnDepth = (raw: any) => {
       try {
-        // raw may be {bids: [[p,s],...], asks: [[p,s],...], mid }
-        const d: DepthPayload = raw;
+        // raw may be {bids: [[p,s],..], asks: [[p,s],..], mid }
+        const d: Depth = raw;
         // Convert to DepthData (arrays of price,size numbers)
         const toLevels = (arr: any[] = []) =>
           arr.map((lvl: any) => ({
@@ -198,7 +176,7 @@ class MarketDataAdapter {
           return;
         }
 
-        useMarketDataStore.getState().pushDepth({
+        useMarketDataStore.getState().setDepth(this.symbol!, {
           bids: toLevels(d.bids || []),
           asks: toLevels(d.asks || []),
           mid: Number(d.mid || 0),
@@ -208,7 +186,7 @@ class MarketDataAdapter {
           this.depthTimer = null;
           const pending = (this as any)._pendingDepth;
           if (pending) {
-            useMarketDataStore.getState().pushDepth({
+            useMarketDataStore.getState().setDepth(this.symbol!, {
               bids: toLevels(pending.bids || []),
               asks: toLevels(pending.asks || []),
               mid: Number(pending.mid || 0),
@@ -224,15 +202,16 @@ class MarketDataAdapter {
     this.fnTicker = (raw: any) => {
       try {
         // normalize ticker shape
-        const t = {
-          lastPrice: Number(raw.lastPrice ?? raw.c ?? raw.p),
-          askPrice: Number(raw.askPrice ?? raw.a),
-          bidPrice: Number(raw.bidPrice ?? raw.b),
-          vol: Number(raw.vol ?? raw.v),
+        const t: Ticker = {
+          symbol: raw.symbol,
+          lastPrice: Number(raw.lastPrice ?? raw.c ?? raw.p ?? 0),
+          askPrice: Number(raw.askPrice ?? raw.a ?? raw.ask ?? 0),
+          bidPrice: Number(raw.bidPrice ?? raw.b ?? raw.bid ?? 0),
+          vol: Number(raw.vol ?? raw.v ?? raw.volume ?? 0),
           ts: Number(raw.ts ?? raw.t ?? Date.now()),
         };
 
-        useMarketDataStore.getState().pushTicker(t);
+        useMarketDataStore.getState().setTicker(this.symbol!, t);
       } catch (e) {
         console.warn("adapter.ticker failed", e);
       }

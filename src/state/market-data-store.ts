@@ -1,121 +1,184 @@
+// src/state/market-data-store.ts
+"use client";
+
 import { create } from "zustand";
-import { bus } from "@/components/bus";
+import { produce } from "immer";
+import type { Candle, Trade, Depth, Ticker } from "@/lib/market-types";
 
-export interface Kline {
-  t: number;   // timestamp
-  o: number;
-  h: number;
-  l: number;
-  c: number;
-  v: number;
-  final?: boolean;
+/**
+ * Unified high-performance market data store for the Pro Trading UI.
+ *
+ * Shapes:
+ *  - kline: Record<SymbolId, Candle[]>
+ *  - trades: Record<SymbolId, Trade[]>
+ *  - depth: Record<SymbolId, Depth>
+ *  - ticker: Record<SymbolId, Ticker>
+ *
+ * Methods exposed (used by market-data-subscriber):
+ *  - setKline(symbol, candle)
+ *  - pushTrade(symbol, trade)
+ *  - setDepth(symbol, depth)
+ *  - setTicker(symbol, ticker)
+ *  - setFeedStatus(payload)
+ *
+ * Also provides convenience selectors for UI:
+ *  - getLatestCandle(symbol)
+ *  - getOrderbook(symbol)
+ */
+
+type SymbolId = string;
+
+interface MarketDataState {
+  // normalized maps
+  kline: Record<SymbolId, Candle[]>;
+  trades: Record<SymbolId, Trade[]>;
+  depth: Record<SymbolId, Depth | undefined>;
+  ticker: Record<SymbolId, Ticker | undefined>;
+
+  // meta
+  feedStatus: any; // { status, symbol, interval, ... }
+
+  // actions (mutations)
+  setKline: (symbol: SymbolId, candleOrArray: Candle | Candle[], trimTo?: number) => void;
+  pushTrade: (symbol: SymbolId, trade: Trade, maxLen?: number) => void;
+  setDepth: (symbol: SymbolId, depth: Depth) => void;
+  setTicker: (symbol: SymbolId, ticker: Ticker) => void;
+  setFeedStatus: (payload: any) => void;
+
+  // selectors / helpers (pure functions)
+  getLatestCandle: (symbol: SymbolId) => Candle | null;
+  getTrades: (symbol: SymbolId, limit?: number) => Trade[];
+  getOrderbook: (symbol: SymbolId) => Depth | null;
+  clearSymbol: (symbol: SymbolId) => void;
 }
 
-export interface DepthLevel {
-  price: number;
-  size: number;
-}
+// reasonable defaults
+const DEFAULT_MAX_CANDLES = 500; // keep recent history per symbol
+const DEFAULT_MAX_TRADES = 500;
 
-export interface DepthData {
-  bids: DepthLevel[];
-  asks: DepthLevel[];
-  mid?: number;
-}
+export const useMarketDataStore = create<MarketDataState>((set, get) => ({
+  kline: {},
+  trades: {},
+  depth: {},
+  ticker: {},
+  feedStatus: null,
 
-export interface Trade {
-  p: number;   // price
-  q: number;   // quantity
-  S: "buy" | "sell"; // side
-  t: number;   // timestamp
-}
+  // setKline: accepts single candle (append/update) or full array (snapshot)
+  setKline: (symbol, candleOrArray, trimTo = DEFAULT_MAX_CANDLES) =>
+    set(
+      produce((state: MarketDataState) => {
+        const sym = String(symbol).replace("-", "").toUpperCase();
+        const existing = state.kline[sym] ?? [];
 
-export interface MarketState {
-  symbol: string;      // BTCUSDT
-  interval: string;    // 1m
+        if (Array.isArray(candleOrArray)) {
+          // full snapshot — replace
+          state.kline[sym] = candleOrArray.slice(-trimTo);
+          return;
+        }
 
-  // Real-time state
-  lastKline: Kline | null;
-  depth: DepthData | null;
-  trades: Trade[];
-  ticker: any | null;
+        const candle = candleOrArray as Candle;
+        // if last candle has same timestamp, replace last; else push
+        if (existing.length > 0 && existing[existing.length - 1].t === candle.t) {
+          existing[existing.length - 1] = candle;
+        } else {
+          existing.push(candle);
+        }
+        // trim
+        if (existing.length > trimTo) {
+          state.kline[sym] = existing.slice(existing.length - trimTo);
+        } else {
+          state.kline[sym] = existing;
+        }
+      })
+    ),
 
-  // Setters
-  setSymbol: (s: string) => void;
-  setInterval: (i: string) => void;
+  pushTrade: (symbol, trade, maxLen = DEFAULT_MAX_TRADES) =>
+    set(
+      produce((state: MarketDataState) => {
+        const sym = String(symbol).replace("-", "").toUpperCase();
+        const arr = state.trades[sym] ?? [];
+        arr.unshift(trade);
+        if (arr.length > maxLen) arr.length = maxLen;
+        state.trades[sym] = arr;
+      })
+    ),
 
-  // Stream controllers
-  pushKline: (k: Kline) => void;
-  pushDepth: (d: DepthData) => void;
-  pushTrade: (t: Trade) => void;
-  pushTicker: (t: any) => void;
+  setDepth: (symbol, depth) =>
+    set(
+      produce((state: MarketDataState) => {
+        const sym = String(symbol).replace("-", "").toUpperCase();
+        // keep depth normalized (bids desc, asks asc)
+        const safeDepth: Depth = {
+          bids: Array.isArray(depth.bids)
+            ? depth.bids
+                .map((d) => ({ price: Number(d.price), size: Number(d.size) }))
+                .sort((a, b) => b.price - a.price)
+            : [],
+          asks: Array.isArray(depth.asks)
+            ? depth.asks
+                .map((d) => ({ price: Number(d.price), size: Number(d.size) }))
+                .sort((a, b) => a.price - b.price)
+            : [],
+          ts: depth.ts ?? Date.now(),
+          mid: depth.mid ?? undefined,
+        };
+        state.depth[sym] = safeDepth;
+      })
+    ),
 
-  clearTrades: () => void;
-}
+  setTicker: (symbol, ticker) =>
+    set(
+      produce((state: MarketDataState) => {
+        const sym = String(symbol).replace("-", "").toUpperCase();
+        state.ticker[sym] = {
+          ...ticker,
+          symbol: sym,
+          bidPrice: ticker.bidPrice ?? ticker.bidPrice,
+          askPrice: ticker.askPrice ?? ticker.askPrice,
+          lastPrice: ticker.lastPrice ?? ticker.lastPrice,
+          ts: ticker.ts ?? Date.now(),
+        } as Ticker;
+      })
+    ),
 
-export const useMarketDataStore = create<MarketState>((set, get) => ({
-  symbol: "BTCUSDT",
-  interval: "1m",
+  setFeedStatus: (payload) =>
+    set(
+      produce((state: MarketDataState) => {
+        state.feedStatus = payload;
+      })
+    ),
 
-  lastKline: null,
-  depth: null,
-  trades: [],
-  ticker: null,
-
-  setSymbol: (symbol) =>
-    set({
-      symbol,
-      trades: [],
-      depth: null,
-      lastKline: null,
-    }),
-
-  setInterval: (interval) =>
-    set({
-      interval,
-      lastKline: null,
-    }),
-
-  // -----------------------------
-  //  LIVE KLINE
-  // -----------------------------
-  pushKline: (k) => {
-    set({ lastKline: k });
-
-    // Forward to event bus for chart overlays, indicators, drawings
-    bus.emit("kline", k);
+  // selectors
+  getLatestCandle: (symbol) => {
+    const sym = String(symbol).replace("-", "").toUpperCase();
+    const arr = get().kline[sym];
+    if (!arr || arr.length === 0) return null;
+    return arr[arr.length - 1];
   },
 
-  // -----------------------------
-  //  DEPTH
-  // -----------------------------
-  pushDepth: (d) => {
-    set({ depth: d });
-
-    bus.emit("depth", d);
+  getTrades: (symbol, limit = 100) => {
+    const sym = String(symbol).replace("-", "").toUpperCase();
+    const arr = get().trades[sym] ?? [];
+    return arr.slice(0, limit);
   },
 
-  // -----------------------------
-  //  TRADE FEED
-  // -----------------------------
-  pushTrade: (t) => {
-    const list = get().trades;
-
-    const newList =
-      list.length < 50 ? [...list, t] : [...list.slice(1), t];
-
-    set({ trades: newList });
-
-    bus.emit("trade", t);
+  getOrderbook: (symbol) => {
+    const sym = String(symbol).replace("-", "").toUpperCase();
+    return get().depth[sym] ?? null;
   },
 
-  // -----------------------------
-  //  TICKER / PNL FEED
-  // -----------------------------
-  pushTicker: (t) => {
-    set({ ticker: t });
-
-    bus.emit("ticker", t);
-  },
-
-  clearTrades: () => set({ trades: [] }),
+  clearSymbol: (symbol) =>
+    set(
+      produce((state: MarketDataState) => {
+        const sym = String(symbol).replace("-", "").toUpperCase();
+        delete state.kline[sym];
+        delete state.trades[sym];
+        delete state.depth[sym];
+        delete state.ticker[sym];
+      })
+    ),
 }));
+
+// convenience exports for ad-hoc usage (optional)
+export const marketDataStore = useMarketDataStore.getState;
+export default useMarketDataStore;

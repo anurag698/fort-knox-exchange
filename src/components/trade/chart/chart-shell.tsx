@@ -1,74 +1,88 @@
 "use client";
 
-import { useEffect, useRef, useState, forwardRef } from "react";
-import { cn } from "@/lib/utils";
-import ChartEngine from "./chart-engine";
+import React, { useCallback, useMemo, useRef, useState } from "react";
+import ChartEngineComponent from "./chart-engine";
+import ChartToolbar from "./chart-toolbar";
+import TimeframeSwitcher from "./timeframe-switcher";
+import MarketSwitcher from "./market-switcher";
+import TpSlPanel from "./tp-sl-panel";
+import PositionPanel from "./position-panel";
+import { MarketDataService } from "@/services/market-data-service";
 
-type Props = {
-  symbol: string;
-  interval: string;
-  chartType: "candles" | "line" | "area";
-  setLiquidationPrice: (price: number, side: "long" | "short") => void;
-};
+export default function ChartShell({
+  initialSymbol = "BTC-USDT",
+  initialInterval = "1m",
+}: {
+  initialSymbol?: string;
+  initialInterval?: string;
+}) {
+  const [symbol, setSymbol] = useState(initialSymbol);
+  const [interval, setInterval] = useState(initialInterval);
+  const apiRef = useRef<any>(null); // will hold the engine.ui + chart + engine
 
-// Helper to detect Firebase Studio environment safely
-function isFirebaseStudio() {
-  if (typeof window === "undefined") return false;
-  try {
-    // Check for specific hostnames or iframe context
-    return window.self !== window.top || window.location.hostname.includes('firebaseapp.com') || window.location.hostname.includes('web.app');
-  } catch (e) {
-    return true; // Assume iframe if access is restricted
-  }
-}
-
-const ChartShell = forwardRef<any, Props>(({ symbol, interval, chartType, setLiquidationPrice }, ref) => {
-  const containerRef = useRef<HTMLDivElement | null>(null);
-  const [ready, setReady] = useState(false);
-  const [BLOCK_WS, setBLOCK_WS] = useState(true);
-
-  useEffect(() => {
-    setBLOCK_WS(isFirebaseStudio());
+  // called by ChartEngineComponent on mount
+  const handleEngineReady = useCallback((api: any) => {
+    apiRef.current = api;
+    // optionally configure defaults
+    try {
+      api.engine.eventBus?.on?.("candle-final", () => {
+        // example hook
+      });
+    } catch {}
   }, []);
 
-  // Simulate async mounting
-  useEffect(() => {
-    const t = setTimeout(() => setReady(true), 150);
-    return () => clearTimeout(t);
-  }, [symbol, interval, chartType]);
+  // start the hybrid feed whenever user switches market/timeframe
+  const startFeed = useCallback((s: string, i: string) => {
+    const normalizedSymbol = s.replace("-", "").toUpperCase();
+    // MarketDataService.get returns a HybridFeed instance (Part 13.7-E)
+    const feed = MarketDataService.get(normalizedSymbol, i);
+    feed.start();
+  }, []);
+
+  // call when mounting / when symbol or interval changes
+  React.useEffect(() => {
+    // stop any old feeds for same page? optional: MarketDataService.stop(...)
+    startFeed(symbol, interval);
+
+    // cleanup on unmount
+    return () => {
+      MarketDataService.stop(symbol, interval);
+    };
+  }, [symbol, interval, startFeed]);
+
+  const handleMarketChange = (s: string) => {
+    setSymbol(s);
+    // MarketDataService will be restarted by effect
+  };
+
+  const handleIntervalChange = (i: string) => {
+    setInterval(i);
+  };
 
   return (
-    <div
-      ref={containerRef}
-      className={cn(
-        "w-full h-full bg-surface1 border border-[var(--border-color)] rounded-xl relative overflow-hidden"
-      )}
-    >
-      {/* Loading shimmer */}
-      {!ready && (
-        <div className="absolute inset-0 flex items-center justify-center text-[var(--text-secondary)] text-xs">
-          Loading chart…
-        </div>
-      )}
+    <div className="w-full h-full flex flex-col">
+      <div className="flex items-center gap-3 p-2 bg-[var(--panel-bg,#07101a)]">
+        <MarketSwitcher value={symbol} onChange={handleMarketChange} />
+        <TimeframeSwitcher value={interval} onChange={handleIntervalChange} />
+        <div className="flex-1" />
+        <ChartToolbar apiRef={apiRef} />
+      </div>
 
-      {ready && !BLOCK_WS && (
-        <ChartEngine
-          ref={ref}
+      <div className="flex-1 relative">
+        <ChartEngineComponent
           symbol={symbol}
           interval={interval}
-          chartType={chartType}
+          height={640}
+          onEngineReady={handleEngineReady}
         />
-      )}
-
-      {ready && BLOCK_WS && (
-        <div className="absolute inset-0 flex items-center justify-center opacity-40 text-[var(--text-secondary)]">
-          Real chart disabled in Firebase Studio preview.
+        {/* Overlay panels */}
+        <div style={{ position: "absolute", right: 12, top: 12, zIndex: 40 }}>
+          <PositionPanel apiRef={apiRef} />
         </div>
-      )}
+        <div style={{ position: "absolute", right: 12, bottom: 12, zIndex: 40 }}>
+          <TpSlPanel apiRef={apiRef} symbol={symbol} />
+        </div>
+      </div>
     </div>
   );
-});
-
-ChartShell.displayName = "ChartShell";
-
-export default ChartShell;
+}

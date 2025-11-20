@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useState, useRef, useEffect } from "react";
+import React, from "react";
 import ThemeToggle from "@/components/theme/theme-toggle";
 import { useUser } from "@/firebase";
 import Link from "next/link";
@@ -11,26 +11,16 @@ import { MarketHeader } from "./market-header";
 import OrderBook from "./order-book";
 import { RecentTrades } from "./recent-trades";
 import { Balances } from "./balances";
-import { OpenOrdersPanel } from "./open-orders-panel";
-import { startMarketDataSubscriber } from "@/services/market-data-subscriber";
+import { UserTrades } from "./user-trades";
 import marketDataService from "@/services/market-data-service";
 import { cn } from "@/lib/utils";
 import ChartShell from "./chart/chart-shell";
 import { OrderForm } from "./order-form";
-import { UserTrades } from "./user-trades";
-
 
 export default function ProTradingLayout({ marketId }: { marketId: string }) {
   const { user, isUserLoading } = useUser();
-  const [interval, setInterval] = useState("1m");
-  const [chartType, setChartType] = useState<"candles" | "line" | "area">("candles");
-  const chartRef = useRef<any>(null);
-  
-  useEffect(() => {
-    if (typeof window !== "undefined") {
-      import("@/services/market-data-subscriber").then((m) => m.startMarketDataSubscriber());
-    }
 
+  React.useEffect(() => {
     if (marketId) {
       const symbol = marketId.replace("-", "").toUpperCase();
       marketDataService.startFeed(symbol, "1m");
@@ -40,39 +30,11 @@ export default function ProTradingLayout({ marketId }: { marketId: string }) {
     };
   }, [marketId]);
 
-  const handleAddEntry = (price: number, size: number) => {
-    chartRef.current?.addEntry(price, size);
-  };
-
-  const handleRemoveEntry = (id: string) => {
-    chartRef.current?.removeEntry(id);
-  };
-  
-  const handleSetTP = (price: number) => {
-     chartRef.current?.setTP(price);
-  }
-
-  const handleSetSL = (price: number) => {
-      chartRef.current?.setSL(price);
-  }
-
-  const handleAddTP = (price: number, size: number) => {
-    chartRef.current?.addTP(price, size);
-  };
-
-  const handleRemoveTP = (id: string) => {
-    chartRef.current?.removeTP(id);
-  };
-
-  const handleSetLiquidationPrice = (price: number, side: "long" | "short") => {
-    chartRef.current?.setLiquidationPrice(price, side);
-  };
 
   return (
-    <div className="flex flex-col h-screen w-screen bg-background text-foreground overflow-hidden -m-8">
-
+    <div className="flex flex-col h-screen w-screen bg-background text-foreground overflow-hidden">
       {/* ---------------- TOP NAV + PAIR INFO ---------------- */}
-      <header className="h-14 px-4 flex items-center justify-between border-b border-border bg-card">
+      <header className="h-14 px-4 flex items-center justify-between border-b border-border bg-card flex-shrink-0">
         <div className="flex items-center gap-4">
           <Link href="/">
             <span className="font-sora text-lg font-semibold tracking-wide text-primary">

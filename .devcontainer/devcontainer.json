@@ -1,0 +1,10 @@
+{
+  "name": "Fort Knox Codespace",
+  "image": "mcr.microsoft.com/devcontainers/typescript-node:0-20",
+  "features": {},
+  "extensions": [
+    "GitHub.copilot",
+    "GitHub.copilot-chat"
+  ],
+  "postCreateCommand": "npm install || true"
+}

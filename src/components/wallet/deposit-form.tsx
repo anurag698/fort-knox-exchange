@@ -5,7 +5,7 @@ import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { useUser } from "@/firebase";
+import { useUser } from '@/providers/azure-auth-provider';
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -17,14 +17,14 @@ import { Copy, Check, Loader2 } from "lucide-react";
 import { Tooltip, TooltipProvider, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
 async function requestDepositAddress(userId: string, assetId: string) {
-    const res = await fetch('/api/deposit-address', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ userId, assetId })
-    });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || data.detail || 'Failed to get address');
-    return data;
+  const res = await fetch('/api/deposit-address', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ userId, assetId })
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || data.detail || 'Failed to get address');
+  return data;
 }
 
 const depositSchema = z.object({
@@ -36,7 +36,7 @@ type DepositFormValues = z.infer<typeof depositSchema>;
 export function DepositForm({ assets }: { assets: Asset[] }) {
   const { user } = useUser();
   const { toast } = useToast();
-  
+
   const [depositAddress, setDepositAddress] = useState("");
   const [hasCopied, setHasCopied] = useState(false);
   const [isActionPending, setIsActionPending] = useState(false);
@@ -48,55 +48,55 @@ export function DepositForm({ assets }: { assets: Asset[] }) {
 
   const onSubmit = async (values: DepositFormValues) => {
     if (!user) {
-        toast({ variant: "destructive", title: "Error", description: "You must be logged in." });
-        return;
+      toast({ variant: "destructive", title: "Error", description: "You must be logged in." });
+      return;
     }
     setIsActionPending(true);
     setDepositAddress("");
     try {
-        const data = await requestDepositAddress(user.uid, values.assetId);
-        setDepositAddress(data.address);
-        toast({ title: "Address Generated", description: "Your deposit address has been generated." });
-    } catch(e: any) {
-        toast({ variant: "destructive", title: "Error", description: e.message || "Failed to generate address." });
+      const data = await requestDepositAddress(user.uid, values.assetId);
+      setDepositAddress(data.address);
+      toast({ title: "Address Generated", description: "Your deposit address has been generated." });
+    } catch (e: any) {
+      toast({ variant: "destructive", title: "Error", description: e.message || "Failed to generate address." });
     } finally {
-        setIsActionPending(false);
+      setIsActionPending(false);
     }
   }
 
   const onCopy = async () => {
     if (!depositAddress) return;
-    
+
     if (typeof navigator === "undefined") {
       toast({ variant: 'destructive', title: 'Copy Failed', description: 'Clipboard not available.' });
       return;
     }
     if (!navigator.clipboard || !window.isSecureContext) {
-        toast({
-            variant: 'destructive',
-            title: 'Copy Failed',
-            description: 'Clipboard API is not available in this environment. Please copy manually.',
-        });
-        return;
+      toast({
+        variant: 'destructive',
+        title: 'Copy Failed',
+        description: 'Clipboard API is not available in this environment. Please copy manually.',
+      });
+      return;
     }
 
     try {
-        await navigator.clipboard.writeText(depositAddress);
-        setHasCopied(true);
-        setTimeout(() => setHasCopied(false), 2000);
+      await navigator.clipboard.writeText(depositAddress);
+      setHasCopied(true);
+      setTimeout(() => setHasCopied(false), 2000);
     } catch (err) {
-        console.error("Clipboard copy failed:", err);
-        toast({
-            variant: 'destructive',
-            title: 'Copy Failed',
-            description: 'Could not copy to clipboard.',
-        });
+      console.error("Clipboard copy failed:", err);
+      toast({
+        variant: 'destructive',
+        title: 'Copy Failed',
+        description: 'Could not copy to clipboard.',
+      });
     }
   };
 
   const handleAssetChange = (assetId: string) => {
-      form.setValue('assetId', assetId);
-      setDepositAddress(""); // Clear address when asset changes
+    form.setValue('assetId', assetId);
+    setDepositAddress(""); // Clear address when asset changes
   }
 
   return (
@@ -132,7 +132,7 @@ export function DepositForm({ assets }: { assets: Asset[] }) {
                 </FormItem>
               )}
             />
-            
+
             <Button type="submit" className="w-full" disabled={!user || isActionPending}>
               {isActionPending ? (
                 <>
@@ -144,38 +144,38 @@ export function DepositForm({ assets }: { assets: Asset[] }) {
           </form>
         </Form>
         {depositAddress && (
-            <div className="mt-6 space-y-4 rounded-lg border bg-muted/50 p-4">
-                <p className="text-sm font-medium">Your Deposit Address:</p>
-                <div className="relative">
-                    <Input readOnly value={depositAddress} className="font-mono pr-10" />
-                    <TooltipProvider>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                           <Button
-                                size="icon"
-                                variant="ghost"
-                                className="absolute top-1/2 right-1 h-7 w-7 -translate-y-1/2"
-                                onClick={onCopy}
-                                type="button" 
-                                aria-label="Copy address"
-                            >
-                                {hasCopied ? (
-                                <Check className="h-4 w-4 text-green-500" />
-                                ) : (
-                                <Copy className="h-4 w-4" />
-                                )}
-                            </Button>
-                        </TooltipTrigger>
-                         <TooltipContent>
-                           <p>Copy address</p>
-                         </TooltipContent>
-                      </Tooltip>
-                    </TooltipProvider>
-                </div>
-                <p className="text-xs text-muted-foreground">
-                    Only send funds for the selected asset to this address. Sending any other asset may result in the loss of your deposit.
-                </p>
+          <div className="mt-6 space-y-4 rounded-lg border bg-muted/50 p-4">
+            <p className="text-sm font-medium">Your Deposit Address:</p>
+            <div className="relative">
+              <Input readOnly value={depositAddress} className="font-mono pr-10" />
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      className="absolute top-1/2 right-1 h-7 w-7 -translate-y-1/2"
+                      onClick={onCopy}
+                      type="button"
+                      aria-label="Copy address"
+                    >
+                      {hasCopied ? (
+                        <Check className="h-4 w-4 text-green-500" />
+                      ) : (
+                        <Copy className="h-4 w-4" />
+                      )}
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Copy address</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
             </div>
+            <p className="text-xs text-muted-foreground">
+              Only send funds for the selected asset to this address. Sending any other asset may result in the loss of your deposit.
+            </p>
+          </div>
         )}
       </CardContent>
     </Card>

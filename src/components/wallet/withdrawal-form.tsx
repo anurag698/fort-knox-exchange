@@ -6,7 +6,7 @@ import { useActionState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { useUser, useFirestore } from "@/firebase";
+import { useUser } from '@/providers/azure-auth-provider';
 import { requestWithdrawal } from "@/app/wallet/actions";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
@@ -15,7 +15,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import type { Asset, Balance, UserProfile } from "@/lib/types";
-import { doc, onSnapshot } from "firebase/firestore";
+
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { ShieldAlert } from "lucide-react";
 import Link from "next/link";
@@ -31,21 +31,26 @@ type WithdrawalFormValues = z.infer<typeof withdrawalSchema>;
 
 export function WithdrawalForm({ assets, balances }: { assets: Asset[], balances: Balance[] }) {
   const { user } = useUser();
-  const firestore = useFirestore();
   const { toast } = useToast();
   const [state, formAction] = useActionState(requestWithdrawal, { status: "idle", message: "" });
-  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
-  
+  const [kycStatus, setKycStatus] = useState<'none' | 'pending' | 'approved' | 'rejected'>('none');
+
   useEffect(() => {
-    if (user?.uid && firestore) {
-        const unsub = onSnapshot(doc(firestore, 'users', user.uid), (doc) => {
-             if (doc.exists()) {
-                setUserProfile(doc.data() as UserProfile);
-            }
-        });
-        return () => unsub();
-    }
-  }, [user?.uid, firestore]);
+    const fetchKycStatus = async () => {
+      if (user?.uid) {
+        try {
+          const res = await fetch(`/api/kyc/status?userId=${user.uid}`);
+          if (res.ok) {
+            const data = await res.json();
+            setKycStatus(data.kycStatus);
+          }
+        } catch (error) {
+          console.error("Failed to fetch KYC status", error);
+        }
+      }
+    };
+    fetchKycStatus();
+  }, [user?.uid]);
 
   const balancesMap = new Map(balances.map(b => [b.assetId, b]));
 
@@ -55,7 +60,7 @@ export function WithdrawalForm({ assets, balances }: { assets: Asset[], balances
   });
 
   useEffect(() => {
-    if(user) {
+    if (user) {
       form.setValue('userId', user.uid);
     }
   }, [user, form]);
@@ -72,7 +77,7 @@ export function WithdrawalForm({ assets, balances }: { assets: Asset[], balances
   const selectedAssetId = form.watch('assetId');
   const availableBalance = balancesMap.get(selectedAssetId)?.available ?? 0;
 
-  const isKycVerified = userProfile?.kycStatus === 'VERIFIED';
+  const isKycVerified = kycStatus === 'approved';
 
   return (
     <Card>
@@ -86,9 +91,9 @@ export function WithdrawalForm({ assets, balances }: { assets: Asset[], balances
             <ShieldAlert className="h-4 w-4" />
             <AlertTitle>KYC Verification Required</AlertTitle>
             <AlertDescription>
-              You must verify your identity before you can make withdrawals. 
+              You must verify your identity before you can make withdrawals.
               <Button variant="link" asChild className="p-0 h-auto ml-1">
-                <Link href="/settings">Go to Settings to complete KYC.</Link>
+                <Link href="/kyc">Go to Verification to complete KYC.</Link>
               </Button>
             </AlertDescription>
           </Alert>
@@ -103,7 +108,7 @@ export function WithdrawalForm({ assets, balances }: { assets: Asset[], balances
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Asset</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                    <Select onValueChange={field.onChange} defaultValue={field.value} name={field.name}>
                       <FormControl>
                         <SelectTrigger>
                           <SelectValue placeholder="Select an asset to withdraw" />
@@ -119,7 +124,7 @@ export function WithdrawalForm({ assets, balances }: { assets: Asset[], balances
                     </Select>
                     {selectedAssetId && (
                       <p className="text-xs text-muted-foreground pt-1">
-                          Available Balance: <span className="font-mono">{availableBalance.toFixed(8)}</span>
+                        Available Balance: <span className="font-mono">{availableBalance.toFixed(8)}</span>
                       </p>
                     )}
                     <FormMessage />
@@ -133,7 +138,7 @@ export function WithdrawalForm({ assets, balances }: { assets: Asset[], balances
                   <FormItem>
                     <FormLabel>Amount</FormLabel>
                     <FormControl>
-                      <Input placeholder="0.00" type="number" step="any" {...field} />
+                      <Input placeholder="0.00" type="number" step="any" {...field} value={field.value ?? ''} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -153,7 +158,7 @@ export function WithdrawalForm({ assets, balances }: { assets: Asset[], balances
                 )}
               />
             </fieldset>
-            
+
             <Button type="submit" className="w-full" disabled={!user || !isKycVerified}>
               {user ? (isKycVerified ? 'Submit Withdrawal Request' : 'KYC Not Verified') : 'Please sign in'}
             </Button>

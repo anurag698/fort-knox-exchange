@@ -1,9 +1,9 @@
 
 'use client';
 
-import { useEffect, useState } from "react";
-import { useUser, useFirestore } from "@/firebase";
-import { collection, addDoc, query, onSnapshot, doc, updateDoc, deleteDoc, serverTimestamp, where } from "firebase/firestore";
+import { useState } from "react";
+import { useUser } from '@/providers/azure-auth-provider';
+import useSWR from 'swr';
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -16,6 +16,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Switch } from "@/components/ui/switch";
 import { Trash2, BellRing, Loader2 } from "lucide-react";
 import type { PriceAlert } from "@/lib/types";
+import { useToast } from "@/hooks/use-toast";
 
 const alertSchema = z.object({
   condition: z.enum(["above", "below"]),
@@ -24,11 +25,18 @@ const alertSchema = z.object({
 
 type AlertFormValues = z.infer<typeof alertSchema>;
 
+const fetcher = (url: string) => fetch(url).then((res) => res.json());
+
 export function AlertsManager({ marketId }: { marketId: string }) {
   const { user } = useUser();
-  const firestore = useFirestore();
-  const [alerts, setAlerts] = useState<PriceAlert[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const { toast } = useToast();
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const { data: alerts = [], mutate, isLoading } = useSWR<PriceAlert[]>(
+    user ? `/api/price-alerts?userId=${user.uid}&marketId=${marketId}` : null,
+    fetcher,
+    { refreshInterval: 10000 }
+  );
 
   const form = useForm<AlertFormValues>({
     resolver: zodResolver(alertSchema),
@@ -37,52 +45,76 @@ export function AlertsManager({ marketId }: { marketId: string }) {
     },
   });
 
-  useEffect(() => {
-    if (!user || !firestore) {
-      setIsLoading(false);
-      return;
-    }
-    const q = query(collection(firestore, "users", user.uid, "alerts"), where("marketId", "==", marketId));
-    const unsub = onSnapshot(q, (snap) => {
-      setAlerts(snap.docs.map(d => ({ id: d.id, ...d.data() } as PriceAlert)));
-      setIsLoading(false);
-    });
-    return () => unsub();
-  }, [user, firestore, marketId]);
-
   const createAlert = async (values: AlertFormValues) => {
-    if (!user || !firestore) return;
-    await addDoc(collection(firestore, "users", user.uid, "alerts"), {
-      marketId,
-      condition: values.condition,
-      price: values.price,
-      enabled: true,
-      createdAt: serverTimestamp(),
-      lastTriggeredAt: null,
-    });
-    form.reset();
+    if (!user) return;
+    setIsSubmitting(true);
+    try {
+      const response = await fetch('/api/price-alerts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId: user.uid,
+          marketId,
+          condition: values.condition,
+          price: values.price,
+        }),
+      });
+
+      if (!response.ok) throw new Error('Failed to create alert');
+
+      form.reset();
+      mutate();
+      toast({ title: "Alert created successfully" });
+    } catch (error) {
+      toast({ variant: "destructive", title: "Failed to create alert" });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
-  
+
   const toggleAlert = async (id: string, enabled: boolean) => {
-    if (!user || !firestore) return;
-    await updateDoc(doc(firestore, "users", user.uid, "alerts", id), { enabled: !enabled });
+    if (!user) return;
+    try {
+      const response = await fetch('/api/price-alerts', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, userId: user.uid, enabled: !enabled }),
+      });
+
+      if (!response.ok) throw new Error('Failed to update alert');
+
+      mutate();
+    } catch (error) {
+      toast({ variant: "destructive", title: "Failed to update alert" });
+    }
   };
 
   const removeAlert = async (id: string) => {
-    if (!user || !firestore) return;
-    await deleteDoc(doc(firestore, "users", user.uid, "alerts", id));
+    if (!user) return;
+    try {
+      const response = await fetch(`/api/price-alerts?id=${id}&userId=${user.uid}`, {
+        method: 'DELETE',
+      });
+
+      if (!response.ok) throw new Error('Failed to delete alert');
+
+      mutate();
+      toast({ title: "Alert deleted" });
+    } catch (error) {
+      toast({ variant: "destructive", title: "Failed to delete alert" });
+    }
   };
-  
+
   if (!user) {
     return (
-        <Card>
-            <CardHeader>
-                <CardTitle>Price Alerts</CardTitle>
-            </CardHeader>
-            <CardContent className="text-center text-muted-foreground">
-                Please sign in to manage alerts.
-            </CardContent>
-        </Card>
+      <Card>
+        <CardHeader>
+          <CardTitle>Price Alerts</CardTitle>
+        </CardHeader>
+        <CardContent className="text-center text-muted-foreground">
+          Please sign in to manage alerts.
+        </CardContent>
+      </Card>
     );
   }
 
@@ -90,8 +122,8 @@ export function AlertsManager({ marketId }: { marketId: string }) {
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-            <BellRing className="h-5 w-5" />
-            Price Alerts
+          <BellRing className="h-5 w-5" />
+          Price Alerts
         </CardTitle>
         <CardDescription>Get notified when the market price reaches your target.</CardDescription>
       </CardHeader>
@@ -106,7 +138,7 @@ export function AlertsManager({ marketId }: { marketId: string }) {
                   <FormLabel>Condition</FormLabel>
                   <Select onValueChange={field.onChange} defaultValue={field.value}>
                     <FormControl>
-                       <SelectTrigger className="w-28"><SelectValue /></SelectTrigger>
+                      <SelectTrigger className="w-28"><SelectValue /></SelectTrigger>
                     </FormControl>
                     <SelectContent>
                       <SelectItem value="above">Above</SelectItem>
@@ -128,45 +160,45 @@ export function AlertsManager({ marketId }: { marketId: string }) {
                 </FormItem>
               )}
             />
-            <Button type="submit" disabled={form.formState.isSubmitting}>
-              {form.formState.isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            <Button type="submit" disabled={isSubmitting}>
+              {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               Set Alert
             </Button>
           </form>
         </Form>
         <div className="h-48 overflow-y-auto border rounded-md">
-            <Table>
-                <TableHeader>
-                    <TableRow>
-                        <TableHead>Condition</TableHead>
-                        <TableHead>Enabled</TableHead>
-                        <TableHead className="text-right">Action</TableHead>
-                    </TableRow>
-                </TableHeader>
-                 <TableBody>
-                    {isLoading ? (
-                        <TableRow><TableCell colSpan={3} className="text-center">Loading alerts...</TableCell></TableRow>
-                    ) : alerts.length === 0 ? (
-                        <TableRow><TableCell colSpan={3} className="text-center text-muted-foreground">No alerts for this market.</TableCell></TableRow>
-                    ) : (
-                        alerts.map((alert) => (
-                        <TableRow key={alert.id}>
-                            <TableCell>
-                                <span className="capitalize">{alert.condition}</span> {alert.price}
-                            </TableCell>
-                            <TableCell>
-                                <Switch checked={alert.enabled} onCheckedChange={() => toggleAlert(alert.id, alert.enabled)} />
-                            </TableCell>
-                            <TableCell className="text-right">
-                                <Button variant="ghost" size="icon" onClick={() => removeAlert(alert.id)}>
-                                    <Trash2 className="h-4 w-4 text-muted-foreground" />
-                                </Button>
-                            </TableCell>
-                        </TableRow>
-                        ))
-                    )}
-                </TableBody>
-            </Table>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Condition</TableHead>
+                <TableHead>Enabled</TableHead>
+                <TableHead className="text-right">Action</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {isLoading ? (
+                <TableRow><TableCell colSpan={3} className="text-center">Loading alerts...</TableCell></TableRow>
+              ) : alerts.length === 0 ? (
+                <TableRow><TableCell colSpan={3} className="text-center text-muted-foreground">No alerts for this market.</TableCell></TableRow>
+              ) : (
+                alerts.map((alert) => (
+                  <TableRow key={alert.id}>
+                    <TableCell>
+                      <span className="capitalize">{alert.condition}</span> {alert.price}
+                    </TableCell>
+                    <TableCell>
+                      <Switch checked={alert.enabled} onCheckedChange={() => toggleAlert(alert.id, alert.enabled)} />
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <Button variant="ghost" size="icon" onClick={() => removeAlert(alert.id)}>
+                        <Trash2 className="h-4 w-4 text-muted-foreground" />
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
         </div>
       </CardContent>
     </Card>

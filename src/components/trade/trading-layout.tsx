@@ -10,18 +10,17 @@ import TradingChart from "@/components/trade/chart/lightweight-pro-chart";
 import OrderForm from "./orderform/order-form";
 import OrderbookPanel from "./orderbook/orderbook-panel";
 import TradesPanel from "./trades/trades-panel";
-import { useUser } from "@/firebase";
+import { useUser } from '@/providers/azure-auth-provider';
 import Link from "next/link";
 import { Button } from "../ui/button";
 import { LogIn } from "lucide-react";
 import ChartToolbar from "./chart/chart-toolbar";
 import PositionsPanel from "./positions/positions-panel";
-import ChartShell from "./chart/chart-shell";
+import PositionsPanel from "./positions/positions-panel";
+import TradingChartContainer from "./trading-chart-container";
 
 export default function ProTradingLayout({ marketId }: { marketId: string }) {
   const { user, isUserLoading } = useUser();
-  const [interval, setInterval] = useState("1m");
-  const [chartType, setChartType] = useState<"candles" | "line" | "area">("candles");
 
   return (
     <div className="flex flex-col h-screen w-screen bg-background text-foreground overflow-hidden -m-8">
@@ -69,17 +68,7 @@ export default function ProTradingLayout({ marketId }: { marketId: string }) {
         <section className="flex-1 flex flex-col border-r border-border">
           {/* CHART */}
           <div className="flex-1 min-h-[400px] bg-background p-2">
-            <ChartToolbar 
-              interval={interval}
-              setInterval={setInterval}
-              chartType={chartType}
-              setChartType={setChartType}
-            />
-            <ChartShell
-              symbol={marketId}
-              interval={interval}
-              chartType={chartType}
-            />
+            <TradingChartContainer marketId={marketId} />
           </div>
 
           {/* BOTTOM PANELS — ORDERBOOK + TRADES */}
@@ -99,7 +88,7 @@ export default function ProTradingLayout({ marketId }: { marketId: string }) {
             <OrderForm marketId={marketId} />
           </div>
           <div className="row-span-1">
-             <PositionsPanel />
+            <PositionsPanel />
           </div>
         </aside>
 

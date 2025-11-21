@@ -1,58 +1,32 @@
-
-import { getFirebaseAdmin } from '@/lib/firebase-admin';
-import { collection, collectionGroup, query, where, orderBy, getDocs } from 'firebase/firestore';
-import type { SpotPosition } from '@/lib/types';
-
+import { queryItems } from '@/lib/azure/cosmos';
+import { getUserTrades } from '@/lib/azure/cosmos-trading';
+import type { SpotPosition, Trade, Balance, Market, Ticker } from '@/lib/types';
 
 export async function getUserTradesHistory(userId: string) {
-  const { firestore } = getFirebaseAdmin();
+  const query = 'SELECT * FROM c WHERE c.userId = @userId ORDER BY c.createdAt DESC';
+  const parameters = [{ name: '@userId', value: userId }];
 
-  const q = query(
-    collectionGroup(firestore, 'orders'),
-    where('userId', '==', userId),
-    orderBy('createdAt', 'desc')
-  );
-
-  const snap = await getDocs(q);
-
-  return snap.docs.map(d => ({
-    id: d.id,
-    ...d.data(),
-  }));
+  const orders = await queryItems('orders', query, parameters);
+  return orders;
 }
 
 export async function getUserTradeFills(userId: string) {
-  const { firestore } = getFirebaseAdmin();
-
-  const q = query(
-    collectionGroup(firestore, 'trades'),
-    where('userId', '==', userId),
-    orderBy('executedAt', 'desc')
-  );
-
-  const snap = await getDocs(q);
-
-  return snap.docs.map((d) => ({
-    id: d.id,
-    ...d.data(),
-  }));
+  // Use the existing cosmos-trading function
+  const trades = await getUserTrades(userId);
+  return trades;
 }
 
-
 export async function getUserPositions(userId: string): Promise<SpotPosition[]> {
-  const { firestore } = getFirebaseAdmin();
-  
   // Read user balances
-  const balSnap = await getDocs(
-    query(collection(firestore, 'users', userId, 'balances'))
-  );
+  const balancesQuery = 'SELECT * FROM c WHERE c.userId = @userId';
+  const balanceParams = [{ name: '@userId', value: userId }];
+  const balances = await queryItems<Balance>('balances', balancesQuery, balanceParams);
 
-  // Read markets + tickers
-  const marketsSnap = await getDocs(collection(firestore, 'markets'));
-  const tickersSnap = await getDocs(collection(firestore, 'market_data'));
+  // Read markets
+  const markets = await queryItems<Market>('markets', 'SELECT * FROM c');
 
-  const markets = marketsSnap.docs.map(d => d.data());
-  const tickers = tickersSnap.docs.map(d => d.data());
+  // Read tickers from market_data
+  const tickers = await queryItems<Ticker>('market_data', 'SELECT * FROM c');
 
   const tickerMap = Object.fromEntries(
     tickers.map(t => [t.id, t.price])
@@ -60,10 +34,9 @@ export async function getUserPositions(userId: string): Promise<SpotPosition[]> 
 
   const positions: SpotPosition[] = [];
 
-  for (const b of balSnap.docs) {
-    const data = b.data();
-    const assetId = data.assetId;
-    const quantity = data.available + (data.locked || 0);
+  for (const balance of balances) {
+    const assetId = balance.assetId;
+    const quantity = balance.available + (balance.locked || 0);
 
     // Skip zero balance coins or the quote currency
     if (!quantity || quantity <= 0 || assetId === 'USDT') continue;
@@ -76,7 +49,7 @@ export async function getUserPositions(userId: string): Promise<SpotPosition[]> 
     const marketPrice = tickerMap[mId] ?? null;
 
     // This is a simplification. A real avgPrice would be calculated from trade history.
-    const avgPrice = data.avgPrice ?? marketPrice; // Fallback to current price if no avg
+    const avgPrice = (balance as any).avgPrice ?? marketPrice; // Fallback to current price if no avg
     const value = marketPrice ? quantity * marketPrice : null;
 
     let pnl = null;

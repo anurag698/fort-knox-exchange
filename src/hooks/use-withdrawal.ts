@@ -1,61 +1,20 @@
 
 'use client';
 
-import { collectionGroup, query, where, getDocs } from 'firebase/firestore';
-import { useFirestore } from '@/firebase';
+import useSWR from 'swr';
 import type { Withdrawal } from '@/lib/types';
-import { useEffect, useState, useMemo } from 'react';
+
+const fetcher = (url: string) => fetch(url).then((res) => res.json());
 
 /**
- * Fetches a single withdrawal document by its ID from the 'withdrawals' collection group.
+ * Fetches a single withdrawal document by its ID from the Azure Cosmos DB.
  * @param withdrawalId The unique ID of the withdrawal to fetch.
  */
 export function useWithdrawal(withdrawalId: string) {
-  const firestore = useFirestore();
-  const [data, setData] = useState<Withdrawal | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<Error | null>(null);
-
-  const withdrawalQuery = useMemo(
-    () => {
-      if (!firestore || !withdrawalId) return null;
-      return query(
-        collectionGroup(firestore, 'withdrawals'),
-        where('id', '==', withdrawalId)
-      );
-    },
-    [firestore, withdrawalId]
+  const { data, error, isLoading } = useSWR<Withdrawal>(
+    withdrawalId ? `/api/withdrawals/${withdrawalId}` : null,
+    fetcher
   );
-  
-  useEffect(() => {
-    if (!withdrawalQuery) {
-        setIsLoading(false);
-        return;
-    }
-
-    const fetchWithdrawal = async () => {
-        setIsLoading(true);
-        try {
-            const querySnapshot = await getDocs(withdrawalQuery);
-            if (!querySnapshot.empty) {
-                // There should only be one document with a unique withdrawalId
-                const doc = querySnapshot.docs[0];
-                setData({ ...(doc.data() as Omit<Withdrawal, 'id'>), id: doc.id });
-            } else {
-                setData(null);
-            }
-            setError(null);
-        } catch (err) {
-            setError(err instanceof Error ? err : new Error('Failed to fetch withdrawal data.'));
-            console.error(err);
-        } finally {
-            setIsLoading(false);
-        }
-    };
-    
-    fetchWithdrawal();
-
-  }, [withdrawalQuery]);
 
   return { data, isLoading, error };
 }

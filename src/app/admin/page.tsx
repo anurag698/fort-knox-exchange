@@ -1,203 +1,128 @@
+"use client";
 
-'use client';
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Users, Activity, DollarSign, AlertTriangle } from "lucide-react";
+import { Bar, BarChart, ResponsiveContainer, XAxis, YAxis, Tooltip } from "recharts";
 
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Users, CandlestickChart, ShieldAlert, ArrowRight, AlertCircle, Hourglass } from "lucide-react";
-import { useMemo } from 'react';
-import { Skeleton } from '@/components/ui/skeleton';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import Link from 'next/link';
-import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from '@/components/ui/tooltip';
-import { useUser } from "@/firebase";
-import { useWithdrawals } from "@/hooks/use-withdrawals";
-import { useAssets } from "@/hooks/use-assets";
-import { useUsersCount } from "@/hooks/use-users-count";
-import { useMarketsCount } from "@/hooks/use-markets-count";
-import { useWithdrawalsCount } from "@/hooks/use-withdrawals-count";
+// Mock data for charts
+const userGrowthData = [
+  { name: "Jan", users: 400 },
+  { name: "Feb", users: 600 },
+  { name: "Mar", users: 900 },
+  { name: "Apr", users: 1200 },
+  { name: "May", users: 1800 },
+  { name: "Jun", users: 2400 },
+];
 
-export default function AdminPage() {
-  const { user, isUserLoading } = useUser();
-  const { data: withdrawals, isLoading: withdrawalsLoading, error: withdrawalsError } = useWithdrawals('PENDING');
-  const { data: assets, isLoading: assetsLoading, error: assetsError } = useAssets();
-  const { count: usersCount, isLoading: usersCountLoading, error: usersCountError } = useUsersCount();
-  const { count: marketsCount, isLoading: marketsCountLoading, error: marketsCountError } = useMarketsCount();
-  const { count: pendingWithdrawalsCount, isLoading: pendingWithdrawalsCountLoading, error: pendingWithdrawalsCountError } = useWithdrawalsCount('PENDING');
-
-  const isLoading = isUserLoading || withdrawalsLoading || assetsLoading || usersCountLoading || marketsCountLoading || pendingWithdrawalsCountLoading;
-  const error = withdrawalsError || assetsError || usersCountError || marketsCountError || pendingWithdrawalsCountError;
-
-  const summaryStats = [
-    { title: "Total Users", value: usersCount, isLoading: usersCountLoading, icon: Users, href: "/admin/users" },
-    { title: "Active Markets", value: marketsCount, isLoading: marketsCountLoading, icon: CandlestickChart, href: "/markets" },
-    { title: "Pending Withdrawals", value: pendingWithdrawalsCount, isLoading: pendingWithdrawalsCountLoading, icon: ShieldAlert, href: "#moderation" },
-  ];
-
-  const assetsMap = useMemo(() => {
-    if (!assets) return new Map();
-    return new Map(assets.map(asset => [asset.id, asset]));
-  }, [assets]);
-
-  const getRiskBadgeVariant = (riskLevel?: string) => {
-    switch (riskLevel) {
-      case 'Low':
-        return 'secondary';
-      case 'Medium':
-        return 'default';
-      case 'High':
-        return 'destructive';
-      case 'Critical':
-        return 'destructive';
-      default:
-        return 'outline';
-    }
-  };
-
-  const renderWithdrawals = () => {
-    if (withdrawalsLoading) {
-      return (
-        <>
-          {[...Array(3)].map((_, i) => (
-            <TableRow key={i}>
-              <TableCell><Skeleton className="h-4 w-32" /></TableCell>
-              <TableCell><Skeleton className="h-4 w-24" /></TableCell>
-              <TableCell><Skeleton className="h-4 w-20" /></TableCell>
-              <TableCell><Skeleton className="h-4 w-16" /></TableCell>
-              <TableCell><Skeleton className="h-4 w-24" /></TableCell>
-              <TableCell className="text-right"><Skeleton className="h-8 w-20 ml-auto" /></TableCell>
-            </TableRow>
-          ))}
-        </>
-      );
-    }
-
-    if (withdrawalsError) {
-       return (
-        <TableRow>
-            <TableCell colSpan={6}>
-                 <Alert variant="destructive" className="mt-4">
-                    <AlertCircle className="h-4 w-4" />
-                    <AlertTitle>Error Loading Data</AlertTitle>
-                    <AlertDescription>
-                        {withdrawalsError.message || "Could not fetch data. Please check your security rules and network connection."}
-                    </AlertDescription>
-                </Alert>
-            </TableCell>
-        </TableRow>
-      );
-    }
-
-    if (!withdrawals || withdrawals.length === 0) {
-      return (
-         <TableRow>
-            <TableCell colSpan={6} className="text-center py-12">
-                 <div className="flex flex-col items-center justify-center text-muted-foreground">
-                    <Hourglass className="h-10 w-10 mb-4" />
-                    <h3 className="text-lg font-semibold">No Pending Withdrawals</h3>
-                    <p className="text-sm">There are no withdrawal requests awaiting moderation.</p>
-                </div>
-            </TableCell>
-        </TableRow>
-      );
-    }
-
-    return withdrawals.map((withdrawal) => {
-        const asset = assetsMap.get(withdrawal.assetId);
-        const withdrawalDate = withdrawal.createdAt?.toDate ? withdrawal.createdAt.toDate() : new Date();
-
-        return (
-            <TableRow key={withdrawal.id}>
-                <TableCell className="font-mono text-xs">{withdrawal.id}</TableCell>
-                <TableCell className="font-mono text-xs">{withdrawal.userId}</TableCell>
-                <TableCell>{withdrawal.amount} {asset?.symbol ?? '...'}</TableCell>
-                <TableCell>
-                    <TooltipProvider>
-                      <Tooltip>
-                          <TooltipTrigger asChild>
-                              <Badge variant={getRiskBadgeVariant(withdrawal.aiRiskLevel)}>
-                                  {withdrawal.aiRiskLevel ?? '...'}
-                              </Badge>
-                          </TooltipTrigger>
-                          <TooltipContent className="max-w-xs">
-                              <p>{withdrawal.aiReason ?? 'AI analysis pending...'}</p>
-                          </TooltipContent>
-                      </Tooltip>
-                    </TooltipProvider>
-                </TableCell>
-                <TableCell>{withdrawalDate.toLocaleDateString()}</TableCell>
-                <TableCell className="text-right">
-                <Button variant="ghost" size="sm" asChild>
-                  <Link href={`/admin/review/${withdrawal.id}`}>
-                    Review <ArrowRight className="ml-2 h-4 w-4" />
-                  </Link>
-                </Button>
-                </TableCell>
-            </TableRow>
-        )
-    });
-  }
-
+export default function AdminDashboardPage() {
   return (
-    <div className="flex flex-col gap-8">
-      <div className="flex flex-col gap-2">
-        <h1 className="font-headline text-3xl font-bold tracking-tight">
-          Admin Dashboard
-        </h1>
-        <p className="max-w-3xl text-muted-foreground">
-          Oversee and manage the Fort Knox Exchange.
-        </p>
+    <div className="space-y-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Total Users</CardTitle>
+            <Users className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">2,450</div>
+            <p className="text-xs text-muted-foreground">+180 from last month</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Active Trades</CardTitle>
+            <Activity className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">145</div>
+            <p className="text-xs text-muted-foreground">+12% since last hour</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">24h Volume</CardTitle>
+            <DollarSign className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">$1.2M</div>
+            <p className="text-xs text-muted-foreground">+5% from yesterday</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">System Alerts</CardTitle>
+            <AlertTriangle className="h-4 w-4 text-yellow-500" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">3</div>
+            <p className="text-xs text-muted-foreground">Requires attention</p>
+          </CardContent>
+        </Card>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-3">
-        {summaryStats.map((stat) => (
-          <Card key={stat.title}>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">{stat.title}</CardTitle>
-              <stat.icon className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              {stat.isLoading ? (
-                 <Skeleton className="h-8 w-20" />
-              ) : (
-                <div className="text-2xl font-bold">{stat.value ?? '...'}</div>
-              )}
-               <Button variant="link" size="sm" className="p-0 h-auto -ml-1 text-xs" asChild>
-                  <Link href={stat.href ?? '#'}>
-                      View all <ArrowRight className="h-3 w-3 ml-1" />
-                  </Link>
-              </Button>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <Card className="col-span-1">
+          <CardHeader>
+            <CardTitle>User Growth</CardTitle>
+          </CardHeader>
+          <CardContent className="pl-2">
+            <ResponsiveContainer width="100%" height={350}>
+              <BarChart data={userGrowthData}>
+                <XAxis
+                  dataKey="name"
+                  stroke="#888888"
+                  fontSize={12}
+                  tickLine={false}
+                  axisLine={false}
+                />
+                <YAxis
+                  stroke="#888888"
+                  fontSize={12}
+                  tickLine={false}
+                  axisLine={false}
+                  tickFormatter={(value) => `${value}`}
+                />
+                <Tooltip
+                  contentStyle={{ backgroundColor: 'hsl(var(--card))', borderColor: 'hsl(var(--border))' }}
+                  itemStyle={{ color: 'hsl(var(--foreground))' }}
+                />
+                <Bar dataKey="users" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          </CardContent>
+        </Card>
 
-      <Card id="moderation">
-        <CardHeader>
-          <CardTitle>Withdrawal Moderation Queue</CardTitle>
-          <CardDescription>
-            Review withdrawal requests flagged by the AI for manual approval.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-           <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Request ID</TableHead>
-                <TableHead>User</TableHead>
-                <TableHead>Amount</TableHead>
-                <TableHead>Risk Level</TableHead>
-                <TableHead>Date</TableHead>
-                <TableHead className="text-right">Action</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {renderWithdrawals()}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
+        <Card className="col-span-1">
+          <CardHeader>
+            <CardTitle>Recent System Alerts</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              <div className="flex items-center gap-4 p-3 bg-yellow-500/10 border border-yellow-500/20 rounded-lg">
+                <AlertTriangle className="w-5 h-5 text-yellow-500" />
+                <div>
+                  <p className="font-medium text-sm">High API Latency</p>
+                  <p className="text-xs text-muted-foreground">Detected 15 mins ago on /api/trades</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-4 p-3 bg-red-500/10 border border-red-500/20 rounded-lg">
+                <AlertTriangle className="w-5 h-5 text-red-500" />
+                <div>
+                  <p className="font-medium text-sm">Failed Login Attempts Spike</p>
+                  <p className="text-xs text-muted-foreground">Multiple failures from IP 192.168.1.x</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-4 p-3 bg-blue-500/10 border border-blue-500/20 rounded-lg">
+                <Activity className="w-5 h-5 text-blue-500" />
+                <div>
+                  <p className="font-medium text-sm">Database Backup Completed</p>
+                  <p className="text-xs text-muted-foreground">Successfully backed up at 02:00 AM</p>
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 }

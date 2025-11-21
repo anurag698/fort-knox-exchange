@@ -8,9 +8,9 @@
  * - ModerateWithdrawalRequestOutput - The return type for the moderateWithdrawalRequest function.
  */
 
-import {ai} from '@/ai/genkit';
-import {z} from 'genkit';
-import { getFirebaseAdmin } from '@/lib/firebase-admin';
+import { ai } from '@/ai/genkit';
+import { z } from 'genkit';
+import { getItemById, queryItems } from '@/lib/azure/cosmos';
 import { Balance, Deposit, UserProfile, Withdrawal } from '@/lib/types';
 
 
@@ -31,34 +31,28 @@ const UserDataToolOutputSchema = z.object({
 const getUserData = ai.defineTool(
   {
     name: 'getUserData',
-    description: 'Retrieves comprehensive data for a given user ID from Firestore.',
+    description: 'Retrieves comprehensive data for a given user ID from Cosmos DB.',
     inputSchema: UserDataToolInputSchema,
     outputSchema: UserDataToolOutputSchema,
   },
-  async ({userId}) => {
-    const { firestore } = getFirebaseAdmin();
-    const userRef = firestore.collection('users').doc(userId);
-    
+  async ({ userId }) => {
     // Fetch all data in parallel
-    const [userSnap, balancesSnap, depositsSnap, withdrawalsSnap] = await Promise.all([
-        userRef.get(),
-        userRef.collection('balances').get(),
-        userRef.collection('deposits').orderBy('createdAt', 'desc').limit(20).get(),
-        userRef.collection('withdrawals').orderBy('createdAt', 'desc').limit(20).get(),
+    const [user, balances, deposits, withdrawals] = await Promise.all([
+      getItemById<UserProfile>('users', userId, userId),
+      queryItems<Balance>('balances', 'SELECT * FROM c WHERE c.userId = @userId', [{ name: '@userId', value: userId }]),
+      queryItems<Deposit>('deposits', 'SELECT * FROM c WHERE c.userId = @userId ORDER BY c.createdAt DESC OFFSET 0 LIMIT 20', [{ name: '@userId', value: userId }]),
+      queryItems<Withdrawal>('withdrawals', 'SELECT * FROM c WHERE c.userId = @userId ORDER BY c.createdAt DESC OFFSET 0 LIMIT 20', [{ name: '@userId', value: userId }]),
     ]);
 
-    if (!userSnap.exists) {
-        throw new Error(`User with ID ${userId} not found.`);
+    if (!user) {
+      throw new Error(`User with ID ${userId} not found.`);
     }
 
-    // Process snapshots into typed arrays
-    const toData = <T>(snap: FirebaseFirestore.QuerySnapshot) => snap.docs.map(doc => ({...doc.data(), id: doc.id} as T));
-
     return {
-        userProfile: {...userSnap.data(), id: userSnap.id} as UserProfile,
-        balances: toData<Balance>(balancesSnap),
-        deposits: toData<Deposit>(depositsSnap),
-        withdrawals: toData<Withdrawal>(withdrawalsSnap),
+      userProfile: user,
+      balances: balances,
+      deposits: deposits,
+      withdrawals: withdrawals,
     };
   }
 );
@@ -89,7 +83,7 @@ const ModerateWithdrawalRequestOutputSchema = z.object({
       'The reason why the withdrawal request is flagged as suspicious. If request is not suspicious, this should explain why the risk is low.'
     ),
   suggestedAction:
-   z.string().optional().describe('Suggested action to be taken by the administrator (e.g., \'Request additional KYC information\', \'Manually verify transaction\').'),
+    z.string().optional().describe('Suggested action to be taken by the administrator (e.g., \'Request additional KYC information\', \'Manually verify transaction\').'),
 });
 
 export type ModerateWithdrawalRequestOutput = z.infer<
@@ -104,8 +98,8 @@ export async function moderateWithdrawalRequest(
 
 const prompt = ai.definePrompt({
   name: 'moderateWithdrawalRequestPrompt',
-  input: {schema: ModerateWithdrawalRequestInputSchema},
-  output: {schema: ModerateWithdrawalRequestOutputSchema},
+  input: { schema: ModerateWithdrawalRequestInputSchema },
+  output: { schema: ModerateWithdrawalRequestOutputSchema },
   tools: [getUserData],
   prompt: `You are an AI-powered tool for assisting administrators of a centralized crypto exchange in flagging suspicious or non-compliant withdrawal requests. Your primary goal is to assess risk and provide a clear, actionable analysis.
 
@@ -143,7 +137,7 @@ const moderateWithdrawalRequestFlow = ai.defineFlow(
     outputSchema: ModerateWithdrawalRequestOutputSchema,
   },
   async input => {
-    const {output} = await prompt(input);
+    const { output } = await prompt(input);
     return output!;
   }
 );

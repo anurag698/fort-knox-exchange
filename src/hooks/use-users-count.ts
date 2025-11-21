@@ -1,45 +1,21 @@
 
 'use client';
 
-import { collection, getCountFromServer } from 'firebase/firestore';
-import { useFirestore, useMemoFirebase } from '@/firebase';
-import { useEffect, useState } from 'react';
+import useSWR from 'swr';
+import type { UserProfile } from '@/lib/types';
+
+const fetcher = (url: string) => fetch(url).then((res) => res.json());
 
 export function useUsersCount() {
-  const firestore = useFirestore();
-  const [count, setCount] = useState<number | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<Error | null>(null);
-
-  const usersCollection = useMemoFirebase(
-    () => (firestore ? collection(firestore, 'users') : null),
-    [firestore]
+  const { data, error, isLoading } = useSWR<UserProfile[]>(
+    '/api/users',
+    fetcher
   );
 
-  useEffect(() => {
-    if (!usersCollection) {
-      setIsLoading(false);
-      return;
-    }
-
-    const fetchCount = async () => {
-      try {
-        setIsLoading(true);
-        const snapshot = await getCountFromServer(usersCollection);
-        setCount(snapshot.data().count);
-        setError(null);
-      } catch (err) {
-        setError(err instanceof Error ? err : new Error('Failed to fetch user count'));
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    fetchCount();
-  }, [usersCollection]);
-
-
-  return { count, isLoading, error };
+  return {
+    count: data ? data.length : null,
+    isLoading,
+    error
+  };
 }
 
-    

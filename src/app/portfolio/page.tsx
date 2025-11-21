@@ -11,12 +11,13 @@ import { useMemo, useState, useEffect } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { DepositForm } from '@/components/wallet/deposit-form';
 import { WithdrawalForm } from '@/components/wallet/withdrawal-form';
-import { UserDeposits } from '@/components/wallet/user-deposits';
-import { UserWithdrawals } from '@/components/wallet/user-withdrawals';
+import { OrderHistory } from '@/components/trade/order-history';
+import { DepositHistory } from '@/components/trade/deposit-history';
+import { WithdrawalHistory } from '@/components/trade/withdrawal-history';
 import type { Asset } from '@/lib/types';
 import { useAssets } from '@/hooks/use-assets';
 import { useBalances } from '@/hooks/use-balances';
-import { useUser } from "@/firebase";
+import { useUser } from '@/providers/azure-auth-provider';
 import { useMarketDataStore } from '@/state/market-data-store';
 
 
@@ -24,14 +25,14 @@ export default function WalletPage() {
   const { user } = useUser();
   const { data: balances, isLoading: balancesLoading, error: balancesError } = useBalances();
   const { data: assets, isLoading: assetsLoading, error: assetsError } = useAssets();
-  
+
   // Use the existing store to get ticker prices.
   // The service updates this store when active on a trade page.
   const ticker = useMarketDataStore((state) => state.ticker);
-  
+
   const error = balancesError || assetsError;
   const isLoading = balancesLoading || assetsLoading;
-  
+
   const prices = useMemo(() => {
     if (!ticker?.price || !ticker.s) return {};
     // Create a price map from the ticker data.
@@ -47,7 +48,7 @@ export default function WalletPage() {
     }
 
     const assetsMap = new Map(assets.map(a => [a.id, a]));
-    
+
     return balances.map(balance => {
       const asset = assetsMap.get(balance.assetId);
       // Use price from our map, fallback to 0. USDT is always 1.
@@ -71,9 +72,9 @@ export default function WalletPage() {
         </div>
       );
     }
-    
+
     if (error) {
-       return (
+      return (
         <Alert variant="destructive">
           <AlertCircle className="h-4 w-4" />
           <AlertTitle>Error</AlertTitle>
@@ -101,10 +102,10 @@ export default function WalletPage() {
     return (
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <div className="lg:col-span-3">
-            <PortfolioOverview data={portfolioData} />
+          <PortfolioOverview data={portfolioData} />
         </div>
         <div className="lg:col-span-3">
-             <PortfolioTable data={portfolioData} />
+          <PortfolioTable data={portfolioData} />
         </div>
       </div>
     );
@@ -112,7 +113,7 @@ export default function WalletPage() {
 
   return (
     <div className="flex flex-col gap-8 p-4 md:p-6 lg:p-8">
-       <div className="flex flex-col gap-2">
+      <div className="flex flex-col gap-2">
         <h1 className="font-headline text-3xl font-bold tracking-tight">
           My Wallet
         </h1>
@@ -129,19 +130,65 @@ export default function WalletPage() {
           <TabsTrigger value="history">History</TabsTrigger>
         </TabsList>
         <TabsContent value="overview" className="mt-6">
-            {renderContent()}
+          {renderContent()}
         </TabsContent>
         <TabsContent value="deposit" className="mt-6">
-            <DepositForm assets={assets || []} />
+          <DepositForm assets={assets || []} />
         </TabsContent>
         <TabsContent value="withdraw" className="mt-6">
-            <WithdrawalForm assets={assets || []} balances={balances || []} />
+          <WithdrawalForm assets={assets || []} balances={balances || []} />
         </TabsContent>
         <TabsContent value="history" className="mt-6">
-          <div className="grid gap-8">
-            <UserDeposits userId={user?.uid} />
-            <UserWithdrawals userId={user?.uid} />
-          </div>
+          <Tabs defaultValue="all-orders" className="w-full">
+            <TabsList className="w-full justify-start border-b bg-transparent h-10 p-0 mb-4">
+              <TabsTrigger
+                value="all-orders"
+                className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-4 h-10"
+              >
+                All Orders
+              </TabsTrigger>
+              <TabsTrigger
+                value="buy-history"
+                className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-4 h-10"
+              >
+                Buy History
+              </TabsTrigger>
+              <TabsTrigger
+                value="sell-history"
+                className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-4 h-10"
+              >
+                Sell History
+              </TabsTrigger>
+              <TabsTrigger
+                value="deposits"
+                className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-4 h-10"
+              >
+                Deposits
+              </TabsTrigger>
+              <TabsTrigger
+                value="withdrawals"
+                className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-4 h-10"
+              >
+                Withdrawals
+              </TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="all-orders">
+              <OrderHistory userId={user?.uid || ''} />
+            </TabsContent>
+            <TabsContent value="buy-history">
+              <OrderHistory userId={user?.uid || ''} side="BUY" />
+            </TabsContent>
+            <TabsContent value="sell-history">
+              <OrderHistory userId={user?.uid || ''} side="SELL" />
+            </TabsContent>
+            <TabsContent value="deposits">
+              <DepositHistory userId={user?.uid || ''} />
+            </TabsContent>
+            <TabsContent value="withdrawals">
+              <WithdrawalHistory userId={user?.uid || ''} />
+            </TabsContent>
+          </Tabs>
         </TabsContent>
       </Tabs>
     </div>

@@ -1,0 +1,1282 @@
+2025-11-24 04:51:28 +05:30: [ETH Monitor] Error scanning address 0xA4AFF813050121a2b2b316758F7bE2480E41A55B: Error: request timeout (code=TIMEOUT, version=6.15.0)
+2025-11-24 04:51:28 +05:30:     at makeError (/Users/anurag/Downloads/voice-bharat-main/backend/fort-knox-exchange/node_modules/ethers/src.ts/utils/errors.ts:698:21)
+2025-11-24 04:51:28 +05:30:     at ClientRequest.<anonymous> (/Users/anurag/Downloads/voice-bharat-main/backend/fort-knox-exchange/node_modules/ethers/src.ts/utils/geturl.ts:66:33)
+2025-11-24 04:51:28 +05:30:     at ClientRequest.emit (node:events:508:28)
+2025-11-24 04:51:28 +05:30:     at TLSSocket.emitRequestTimeout (node:_http_client:927:9)
+2025-11-24 04:51:28 +05:30:     at Object.onceWrapper (node:events:622:28)
+2025-11-24 04:51:28 +05:30:     at TLSSocket.emit (node:events:520:35)
+2025-11-24 04:51:28 +05:30:     at Socket._onTimeout (node:net:604:8)
+2025-11-24 04:51:28 +05:30:     at listOnTimeout (node:internal/timers:605:17)
+2025-11-24 04:51:28 +05:30:     at process.processTimers (node:internal/timers:541:7) {
+2025-11-24 04:51:28 +05:30:   code: 'TIMEOUT',
+2025-11-24 04:51:28 +05:30:   shortMessage: 'request timeout'
+2025-11-24 04:51:28 +05:30: }
+2025-11-24 04:51:28 +05:30:    ⚠️  MATIC: 1 errors
+2025-11-24 04:51:40 +05:30:    ❌ BSC: read ETIMEDOUT
+2025-11-24 05:27:53 +05:30:    ❌ BTC: The authorization token is not valid at the current time. Please create another token and retry (token start time: Sun, 23 Nov 2025 23:21:37 GMT, token expiry time: Sun, 23 Nov 2025 23:21:37 GMT, current server time: Sun, 23 Nov 2025 23:57:52 GMT).
+2025-11-24 05:27:53 +05:30: ActivityId: 49f349eb-1479-467a-b4f4-701322212eac, Microsoft.Azure.Documents.Common/2.14.0
+2025-11-24 06:53:29 +05:30: [ETH Monitor] Error scanning address 0xA4AFF813050121a2b2b316758F7bE2480E41A55B: Error: read ECONNRESET
+2025-11-24 06:53:29 +05:30:     at TLSWrap.onStreamRead (node:internal/stream_base_commons:216:20) {
+2025-11-24 06:53:29 +05:30:   errno: -54,
+2025-11-24 06:53:29 +05:30:   code: 'ECONNRESET',
+2025-11-24 06:53:29 +05:30:   syscall: 'read'
+2025-11-24 06:53:29 +05:30: }
+2025-11-24 06:53:29 +05:30:    ⚠️  ETH: 1 errors
+2025-11-24 06:53:43 +05:30:    ❌ MATIC: read ETIMEDOUT
+2025-11-24 07:37:24 +05:30:    ❌ ETH: The authorization token is not valid at the current time. Please create another token and retry (token start time: Mon, 24 Nov 2025 01:31:23 GMT, token expiry time: Mon, 24 Nov 2025 01:31:23 GMT, current server time: Mon, 24 Nov 2025 02:07:23 GMT).
+2025-11-24 07:37:24 +05:30: ActivityId: f7d38d06-c021-4df1-a424-b9a63dc332cc, Microsoft.Azure.Documents.Common/2.14.0
+2025-11-24 07:37:24 +05:30: [Confirmation Tracker] Fatal error: ErrorResponse: The authorization token is not valid at the current time. Please create another token and retry (token start time: Mon, 24 Nov 2025 01:23:44 GMT, token expiry time: Mon, 24 Nov 2025 01:23:44 GMT, current server time: Mon, 24 Nov 2025 02:07:24 GMT).
+2025-11-24 07:37:24 +05:30: ActivityId: 60daa17e-dc20-4045-89b2-d22e21bc92a7, Microsoft.Azure.Documents.Common/2.14.0
+2025-11-24 07:37:24 +05:30:     at httpRequest (/Users/anurag/Downloads/voice-bharat-main/backend/fort-knox-exchange/node_modules/@azure/cosmos/src/request/RequestHandler.ts:151:42)
+2025-11-24 07:37:24 +05:30:     at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+2025-11-24 07:37:24 +05:30:     at async <anonymous> (/Users/anurag/Downloads/voice-bharat-main/backend/fort-knox-exchange/node_modules/@azure/cosmos/src/retry/retryUtility.ts:128:26)
+2025-11-24 07:37:24 +05:30:     at async addDiagnosticChild (/Users/anurag/Downloads/voice-bharat-main/backend/fort-knox-exchange/node_modules/@azure/cosmos/src/utils/diagnostics.ts:68:22)
+2025-11-24 07:37:24 +05:30:     at async addDiagnosticChild (/Users/anurag/Downloads/voice-bharat-main/backend/fort-knox-exchange/node_modules/@azure/cosmos/src/utils/diagnostics.ts:68:22)
+2025-11-24 07:37:24 +05:30:     at async addDiagnosticChild (/Users/anurag/Downloads/voice-bharat-main/backend/fort-knox-exchange/node_modules/@azure/cosmos/src/utils/diagnostics.ts:68:22)
+2025-11-24 07:37:24 +05:30:     at async addDiagnosticChild (/Users/anurag/Downloads/voice-bharat-main/backend/fort-knox-exchange/node_modules/@azure/cosmos/src/utils/diagnostics.ts:68:22)
+2025-11-24 07:37:24 +05:30:     at async addDiagnosticChild (/Users/anurag/Downloads/voice-bharat-main/backend/fort-knox-exchange/node_modules/@azure/cosmos/src/utils/diagnostics.ts:68:22)
+2025-11-24 07:37:24 +05:30:     at async ClientContext.queryFeed (/Users/anurag/Downloads/voice-bharat-main/backend/fort-knox-exchange/node_modules/@azure/cosmos/src/ClientContext.ts:287:22)
+2025-11-24 07:37:24 +05:30:     at async Array.fetchFunction (/Users/anurag/Downloads/voice-bharat-main/backend/fort-knox-exchange/node_modules/@azure/cosmos/src/client/Item/Items.ts:171:24) {
+2025-11-24 07:37:24 +05:30:   code: 403,
+2025-11-24 07:37:24 +05:30:   substatus: undefined,
+2025-11-24 07:37:24 +05:30:   body: {
+2025-11-24 07:37:24 +05:30:     code: 'Forbidden',
+2025-11-24 07:37:24 +05:30:     message: 'The authorization token is not valid at the current time. Please create another token and retry (token start time: Mon, 24 Nov 2025 01:23:44 GMT, token expiry time: Mon, 24 Nov 2025 01:23:44 GMT, current server time: Mon, 24 Nov 2025 02:07:24 GMT).\r\n' +
+2025-11-24 07:37:24 +05:30:       'ActivityId: 60daa17e-dc20-4045-89b2-d22e21bc92a7, Microsoft.Azure.Documents.Common/2.14.0'
+2025-11-24 07:37:24 +05:30:   },
+2025-11-24 07:37:24 +05:30:   headers: {
+2025-11-24 07:37:24 +05:30:     'transfer-encoding': 'chunked',
+2025-11-24 07:37:24 +05:30:     'content-type': 'application/json',
+2025-11-24 07:37:24 +05:30:     server: 'Microsoft-HTTPAPI/2.0',
+2025-11-24 07:37:24 +05:30:     'x-ms-activity-id': '60daa17e-dc20-4045-89b2-d22e21bc92a7',
+2025-11-24 07:37:24 +05:30:     'strict-transport-security': 'max-age=31536000',
+2025-11-24 07:37:24 +05:30:     'x-ms-gatewayversion': 'version=2.14.0',
+2025-11-24 07:37:24 +05:30:     date: 'Mon, 24 Nov 2025 02:07:24 GMT',
+2025-11-24 07:37:24 +05:30:     'x-ms-cosmos-correlated-activityid': 'd71f7691-bc02-4653-a74a-66c06034da76',
+2025-11-24 07:37:24 +05:30:     'x-ms-throttle-retry-count': 0,
+2025-11-24 07:37:24 +05:30:     'x-ms-throttle-retry-wait-time-ms': 0
+2025-11-24 07:37:24 +05:30:   },
+2025-11-24 07:37:24 +05:30:   activityId: '60daa17e-dc20-4045-89b2-d22e21bc92a7',
+2025-11-24 07:37:24 +05:30:   retryAfterInMs: undefined,
+2025-11-24 07:37:24 +05:30:   retryAfterInMilliseconds: undefined,
+2025-11-24 07:37:24 +05:30:   diagnostics: CosmosDiagnostics {
+2025-11-24 07:37:24 +05:30:     clientSideRequestStatistics: {
+2025-11-24 07:37:24 +05:30:       requestStartTimeUTCInMs: 1763947424394,
+2025-11-24 07:37:24 +05:30:       requestDurationInMs: 2620452,
+2025-11-24 07:37:24 +05:30:       totalRequestPayloadLengthInBytes: 464,
+2025-11-24 07:37:24 +05:30:       totalResponsePayloadLengthInBytes: 374,
+2025-11-24 07:37:24 +05:30:       locationEndpointsContacted: [Array],
+2025-11-24 07:37:24 +05:30:       metadataDiagnostics: [Object],
+2025-11-24 07:37:24 +05:30:       retryDiagnostics: [Object],
+2025-11-24 07:37:24 +05:30:       gatewayStatistics: [Array],
+2025-11-24 07:37:24 +05:30:       encryptionDiagnostics: undefined
+2025-11-24 07:37:24 +05:30:     },
+2025-11-24 07:37:24 +05:30:     diagnosticNode: undefined,
+2025-11-24 07:37:24 +05:30:     clientConfig: undefined
+2025-11-24 07:37:24 +05:30:   },
+2025-11-24 07:37:24 +05:30:   requestCharge: undefined
+2025-11-24 07:37:24 +05:30: }
+2025-11-24 07:37:24 +05:30:    ⚠️  Confirmation errors: 1
+2025-11-24 07:53:21 +05:30: [ETH Monitor] Error scanning address 0xA4AFF813050121a2b2b316758F7bE2480E41A55B: Error: read ECONNRESET
+2025-11-24 07:53:21 +05:30:     at TLSWrap.onStreamRead (node:internal/stream_base_commons:216:20) {
+2025-11-24 07:53:21 +05:30:   errno: -54,
+2025-11-24 07:53:21 +05:30:   code: 'ECONNRESET',
+2025-11-24 07:53:21 +05:30:   syscall: 'read'
+2025-11-24 07:53:21 +05:30: }
+2025-11-24 07:53:21 +05:30:    ⚠️  MATIC: 1 errors
+2025-11-24 07:53:21 +05:30: [ETH Monitor] Error scanning address 0xA4AFF813050121a2b2b316758F7bE2480E41A55B: Error: read ECONNRESET
+2025-11-24 07:53:21 +05:30:     at TLSWrap.onStreamRead (node:internal/stream_base_commons:216:20) {
+2025-11-24 07:53:21 +05:30:   errno: -54,
+2025-11-24 07:53:21 +05:30:   code: 'ECONNRESET',
+2025-11-24 07:53:21 +05:30:   syscall: 'read'
+2025-11-24 07:53:21 +05:30: }
+2025-11-24 07:53:21 +05:30:    ⚠️  MATIC: 1 errors
+2025-11-24 07:53:21 +05:30: [ETH Monitor] Error scanning address 0xA4AFF813050121a2b2b316758F7bE2480E41A55B: Error: read ECONNRESET
+2025-11-24 07:53:21 +05:30:     at TLSWrap.onStreamRead (node:internal/stream_base_commons:216:20) {
+2025-11-24 07:53:21 +05:30:   errno: -54,
+2025-11-24 07:53:21 +05:30:   code: 'ECONNRESET',
+2025-11-24 07:53:21 +05:30:   syscall: 'read'
+2025-11-24 07:53:21 +05:30: }
+2025-11-24 07:53:21 +05:30:    ⚠️  MATIC: 1 errors
+2025-11-24 07:53:31 +05:30:    ❌ ETH: read ETIMEDOUT
+2025-11-24 07:53:31 +05:30:    ❌ BSC: read ETIMEDOUT
+2025-11-24 07:53:32 +05:30:    ❌ BSC: read ETIMEDOUT
+2025-11-24 07:53:33 +05:30:    ❌ BSC: read ETIMEDOUT
+2025-11-24 08:21:38 +05:30:    ❌ ETH: read ETIMEDOUT
+2025-11-24 08:57:10 +05:30:    ❌ ETH: read ETIMEDOUT
+2025-11-24 09:15:01 +05:30: Error fetching more results: RestError: read ETIMEDOUT 
+2025-11-24 09:15:01 +05:30:  {
+2025-11-24 09:15:01 +05:30:   "code": "ETIMEDOUT",
+2025-11-24 09:15:01 +05:30:   "name": "RestError",
+2025-11-24 09:15:01 +05:30:   "headers": {
+2025-11-24 09:15:01 +05:30:     "x-ms-throttle-retry-count": "REDACTED",
+2025-11-24 09:15:01 +05:30:     "x-ms-throttle-retry-wait-time-ms": "REDACTED"
+2025-11-24 09:15:01 +05:30:   },
+2025-11-24 09:15:01 +05:30:   "request": {
+2025-11-24 09:15:01 +05:30:     "url": "https://fortknoxcosmos-brazilsouth.documents.azure.com:443/dbs/fortknox/colls/deposits/pkranges",
+2025-11-24 09:15:01 +05:30:     "method": "GET",
+2025-11-24 09:15:01 +05:30:     "headers": {
+2025-11-24 09:15:01 +05:30:       "x-ms-documentdb-responsecontinuationtokenlimitinkb": "REDACTED",
+2025-11-24 09:15:01 +05:30:       "x-ms-documentdb-query-enablecrosspartition": "REDACTED",
+2025-11-24 09:15:01 +05:30:       "cache-control": "no-cache",
+2025-11-24 09:15:01 +05:30:       "x-ms-version": "REDACTED",
+2025-11-24 09:15:01 +05:30:       "user-agent": "Node.js/24.11.1 (darwin; arm64) azure-cosmos-js/4.8.0",
+2025-11-24 09:15:01 +05:30:       "x-ms-useragent": "Node.js/24.11.1 (darwin; arm64) azure-cosmos-js/4.8.0",
+2025-11-24 09:15:01 +05:30:       "x-ms-cosmos-sdk-supportedcapabilities": "REDACTED",
+2025-11-24 09:15:01 +05:30:       "x-ms-cosmos-allow-tentative-writes": "REDACTED",
+2025-11-24 09:15:01 +05:30:       "x-ms-date": "REDACTED",
+2025-11-24 09:15:01 +05:30:       "accept": "application/json",
+2025-11-24 09:15:01 +05:30:       "authorization": "REDACTED"
+2025-11-24 09:15:01 +05:30:     },
+2025-11-24 09:15:01 +05:30:     "timeout": 0,
+2025-11-24 09:15:01 +05:30:     "withCredentials": false,
+2025-11-24 09:15:01 +05:30:     "enableBrowserStreams": false,
+2025-11-24 09:15:01 +05:30:     "disableKeepAlive": false,
+2025-11-24 09:15:01 +05:30:     "abortSignal": {},
+2025-11-24 09:15:01 +05:30:     "requestId": "5529d379-31d7-4158-a4f1-188b15c458e9",
+2025-11-24 09:15:01 +05:30:     "allowInsecureConnection": false,
+2025-11-24 09:15:01 +05:30:     "agent": {
+2025-11-24 09:15:01 +05:30:       "maxFreeSockets": 256,
+2025-11-24 09:15:01 +05:30:       "maxSockets": null
+2025-11-24 09:15:01 +05:30:     }
+2025-11-24 09:15:01 +05:30:   }
+2025-11-24 09:15:01 +05:30: }
+2025-11-24 09:15:01 +05:30: [Confirmation Tracker] Fatal error: RestError: read ETIMEDOUT 
+2025-11-24 09:15:01 +05:30:  {
+2025-11-24 09:15:01 +05:30:   "code": "ETIMEDOUT",
+2025-11-24 09:15:01 +05:30:   "name": "RestError",
+2025-11-24 09:15:01 +05:30:   "headers": {
+2025-11-24 09:15:01 +05:30:     "x-ms-request-charge": "REDACTED",
+2025-11-24 09:15:01 +05:30:     "x-ms-documentdb-query-metrics": "REDACTED"
+2025-11-24 09:15:01 +05:30:   },
+2025-11-24 09:15:01 +05:30:   "diagnostics": {
+2025-11-24 09:15:01 +05:30:     "clientSideRequestStatistics": {
+2025-11-24 09:15:01 +05:30:       "requestStartTimeUTCInMs": 1763953802675,
+2025-11-24 09:15:01 +05:30:       "requestDurationInMs": 2099161,
+2025-11-24 09:15:01 +05:30:       "totalRequestPayloadLengthInBytes": 232,
+2025-11-24 09:15:01 +05:30:       "totalResponsePayloadLengthInBytes": 1923,
+2025-11-24 09:15:01 +05:30:       "locationEndpointsContacted": [
+2025-11-24 09:15:01 +05:30:         "https://fortknoxcosmos-brazilsouth.documents.azure.com:443/"
+2025-11-24 09:15:01 +05:30:       ],
+2025-11-24 09:15:01 +05:30:       "metadataDiagnostics": {
+2025-11-24 09:15:01 +05:30:         "metadataLookups": [
+2025-11-24 09:15:01 +05:30:           {
+2025-11-24 09:15:01 +05:30:             "requestPayloadLengthInBytes": 116,
+2025-11-24 09:15:01 +05:30:             "responsePayloadLengthInBytes": 681,
+2025-11-24 09:15:01 +05:30:             "startTimeUTCInMs": 1763953802676,
+2025-11-24 09:15:01 +05:30:             "operationType": "read",
+2025-11-24 09:15:01 +05:30:             "resourceType": "docs",
+2025-11-24 09:15:01 +05:30:             "durationInMs": 499,
+2025-11-24 09:15:01 +05:30:             "metaDataType": "QUERY_PLAN_LOOK_UP"
+2025-11-24 09:15:01 +05:30:           }
+2025-11-24 09:15:01 +05:30:         ]
+2025-11-24 09:15:01 +05:30:       },
+2025-11-24 09:15:01 +05:30:       "retryDiagnostics": {
+2025-11-24 09:15:01 +05:30:         "failedAttempts": []
+2025-11-24 09:15:01 +05:30:       },
+2025-11-24 09:15:01 +05:30:       "gatewayStatistics": [
+2025-11-24 09:15:01 +05:30:         {
+2025-11-24 09:15:01 +05:30:           "activityId": "b81de2f2-41ff-49fe-a69d-59ae20166628",
+2025-11-24 09:15:01 +05:30:           "correlateActivityId": "6320f4d6-1b96-469a-9e47-4ccdedeb9c0e",
+2025-11-24 09:15:01 +05:30:           "startTimeUTCInMs": 1763953802676,
+2025-11-24 09:15:01 +05:30:           "durationInMs": 511,
+2025-11-24 09:15:01 +05:30:           "statusCode": 400,
+2025-11-24 09:15:01 +05:30:           "subStatusCode": 1004,
+2025-11-24 09:15:01 +05:30:           "requestPayloadLengthInBytes": 116,
+2025-11-24 09:15:01 +05:30:           "responsePayloadLengthInBytes": 1242,
+2025-11-24 09:15:01 +05:30:           "operationType": "query",
+2025-11-24 09:15:01 +05:30:           "resourceType": "docs"
+2025-11-24 09:15:01 +05:30:         }
+2025-11-24 09:15:01 +05:30:       ]
+2025-11-24 09:15:01 +05:30:     }
+2025-11-24 09:15:01 +05:30:   },
+2025-11-24 09:15:01 +05:30:   "request": {
+2025-11-24 09:15:01 +05:30:     "url": "https://fortknoxcosmos-brazilsouth.documents.azure.com:443/dbs/fortknox/colls/deposits/pkranges",
+2025-11-24 09:15:01 +05:30:     "method": "GET",
+2025-11-24 09:15:01 +05:30:     "headers": {
+2025-11-24 09:15:01 +05:30:       "x-ms-documentdb-responsecontinuationtokenlimitinkb": "REDACTED",
+2025-11-24 09:15:01 +05:30:       "x-ms-documentdb-query-enablecrosspartition": "REDACTED",
+2025-11-24 09:15:01 +05:30:       "cache-control": "no-cache",
+2025-11-24 09:15:01 +05:30:       "x-ms-version": "REDACTED",
+2025-11-24 09:15:01 +05:30:       "user-agent": "Node.js/24.11.1 (darwin; arm64) azure-cosmos-js/4.8.0",
+2025-11-24 09:15:01 +05:30:       "x-ms-useragent": "Node.js/24.11.1 (darwin; arm64) azure-cosmos-js/4.8.0",
+2025-11-24 09:15:01 +05:30:       "x-ms-cosmos-sdk-supportedcapabilities": "REDACTED",
+2025-11-24 09:15:01 +05:30:       "x-ms-cosmos-allow-tentative-writes": "REDACTED",
+2025-11-24 09:15:01 +05:30:       "x-ms-date": "REDACTED",
+2025-11-24 09:15:01 +05:30:       "accept": "application/json",
+2025-11-24 09:15:01 +05:30:       "authorization": "REDACTED"
+2025-11-24 09:15:01 +05:30:     },
+2025-11-24 09:15:01 +05:30:     "timeout": 0,
+2025-11-24 09:15:01 +05:30:     "withCredentials": false,
+2025-11-24 09:15:01 +05:30:     "enableBrowserStreams": false,
+2025-11-24 09:15:01 +05:30:     "disableKeepAlive": false,
+2025-11-24 09:15:01 +05:30:     "abortSignal": {},
+2025-11-24 09:15:01 +05:30:     "requestId": "5529d379-31d7-4158-a4f1-188b15c458e9",
+2025-11-24 09:15:01 +05:30:     "allowInsecureConnection": false,
+2025-11-24 09:15:01 +05:30:     "agent": {
+2025-11-24 09:15:01 +05:30:       "maxFreeSockets": 256,
+2025-11-24 09:15:01 +05:30:       "maxSockets": null
+2025-11-24 09:15:01 +05:30:     }
+2025-11-24 09:15:01 +05:30:   }
+2025-11-24 09:15:01 +05:30: }
+2025-11-24 09:15:01 +05:30:    ⚠️  Confirmation errors: 1
+2025-11-24 09:38:02 +05:30:    ❌ ETH: read ETIMEDOUT
+2025-11-24 10:17:37 +05:30:    ❌ ETH: read ETIMEDOUT
+2025-11-24 10:17:38 +05:30:    ❌ MATIC: read ETIMEDOUT
+2025-11-24 11:15:51 +05:30: [ETH Monitor] Error scanning address 0xA4AFF813050121a2b2b316758F7bE2480E41A55B: Error: request timeout (code=TIMEOUT, version=6.15.0)
+2025-11-24 11:15:51 +05:30:     at makeError (/Users/anurag/Downloads/voice-bharat-main/backend/fort-knox-exchange/node_modules/ethers/src.ts/utils/errors.ts:698:21)
+2025-11-24 11:15:51 +05:30:     at ClientRequest.<anonymous> (/Users/anurag/Downloads/voice-bharat-main/backend/fort-knox-exchange/node_modules/ethers/src.ts/utils/geturl.ts:66:33)
+2025-11-24 11:15:51 +05:30:     at ClientRequest.emit (node:events:508:28)
+2025-11-24 11:15:51 +05:30:     at TLSSocket.emitRequestTimeout (node:_http_client:927:9)
+2025-11-24 11:15:51 +05:30:     at Object.onceWrapper (node:events:622:28)
+2025-11-24 11:15:51 +05:30:     at TLSSocket.emit (node:events:520:35)
+2025-11-24 11:15:51 +05:30:     at Socket._onTimeout (node:net:604:8)
+2025-11-24 11:15:51 +05:30:     at listOnTimeout (node:internal/timers:605:17)
+2025-11-24 11:15:51 +05:30:     at process.processTimers (node:internal/timers:541:7) {
+2025-11-24 11:15:51 +05:30:   code: 'TIMEOUT',
+2025-11-24 11:15:51 +05:30:   shortMessage: 'request timeout'
+2025-11-24 11:15:51 +05:30: }
+2025-11-24 11:15:51 +05:30:    ⚠️  ETH: 1 errors
+2025-11-24 11:35:39 +05:30: [ETH Monitor] Error scanning address 0xA4AFF813050121a2b2b316758F7bE2480E41A55B: Error: request timeout (code=TIMEOUT, version=6.15.0)
+2025-11-24 11:35:39 +05:30:     at makeError (/Users/anurag/Downloads/voice-bharat-main/backend/fort-knox-exchange/node_modules/ethers/src.ts/utils/errors.ts:698:21)
+2025-11-24 11:35:39 +05:30:     at ClientRequest.<anonymous> (/Users/anurag/Downloads/voice-bharat-main/backend/fort-knox-exchange/node_modules/ethers/src.ts/utils/geturl.ts:66:33)
+2025-11-24 11:35:39 +05:30:     at ClientRequest.emit (node:events:508:28)
+2025-11-24 11:35:39 +05:30:     at TLSSocket.emitRequestTimeout (node:_http_client:927:9)
+2025-11-24 11:35:39 +05:30:     at Object.onceWrapper (node:events:622:28)
+2025-11-24 11:35:39 +05:30:     at TLSSocket.emit (node:events:520:35)
+2025-11-24 11:35:39 +05:30:     at Socket._onTimeout (node:net:604:8)
+2025-11-24 11:35:39 +05:30:     at listOnTimeout (node:internal/timers:605:17)
+2025-11-24 11:35:39 +05:30:     at process.processTimers (node:internal/timers:541:7) {
+2025-11-24 11:35:39 +05:30:   code: 'TIMEOUT',
+2025-11-24 11:35:39 +05:30:   shortMessage: 'request timeout'
+2025-11-24 11:35:39 +05:30: }
+2025-11-24 11:35:39 +05:30:    ⚠️  ETH: 1 errors
+2025-11-24 11:36:07 +05:30: [ETH Monitor] Error scanning address 0xA4AFF813050121a2b2b316758F7bE2480E41A55B: Error: request timeout (code=TIMEOUT, version=6.15.0)
+2025-11-24 11:36:07 +05:30:     at makeError (/Users/anurag/Downloads/voice-bharat-main/backend/fort-knox-exchange/node_modules/ethers/src.ts/utils/errors.ts:698:21)
+2025-11-24 11:36:07 +05:30:     at ClientRequest.<anonymous> (/Users/anurag/Downloads/voice-bharat-main/backend/fort-knox-exchange/node_modules/ethers/src.ts/utils/geturl.ts:66:33)
+2025-11-24 11:36:07 +05:30:     at ClientRequest.emit (node:events:508:28)
+2025-11-24 11:36:07 +05:30:     at TLSSocket.emitRequestTimeout (node:_http_client:927:9)
+2025-11-24 11:36:07 +05:30:     at Object.onceWrapper (node:events:622:28)
+2025-11-24 11:36:07 +05:30:     at TLSSocket.emit (node:events:520:35)
+2025-11-24 11:36:07 +05:30:     at Socket._onTimeout (node:net:604:8)
+2025-11-24 11:36:07 +05:30:     at listOnTimeout (node:internal/timers:605:17)
+2025-11-24 11:36:07 +05:30:     at process.processTimers (node:internal/timers:541:7) {
+2025-11-24 11:36:07 +05:30:   code: 'TIMEOUT',
+2025-11-24 11:36:07 +05:30:   shortMessage: 'request timeout'
+2025-11-24 11:36:07 +05:30: }
+2025-11-24 11:36:07 +05:30:    ⚠️  MATIC: 1 errors
+2025-11-24 11:36:50 +05:30: [ETH Monitor] Error scanning address 0xA4AFF813050121a2b2b316758F7bE2480E41A55B: Error: request timeout (code=TIMEOUT, version=6.15.0)
+2025-11-24 11:36:51 +05:30:     at makeError (/Users/anurag/Downloads/voice-bharat-main/backend/fort-knox-exchange/node_modules/ethers/src.ts/utils/errors.ts:698:21)
+2025-11-24 11:36:51 +05:30:     at ClientRequest.<anonymous> (/Users/anurag/Downloads/voice-bharat-main/backend/fort-knox-exchange/node_modules/ethers/src.ts/utils/geturl.ts:66:33)
+2025-11-24 11:36:51 +05:30:     at ClientRequest.emit (node:events:508:28)
+2025-11-24 11:36:51 +05:30:     at TLSSocket.emitRequestTimeout (node:_http_client:927:9)
+2025-11-24 11:36:51 +05:30:     at Object.onceWrapper (node:events:622:28)
+2025-11-24 11:36:51 +05:30:     at TLSSocket.emit (node:events:520:35)
+2025-11-24 11:36:51 +05:30:     at Socket._onTimeout (node:net:604:8)
+2025-11-24 11:36:51 +05:30:     at listOnTimeout (node:internal/timers:605:17)
+2025-11-24 11:36:51 +05:30:     at process.processTimers (node:internal/timers:541:7) {
+2025-11-24 11:36:51 +05:30:   code: 'TIMEOUT',
+2025-11-24 11:36:51 +05:30:   shortMessage: 'request timeout'
+2025-11-24 11:36:51 +05:30: }
+2025-11-24 11:36:52 +05:30:    ⚠️  ETH: 1 errors
+2025-11-24 11:42:16 +05:30: [ETH Monitor] Error scanning address 0xA4AFF813050121a2b2b316758F7bE2480E41A55B: Error: read ECONNRESET
+2025-11-24 11:42:16 +05:30:     at TLSWrap.onStreamRead (node:internal/stream_base_commons:216:20) {
+2025-11-24 11:42:16 +05:30:   errno: -54,
+2025-11-24 11:42:16 +05:30:   code: 'ECONNRESET',
+2025-11-24 11:42:16 +05:30:   syscall: 'read'
+2025-11-24 11:42:16 +05:30: }
+2025-11-24 11:42:16 +05:30:    ⚠️  MATIC: 1 errors
+2025-11-24 11:48:37 +05:30: [ETH Monitor] Error scanning address 0xA4AFF813050121a2b2b316758F7bE2480E41A55B: Error: request timeout (code=TIMEOUT, version=6.15.0)
+2025-11-24 11:48:37 +05:30:     at makeError (/Users/anurag/Downloads/voice-bharat-main/backend/fort-knox-exchange/node_modules/ethers/src.ts/utils/errors.ts:698:21)
+2025-11-24 11:48:37 +05:30:     at ClientRequest.<anonymous> (/Users/anurag/Downloads/voice-bharat-main/backend/fort-knox-exchange/node_modules/ethers/src.ts/utils/geturl.ts:66:33)
+2025-11-24 11:48:37 +05:30:     at ClientRequest.emit (node:events:508:28)
+2025-11-24 11:48:37 +05:30:     at TLSSocket.emitRequestTimeout (node:_http_client:927:9)
+2025-11-24 11:48:37 +05:30:     at Object.onceWrapper (node:events:622:28)
+2025-11-24 11:48:37 +05:30:     at TLSSocket.emit (node:events:520:35)
+2025-11-24 11:48:37 +05:30:     at Socket._onTimeout (node:net:604:8)
+2025-11-24 11:48:37 +05:30:     at listOnTimeout (node:internal/timers:605:17)
+2025-11-24 11:48:37 +05:30:     at process.processTimers (node:internal/timers:541:7) {
+2025-11-24 11:48:37 +05:30:   code: 'TIMEOUT',
+2025-11-24 11:48:37 +05:30:   shortMessage: 'request timeout'
+2025-11-24 11:48:37 +05:30: }
+2025-11-24 11:48:37 +05:30:    ⚠️  MATIC: 1 errors
+2025-11-24 14:05:06 +05:30:    ❌ ETH: read ETIMEDOUT
+2025-11-24 14:32:23 +05:30:    ❌ ETH: read ETIMEDOUT
+2025-11-24 14:45:01 +05:30:    ❌ ETH: read ETIMEDOUT
+2025-11-24 15:07:29 +05:30:    ❌ ETH: read ETIMEDOUT
+2025-11-24 15:15:28 +05:30:    ❌ ETH: read ETIMEDOUT
+2025-11-24 15:47:00 +05:30:    ❌ ETH: read ETIMEDOUT
+2025-11-25 09:11:34 +05:30: [Confirmation Tracker] Fatal error: RestError: read ETIMEDOUT 
+2025-11-25 09:11:34 +05:30:  {
+2025-11-25 09:11:34 +05:30:   "code": "ETIMEDOUT",
+2025-11-25 09:11:34 +05:30:   "name": "RestError",
+2025-11-25 09:11:34 +05:30:   "headers": {
+2025-11-25 09:11:34 +05:30:     "x-ms-cosmos-correlated-activityid": "REDACTED",
+2025-11-25 09:11:34 +05:30:     "x-ms-throttle-retry-count": "REDACTED",
+2025-11-25 09:11:34 +05:30:     "x-ms-throttle-retry-wait-time-ms": "REDACTED"
+2025-11-25 09:11:34 +05:30:   },
+2025-11-25 09:11:34 +05:30:   "diagnostics": {
+2025-11-25 09:11:34 +05:30:     "clientSideRequestStatistics": {
+2025-11-25 09:11:34 +05:30:       "requestStartTimeUTCInMs": 1764042059008,
+2025-11-25 09:11:34 +05:30:       "requestDurationInMs": 35381,
+2025-11-25 09:11:34 +05:30:       "totalRequestPayloadLengthInBytes": 0,
+2025-11-25 09:11:34 +05:30:       "totalResponsePayloadLengthInBytes": 0,
+2025-11-25 09:11:34 +05:30:       "locationEndpointsContacted": [
+2025-11-25 09:11:34 +05:30:         "https://fortknoxcosmos-brazilsouth.documents.azure.com:443/"
+2025-11-25 09:11:34 +05:30:       ],
+2025-11-25 09:11:34 +05:30:       "metadataDiagnostics": {
+2025-11-25 09:11:34 +05:30:         "metadataLookups": []
+2025-11-25 09:11:34 +05:30:       },
+2025-11-25 09:11:34 +05:30:       "retryDiagnostics": {
+2025-11-25 09:11:34 +05:30:         "failedAttempts": []
+2025-11-25 09:11:34 +05:30:       },
+2025-11-25 09:11:34 +05:30:       "gatewayStatistics": []
+2025-11-25 09:11:34 +05:30:     }
+2025-11-25 09:11:34 +05:30:   },
+2025-11-25 09:11:34 +05:30:   "request": {
+2025-11-25 09:11:34 +05:30:     "url": "https://fortknoxcosmos-brazilsouth.documents.azure.com:443/dbs/fortknox/colls/deposits/docs",
+2025-11-25 09:11:34 +05:30:     "method": "POST",
+2025-11-25 09:11:34 +05:30:     "headers": {
+2025-11-25 09:11:34 +05:30:       "x-ms-documentdb-responsecontinuationtokenlimitinkb": "REDACTED",
+2025-11-25 09:11:34 +05:30:       "x-ms-documentdb-query-enablecrosspartition": "REDACTED",
+2025-11-25 09:11:34 +05:30:       "cache-control": "no-cache",
+2025-11-25 09:11:34 +05:30:       "x-ms-version": "REDACTED",
+2025-11-25 09:11:34 +05:30:       "user-agent": "Node.js/24.11.1 (darwin; arm64) azure-cosmos-js/4.8.0",
+2025-11-25 09:11:34 +05:30:       "x-ms-useragent": "Node.js/24.11.1 (darwin; arm64) azure-cosmos-js/4.8.0",
+2025-11-25 09:11:34 +05:30:       "x-ms-cosmos-sdk-supportedcapabilities": "REDACTED",
+2025-11-25 09:11:34 +05:30:       "x-ms-cosmos-allow-tentative-writes": "REDACTED",
+2025-11-25 09:11:34 +05:30:       "x-ms-date": "REDACTED",
+2025-11-25 09:11:34 +05:30:       "content-type": "application/query+json",
+2025-11-25 09:11:34 +05:30:       "accept": "application/json",
+2025-11-25 09:11:34 +05:30:       "authorization": "REDACTED",
+2025-11-25 09:11:34 +05:30:       "x-ms-cosmos-correlated-activityid": "REDACTED",
+2025-11-25 09:11:34 +05:30:       "x-ms-documentdb-isquery": "REDACTED",
+2025-11-25 09:11:34 +05:30:       "content-length": "116"
+2025-11-25 09:11:34 +05:30:     },
+2025-11-25 09:11:34 +05:30:     "timeout": 0,
+2025-11-25 09:11:34 +05:30:     "withCredentials": false,
+2025-11-25 09:11:34 +05:30:     "enableBrowserStreams": false,
+2025-11-25 09:11:34 +05:30:     "disableKeepAlive": false,
+2025-11-25 09:11:34 +05:30:     "abortSignal": {},
+2025-11-25 09:11:34 +05:30:     "requestId": "592e18c4-e0e4-4d95-a86c-474dc2a44b77",
+2025-11-25 09:11:34 +05:30:     "allowInsecureConnection": false,
+2025-11-25 09:11:34 +05:30:     "agent": {
+2025-11-25 09:11:34 +05:30:       "maxFreeSockets": 256,
+2025-11-25 09:11:34 +05:30:       "maxSockets": null
+2025-11-25 09:11:34 +05:30:     }
+2025-11-25 09:11:34 +05:30:   }
+2025-11-25 09:11:34 +05:30: }
+2025-11-25 09:11:34 +05:30:    ⚠️  Confirmation errors: 1
+2025-11-25 09:13:47 +05:30: [Confirmation Tracker] Fatal error: RestError: read ETIMEDOUT 
+2025-11-25 09:13:47 +05:30:  {
+2025-11-25 09:13:47 +05:30:   "code": "ETIMEDOUT",
+2025-11-25 09:13:47 +05:30:   "name": "RestError",
+2025-11-25 09:13:47 +05:30:   "headers": {
+2025-11-25 09:13:47 +05:30:     "x-ms-cosmos-correlated-activityid": "REDACTED",
+2025-11-25 09:13:47 +05:30:     "x-ms-throttle-retry-count": "REDACTED",
+2025-11-25 09:13:47 +05:30:     "x-ms-throttle-retry-wait-time-ms": "REDACTED"
+2025-11-25 09:13:47 +05:30:   },
+2025-11-25 09:13:47 +05:30:   "diagnostics": {
+2025-11-25 09:13:47 +05:30:     "clientSideRequestStatistics": {
+2025-11-25 09:13:47 +05:30:       "requestStartTimeUTCInMs": 1764042203595,
+2025-11-25 09:13:47 +05:30:       "requestDurationInMs": 24372,
+2025-11-25 09:13:47 +05:30:       "totalRequestPayloadLengthInBytes": 0,
+2025-11-25 09:13:47 +05:30:       "totalResponsePayloadLengthInBytes": 0,
+2025-11-25 09:13:47 +05:30:       "locationEndpointsContacted": [
+2025-11-25 09:13:47 +05:30:         "https://fortknoxcosmos-brazilsouth.documents.azure.com:443/"
+2025-11-25 09:13:47 +05:30:       ],
+2025-11-25 09:13:47 +05:30:       "metadataDiagnostics": {
+2025-11-25 09:13:47 +05:30:         "metadataLookups": []
+2025-11-25 09:13:47 +05:30:       },
+2025-11-25 09:13:47 +05:30:       "retryDiagnostics": {
+2025-11-25 09:13:47 +05:30:         "failedAttempts": []
+2025-11-25 09:13:47 +05:30:       },
+2025-11-25 09:13:47 +05:30:       "gatewayStatistics": []
+2025-11-25 09:13:47 +05:30:     }
+2025-11-25 09:13:47 +05:30:   },
+2025-11-25 09:13:47 +05:30:   "request": {
+2025-11-25 09:13:47 +05:30:     "url": "https://fortknoxcosmos-brazilsouth.documents.azure.com:443/dbs/fortknox/colls/deposits/docs",
+2025-11-25 09:13:47 +05:30:     "method": "POST",
+2025-11-25 09:13:47 +05:30:     "headers": {
+2025-11-25 09:13:47 +05:30:       "x-ms-documentdb-responsecontinuationtokenlimitinkb": "REDACTED",
+2025-11-25 09:13:47 +05:30:       "x-ms-documentdb-query-enablecrosspartition": "REDACTED",
+2025-11-25 09:13:47 +05:30:       "cache-control": "no-cache",
+2025-11-25 09:13:47 +05:30:       "x-ms-version": "REDACTED",
+2025-11-25 09:13:47 +05:30:       "user-agent": "Node.js/24.11.1 (darwin; arm64) azure-cosmos-js/4.8.0",
+2025-11-25 09:13:47 +05:30:       "x-ms-useragent": "Node.js/24.11.1 (darwin; arm64) azure-cosmos-js/4.8.0",
+2025-11-25 09:13:47 +05:30:       "x-ms-cosmos-sdk-supportedcapabilities": "REDACTED",
+2025-11-25 09:13:47 +05:30:       "x-ms-cosmos-allow-tentative-writes": "REDACTED",
+2025-11-25 09:13:47 +05:30:       "x-ms-date": "REDACTED",
+2025-11-25 09:13:47 +05:30:       "content-type": "application/query+json",
+2025-11-25 09:13:47 +05:30:       "accept": "application/json",
+2025-11-25 09:13:47 +05:30:       "authorization": "REDACTED",
+2025-11-25 09:13:47 +05:30:       "x-ms-cosmos-correlated-activityid": "REDACTED",
+2025-11-25 09:13:47 +05:30:       "x-ms-documentdb-isquery": "REDACTED",
+2025-11-25 09:13:47 +05:30:       "content-length": "116"
+2025-11-25 09:13:47 +05:30:     },
+2025-11-25 09:13:47 +05:30:     "timeout": 0,
+2025-11-25 09:13:47 +05:30:     "withCredentials": false,
+2025-11-25 09:13:47 +05:30:     "enableBrowserStreams": false,
+2025-11-25 09:13:47 +05:30:     "disableKeepAlive": false,
+2025-11-25 09:13:47 +05:30:     "abortSignal": {},
+2025-11-25 09:13:47 +05:30:     "requestId": "d995e7d7-2824-4694-97cc-2abe861d3267",
+2025-11-25 09:13:47 +05:30:     "allowInsecureConnection": false,
+2025-11-25 09:13:47 +05:30:     "agent": {
+2025-11-25 09:13:47 +05:30:       "maxFreeSockets": 256,
+2025-11-25 09:13:47 +05:30:       "maxSockets": null
+2025-11-25 09:13:47 +05:30:     }
+2025-11-25 09:13:47 +05:30:   }
+2025-11-25 09:13:47 +05:30: }
+2025-11-25 09:13:47 +05:30:    ⚠️  Confirmation errors: 1
+2025-11-25 09:14:58 +05:30:    ❌ BSC: read ETIMEDOUT
+2025-11-25 09:22:11 +05:30: Error fetching more results: RestError: read ETIMEDOUT 
+2025-11-25 09:22:11 +05:30:  {
+2025-11-25 09:22:11 +05:30:   "code": "ETIMEDOUT",
+2025-11-25 09:22:11 +05:30:   "name": "RestError",
+2025-11-25 09:22:11 +05:30:   "headers": {
+2025-11-25 09:22:11 +05:30:     "x-ms-request-charge": "REDACTED",
+2025-11-25 09:22:11 +05:30:     "x-ms-documentdb-query-metrics": "REDACTED"
+2025-11-25 09:22:11 +05:30:   },
+2025-11-25 09:22:11 +05:30:   "request": {
+2025-11-25 09:22:11 +05:30:     "url": "https://fortknoxcosmos-brazilsouth.documents.azure.com:443/dbs/fortknox/colls/deposits/docs",
+2025-11-25 09:22:11 +05:30:     "method": "POST",
+2025-11-25 09:22:11 +05:30:     "headers": {
+2025-11-25 09:22:11 +05:30:       "x-ms-documentdb-responsecontinuationtokenlimitinkb": "REDACTED",
+2025-11-25 09:22:11 +05:30:       "x-ms-documentdb-query-enablecrosspartition": "REDACTED",
+2025-11-25 09:22:11 +05:30:       "cache-control": "no-cache",
+2025-11-25 09:22:11 +05:30:       "x-ms-version": "REDACTED",
+2025-11-25 09:22:11 +05:30:       "user-agent": "Node.js/24.11.1 (darwin; arm64) azure-cosmos-js/4.8.0",
+2025-11-25 09:22:11 +05:30:       "x-ms-useragent": "Node.js/24.11.1 (darwin; arm64) azure-cosmos-js/4.8.0",
+2025-11-25 09:22:11 +05:30:       "x-ms-cosmos-sdk-supportedcapabilities": "REDACTED",
+2025-11-25 09:22:11 +05:30:       "x-ms-cosmos-allow-tentative-writes": "REDACTED",
+2025-11-25 09:22:11 +05:30:       "x-ms-documentdb-partitionkeyrangeid": "REDACTED",
+2025-11-25 09:22:11 +05:30:       "x-ms-date": "REDACTED",
+2025-11-25 09:22:11 +05:30:       "content-type": "application/query+json",
+2025-11-25 09:22:11 +05:30:       "accept": "application/json",
+2025-11-25 09:22:11 +05:30:       "authorization": "REDACTED",
+2025-11-25 09:22:11 +05:30:       "x-ms-cosmos-correlated-activityid": "REDACTED",
+2025-11-25 09:22:11 +05:30:       "x-ms-documentdb-isquery": "REDACTED",
+2025-11-25 09:22:11 +05:30:       "content-length": "196"
+2025-11-25 09:22:11 +05:30:     },
+2025-11-25 09:22:11 +05:30:     "timeout": 0,
+2025-11-25 09:22:11 +05:30:     "withCredentials": false,
+2025-11-25 09:22:11 +05:30:     "enableBrowserStreams": false,
+2025-11-25 09:22:11 +05:30:     "disableKeepAlive": false,
+2025-11-25 09:22:11 +05:30:     "abortSignal": {},
+2025-11-25 09:22:11 +05:30:     "requestId": "3933177c-75eb-42ed-9a11-64e06430a4ac",
+2025-11-25 09:22:11 +05:30:     "allowInsecureConnection": false,
+2025-11-25 09:22:11 +05:30:     "agent": {
+2025-11-25 09:22:11 +05:30:       "maxFreeSockets": 256,
+2025-11-25 09:22:11 +05:30:       "maxSockets": null
+2025-11-25 09:22:11 +05:30:     }
+2025-11-25 09:22:11 +05:30:   }
+2025-11-25 09:22:11 +05:30: }
+2025-11-25 09:22:11 +05:30: [Confirmation Tracker] Fatal error: RestError: read ETIMEDOUT 
+2025-11-25 09:22:11 +05:30:  {
+2025-11-25 09:22:11 +05:30:   "code": "ETIMEDOUT",
+2025-11-25 09:22:11 +05:30:   "name": "RestError",
+2025-11-25 09:22:11 +05:30:   "headers": {
+2025-11-25 09:22:11 +05:30:     "x-ms-request-charge": "REDACTED",
+2025-11-25 09:22:11 +05:30:     "x-ms-documentdb-query-metrics": "REDACTED"
+2025-11-25 09:22:11 +05:30:   },
+2025-11-25 09:22:11 +05:30:   "diagnostics": {
+2025-11-25 09:22:11 +05:30:     "clientSideRequestStatistics": {
+2025-11-25 09:22:11 +05:30:       "requestStartTimeUTCInMs": 1764042694295,
+2025-11-25 09:22:11 +05:30:       "requestDurationInMs": 37304,
+2025-11-25 09:22:11 +05:30:       "totalRequestPayloadLengthInBytes": 232,
+2025-11-25 09:22:11 +05:30:       "totalResponsePayloadLengthInBytes": 1923,
+2025-11-25 09:22:11 +05:30:       "locationEndpointsContacted": [
+2025-11-25 09:22:11 +05:30:         "https://fortknoxcosmos-brazilsouth.documents.azure.com:443/"
+2025-11-25 09:22:11 +05:30:       ],
+2025-11-25 09:22:11 +05:30:       "metadataDiagnostics": {
+2025-11-25 09:22:11 +05:30:         "metadataLookups": [
+2025-11-25 09:22:11 +05:30:           {
+2025-11-25 09:22:11 +05:30:             "requestPayloadLengthInBytes": 116,
+2025-11-25 09:22:11 +05:30:             "responsePayloadLengthInBytes": 681,
+2025-11-25 09:22:11 +05:30:             "startTimeUTCInMs": 1764042694295,
+2025-11-25 09:22:11 +05:30:             "operationType": "read",
+2025-11-25 09:22:11 +05:30:             "resourceType": "docs",
+2025-11-25 09:22:11 +05:30:             "durationInMs": 364,
+2025-11-25 09:22:11 +05:30:             "metaDataType": "QUERY_PLAN_LOOK_UP"
+2025-11-25 09:22:11 +05:30:           }
+2025-11-25 09:22:11 +05:30:         ]
+2025-11-25 09:22:11 +05:30:       },
+2025-11-25 09:22:11 +05:30:       "retryDiagnostics": {
+2025-11-25 09:22:11 +05:30:         "failedAttempts": []
+2025-11-25 09:22:11 +05:30:       },
+2025-11-25 09:22:11 +05:30:       "gatewayStatistics": [
+2025-11-25 09:22:11 +05:30:         {
+2025-11-25 09:22:11 +05:30:           "activityId": "cabe6146-ff92-45fc-bee8-6bc0f580f630",
+2025-11-25 09:22:11 +05:30:           "correlateActivityId": "1ac93e27-af2c-4873-b922-006bbf5a1405",
+2025-11-25 09:22:11 +05:30:           "startTimeUTCInMs": 1764042694296,
+2025-11-25 09:22:11 +05:30:           "durationInMs": 1718,
+2025-11-25 09:22:11 +05:30:           "statusCode": 400,
+2025-11-25 09:22:11 +05:30:           "subStatusCode": 1004,
+2025-11-25 09:22:11 +05:30:           "requestPayloadLengthInBytes": 116,
+2025-11-25 09:22:11 +05:30:           "responsePayloadLengthInBytes": 1242,
+2025-11-25 09:22:11 +05:30:           "operationType": "query",
+2025-11-25 09:22:11 +05:30:           "resourceType": "docs"
+2025-11-25 09:22:11 +05:30:         }
+2025-11-25 09:22:11 +05:30:       ]
+2025-11-25 09:22:11 +05:30:     }
+2025-11-25 09:22:11 +05:30:   },
+2025-11-25 09:22:11 +05:30:   "request": {
+2025-11-25 09:22:11 +05:30:     "url": "https://fortknoxcosmos-brazilsouth.documents.azure.com:443/dbs/fortknox/colls/deposits/docs",
+2025-11-25 09:22:11 +05:30:     "method": "POST",
+2025-11-25 09:22:11 +05:30:     "headers": {
+2025-11-25 09:22:11 +05:30:       "x-ms-documentdb-responsecontinuationtokenlimitinkb": "REDACTED",
+2025-11-25 09:22:11 +05:30:       "x-ms-documentdb-query-enablecrosspartition": "REDACTED",
+2025-11-25 09:22:11 +05:30:       "cache-control": "no-cache",
+2025-11-25 09:22:11 +05:30:       "x-ms-version": "REDACTED",
+2025-11-25 09:22:11 +05:30:       "user-agent": "Node.js/24.11.1 (darwin; arm64) azure-cosmos-js/4.8.0",
+2025-11-25 09:22:11 +05:30:       "x-ms-useragent": "Node.js/24.11.1 (darwin; arm64) azure-cosmos-js/4.8.0",
+2025-11-25 09:22:11 +05:30:       "x-ms-cosmos-sdk-supportedcapabilities": "REDACTED",
+2025-11-25 09:22:11 +05:30:       "x-ms-cosmos-allow-tentative-writes": "REDACTED",
+2025-11-25 09:22:11 +05:30:       "x-ms-documentdb-partitionkeyrangeid": "REDACTED",
+2025-11-25 09:22:11 +05:30:       "x-ms-date": "REDACTED",
+2025-11-25 09:22:11 +05:30:       "content-type": "application/query+json",
+2025-11-25 09:22:11 +05:30:       "accept": "application/json",
+2025-11-25 09:22:11 +05:30:       "authorization": "REDACTED",
+2025-11-25 09:22:11 +05:30:       "x-ms-cosmos-correlated-activityid": "REDACTED",
+2025-11-25 09:22:11 +05:30:       "x-ms-documentdb-isquery": "REDACTED",
+2025-11-25 09:22:11 +05:30:       "content-length": "196"
+2025-11-25 09:22:11 +05:30:     },
+2025-11-25 09:22:11 +05:30:     "timeout": 0,
+2025-11-25 09:22:11 +05:30:     "withCredentials": false,
+2025-11-25 09:22:11 +05:30:     "enableBrowserStreams": false,
+2025-11-25 09:22:11 +05:30:     "disableKeepAlive": false,
+2025-11-25 09:22:11 +05:30:     "abortSignal": {},
+2025-11-25 09:22:11 +05:30:     "requestId": "3933177c-75eb-42ed-9a11-64e06430a4ac",
+2025-11-25 09:22:11 +05:30:     "allowInsecureConnection": false,
+2025-11-25 09:22:11 +05:30:     "agent": {
+2025-11-25 09:22:11 +05:30:       "maxFreeSockets": 256,
+2025-11-25 09:22:11 +05:30:       "maxSockets": null
+2025-11-25 09:22:11 +05:30:     }
+2025-11-25 09:22:11 +05:30:   }
+2025-11-25 09:22:11 +05:30: }
+2025-11-25 09:22:11 +05:30:    ⚠️  Confirmation errors: 1
+2025-11-25 09:24:35 +05:30: Error fetching more results: RestError: read ETIMEDOUT 
+2025-11-25 09:24:35 +05:30:  {
+2025-11-25 09:24:35 +05:30:   "code": "ETIMEDOUT",
+2025-11-25 09:24:35 +05:30:   "name": "RestError",
+2025-11-25 09:24:35 +05:30:   "headers": {
+2025-11-25 09:24:35 +05:30:     "x-ms-request-charge": "REDACTED",
+2025-11-25 09:24:35 +05:30:     "x-ms-documentdb-query-metrics": "REDACTED"
+2025-11-25 09:24:35 +05:30:   },
+2025-11-25 09:24:35 +05:30:   "request": {
+2025-11-25 09:24:35 +05:30:     "url": "https://fortknoxcosmos-brazilsouth.documents.azure.com:443/dbs/fortknox/colls/deposits/docs",
+2025-11-25 09:24:35 +05:30:     "method": "POST",
+2025-11-25 09:24:35 +05:30:     "headers": {
+2025-11-25 09:24:35 +05:30:       "x-ms-documentdb-responsecontinuationtokenlimitinkb": "REDACTED",
+2025-11-25 09:24:35 +05:30:       "x-ms-documentdb-query-enablecrosspartition": "REDACTED",
+2025-11-25 09:24:35 +05:30:       "cache-control": "no-cache",
+2025-11-25 09:24:35 +05:30:       "x-ms-version": "REDACTED",
+2025-11-25 09:24:35 +05:30:       "user-agent": "Node.js/24.11.1 (darwin; arm64) azure-cosmos-js/4.8.0",
+2025-11-25 09:24:35 +05:30:       "x-ms-useragent": "Node.js/24.11.1 (darwin; arm64) azure-cosmos-js/4.8.0",
+2025-11-25 09:24:35 +05:30:       "x-ms-cosmos-sdk-supportedcapabilities": "REDACTED",
+2025-11-25 09:24:35 +05:30:       "x-ms-cosmos-allow-tentative-writes": "REDACTED",
+2025-11-25 09:24:35 +05:30:       "x-ms-documentdb-partitionkeyrangeid": "REDACTED",
+2025-11-25 09:24:35 +05:30:       "x-ms-date": "REDACTED",
+2025-11-25 09:24:35 +05:30:       "content-type": "application/query+json",
+2025-11-25 09:24:35 +05:30:       "accept": "application/json",
+2025-11-25 09:24:35 +05:30:       "authorization": "REDACTED",
+2025-11-25 09:24:35 +05:30:       "x-ms-cosmos-correlated-activityid": "REDACTED",
+2025-11-25 09:24:35 +05:30:       "x-ms-documentdb-isquery": "REDACTED",
+2025-11-25 09:24:35 +05:30:       "content-length": "196"
+2025-11-25 09:24:35 +05:30:     },
+2025-11-25 09:24:35 +05:30:     "timeout": 0,
+2025-11-25 09:24:35 +05:30:     "withCredentials": false,
+2025-11-25 09:24:35 +05:30:     "enableBrowserStreams": false,
+2025-11-25 09:24:35 +05:30:     "disableKeepAlive": false,
+2025-11-25 09:24:35 +05:30:     "abortSignal": {},
+2025-11-25 09:24:35 +05:30:     "requestId": "a06c7cc7-e997-45d5-8501-66261e3854a9",
+2025-11-25 09:24:35 +05:30:     "allowInsecureConnection": false,
+2025-11-25 09:24:35 +05:30:     "agent": {
+2025-11-25 09:24:35 +05:30:       "maxFreeSockets": 256,
+2025-11-25 09:24:35 +05:30:       "maxSockets": null
+2025-11-25 09:24:35 +05:30:     }
+2025-11-25 09:24:35 +05:30:   }
+2025-11-25 09:24:35 +05:30: }
+2025-11-25 09:24:35 +05:30: [Confirmation Tracker] Fatal error: RestError: read ETIMEDOUT 
+2025-11-25 09:24:35 +05:30:  {
+2025-11-25 09:24:35 +05:30:   "code": "ETIMEDOUT",
+2025-11-25 09:24:35 +05:30:   "name": "RestError",
+2025-11-25 09:24:35 +05:30:   "headers": {
+2025-11-25 09:24:35 +05:30:     "x-ms-request-charge": "REDACTED",
+2025-11-25 09:24:35 +05:30:     "x-ms-documentdb-query-metrics": "REDACTED"
+2025-11-25 09:24:35 +05:30:   },
+2025-11-25 09:24:35 +05:30:   "diagnostics": {
+2025-11-25 09:24:35 +05:30:     "clientSideRequestStatistics": {
+2025-11-25 09:24:35 +05:30:       "requestStartTimeUTCInMs": 1764042839287,
+2025-11-25 09:24:35 +05:30:       "requestDurationInMs": 36588,
+2025-11-25 09:24:35 +05:30:       "totalRequestPayloadLengthInBytes": 232,
+2025-11-25 09:24:35 +05:30:       "totalResponsePayloadLengthInBytes": 1923,
+2025-11-25 09:24:35 +05:30:       "locationEndpointsContacted": [
+2025-11-25 09:24:35 +05:30:         "https://fortknoxcosmos-brazilsouth.documents.azure.com:443/"
+2025-11-25 09:24:35 +05:30:       ],
+2025-11-25 09:24:35 +05:30:       "metadataDiagnostics": {
+2025-11-25 09:24:35 +05:30:         "metadataLookups": [
+2025-11-25 09:24:35 +05:30:           {
+2025-11-25 09:24:35 +05:30:             "requestPayloadLengthInBytes": 116,
+2025-11-25 09:24:35 +05:30:             "responsePayloadLengthInBytes": 681,
+2025-11-25 09:24:35 +05:30:             "startTimeUTCInMs": 1764042839288,
+2025-11-25 09:24:35 +05:30:             "operationType": "read",
+2025-11-25 09:24:35 +05:30:             "resourceType": "docs",
+2025-11-25 09:24:35 +05:30:             "durationInMs": 363,
+2025-11-25 09:24:35 +05:30:             "metaDataType": "QUERY_PLAN_LOOK_UP"
+2025-11-25 09:24:35 +05:30:           }
+2025-11-25 09:24:35 +05:30:         ]
+2025-11-25 09:24:35 +05:30:       },
+2025-11-25 09:24:35 +05:30:       "retryDiagnostics": {
+2025-11-25 09:24:35 +05:30:         "failedAttempts": []
+2025-11-25 09:24:35 +05:30:       },
+2025-11-25 09:24:35 +05:30:       "gatewayStatistics": [
+2025-11-25 09:24:35 +05:30:         {
+2025-11-25 09:24:35 +05:30:           "activityId": "723f7c27-7822-433b-870e-ef1ea37bc72d",
+2025-11-25 09:24:35 +05:30:           "correlateActivityId": "78fc8bae-f8e2-4c6c-ae8f-d9a3bb5fbcfe",
+2025-11-25 09:24:35 +05:30:           "startTimeUTCInMs": 1764042839288,
+2025-11-25 09:24:35 +05:30:           "durationInMs": 375,
+2025-11-25 09:24:35 +05:30:           "statusCode": 400,
+2025-11-25 09:24:35 +05:30:           "subStatusCode": 1004,
+2025-11-25 09:24:35 +05:30:           "requestPayloadLengthInBytes": 116,
+2025-11-25 09:24:35 +05:30:           "responsePayloadLengthInBytes": 1242,
+2025-11-25 09:24:35 +05:30:           "operationType": "query",
+2025-11-25 09:24:35 +05:30:           "resourceType": "docs"
+2025-11-25 09:24:35 +05:30:         }
+2025-11-25 09:24:35 +05:30:       ]
+2025-11-25 09:24:35 +05:30:     }
+2025-11-25 09:24:35 +05:30:   },
+2025-11-25 09:24:35 +05:30:   "request": {
+2025-11-25 09:24:35 +05:30:     "url": "https://fortknoxcosmos-brazilsouth.documents.azure.com:443/dbs/fortknox/colls/deposits/docs",
+2025-11-25 09:24:35 +05:30:     "method": "POST",
+2025-11-25 09:24:35 +05:30:     "headers": {
+2025-11-25 09:24:35 +05:30:       "x-ms-documentdb-responsecontinuationtokenlimitinkb": "REDACTED",
+2025-11-25 09:24:35 +05:30:       "x-ms-documentdb-query-enablecrosspartition": "REDACTED",
+2025-11-25 09:24:35 +05:30:       "cache-control": "no-cache",
+2025-11-25 09:24:35 +05:30:       "x-ms-version": "REDACTED",
+2025-11-25 09:24:35 +05:30:       "user-agent": "Node.js/24.11.1 (darwin; arm64) azure-cosmos-js/4.8.0",
+2025-11-25 09:24:35 +05:30:       "x-ms-useragent": "Node.js/24.11.1 (darwin; arm64) azure-cosmos-js/4.8.0",
+2025-11-25 09:24:35 +05:30:       "x-ms-cosmos-sdk-supportedcapabilities": "REDACTED",
+2025-11-25 09:24:35 +05:30:       "x-ms-cosmos-allow-tentative-writes": "REDACTED",
+2025-11-25 09:24:35 +05:30:       "x-ms-documentdb-partitionkeyrangeid": "REDACTED",
+2025-11-25 09:24:35 +05:30:       "x-ms-date": "REDACTED",
+2025-11-25 09:24:35 +05:30:       "content-type": "application/query+json",
+2025-11-25 09:24:35 +05:30:       "accept": "application/json",
+2025-11-25 09:24:35 +05:30:       "authorization": "REDACTED",
+2025-11-25 09:24:35 +05:30:       "x-ms-cosmos-correlated-activityid": "REDACTED",
+2025-11-25 09:24:35 +05:30:       "x-ms-documentdb-isquery": "REDACTED",
+2025-11-25 09:24:35 +05:30:       "content-length": "196"
+2025-11-25 09:24:35 +05:30:     },
+2025-11-25 09:24:35 +05:30:     "timeout": 0,
+2025-11-25 09:24:35 +05:30:     "withCredentials": false,
+2025-11-25 09:24:35 +05:30:     "enableBrowserStreams": false,
+2025-11-25 09:24:35 +05:30:     "disableKeepAlive": false,
+2025-11-25 09:24:35 +05:30:     "abortSignal": {},
+2025-11-25 09:24:35 +05:30:     "requestId": "a06c7cc7-e997-45d5-8501-66261e3854a9",
+2025-11-25 09:24:35 +05:30:     "allowInsecureConnection": false,
+2025-11-25 09:24:35 +05:30:     "agent": {
+2025-11-25 09:24:35 +05:30:       "maxFreeSockets": 256,
+2025-11-25 09:24:35 +05:30:       "maxSockets": null
+2025-11-25 09:24:35 +05:30:     }
+2025-11-25 09:24:35 +05:30:   }
+2025-11-25 09:24:35 +05:30: }
+2025-11-25 09:24:35 +05:30:    ⚠️  Confirmation errors: 1
+2025-11-25 09:26:59 +05:30:    ❌ BTC: read ETIMEDOUT
+2025-11-25 17:48:04 +05:30: [Confirmation Tracker] Fatal error: RestError: read ETIMEDOUT 
+2025-11-25 17:48:04 +05:30:  {
+2025-11-25 17:48:04 +05:30:   "code": "ETIMEDOUT",
+2025-11-25 17:48:04 +05:30:   "name": "RestError",
+2025-11-25 17:48:04 +05:30:   "headers": {
+2025-11-25 17:48:04 +05:30:     "x-ms-cosmos-correlated-activityid": "REDACTED",
+2025-11-25 17:48:04 +05:30:     "x-ms-throttle-retry-count": "REDACTED",
+2025-11-25 17:48:04 +05:30:     "x-ms-throttle-retry-wait-time-ms": "REDACTED"
+2025-11-25 17:48:04 +05:30:   },
+2025-11-25 17:48:04 +05:30:   "diagnostics": {
+2025-11-25 17:48:04 +05:30:     "clientSideRequestStatistics": {
+2025-11-25 17:48:04 +05:30:       "requestStartTimeUTCInMs": 1764073043977,
+2025-11-25 17:48:04 +05:30:       "requestDurationInMs": 40628,
+2025-11-25 17:48:04 +05:30:       "totalRequestPayloadLengthInBytes": 0,
+2025-11-25 17:48:04 +05:30:       "totalResponsePayloadLengthInBytes": 0,
+2025-11-25 17:48:04 +05:30:       "locationEndpointsContacted": [
+2025-11-25 17:48:04 +05:30:         "https://fortknoxcosmos-brazilsouth.documents.azure.com:443/"
+2025-11-25 17:48:04 +05:30:       ],
+2025-11-25 17:48:04 +05:30:       "metadataDiagnostics": {
+2025-11-25 17:48:04 +05:30:         "metadataLookups": []
+2025-11-25 17:48:04 +05:30:       },
+2025-11-25 17:48:04 +05:30:       "retryDiagnostics": {
+2025-11-25 17:48:04 +05:30:         "failedAttempts": []
+2025-11-25 17:48:04 +05:30:       },
+2025-11-25 17:48:04 +05:30:       "gatewayStatistics": []
+2025-11-25 17:48:04 +05:30:     }
+2025-11-25 17:48:04 +05:30:   },
+2025-11-25 17:48:04 +05:30:   "request": {
+2025-11-25 17:48:04 +05:30:     "url": "https://fortknoxcosmos-brazilsouth.documents.azure.com:443/dbs/fortknox/colls/deposits/docs",
+2025-11-25 17:48:04 +05:30:     "method": "POST",
+2025-11-25 17:48:04 +05:30:     "headers": {
+2025-11-25 17:48:04 +05:30:       "x-ms-documentdb-responsecontinuationtokenlimitinkb": "REDACTED",
+2025-11-25 17:48:04 +05:30:       "x-ms-documentdb-query-enablecrosspartition": "REDACTED",
+2025-11-25 17:48:04 +05:30:       "cache-control": "no-cache",
+2025-11-25 17:48:04 +05:30:       "x-ms-version": "REDACTED",
+2025-11-25 17:48:04 +05:30:       "user-agent": "Node.js/24.11.1 (darwin; arm64) azure-cosmos-js/4.8.0",
+2025-11-25 17:48:04 +05:30:       "x-ms-useragent": "Node.js/24.11.1 (darwin; arm64) azure-cosmos-js/4.8.0",
+2025-11-25 17:48:04 +05:30:       "x-ms-cosmos-sdk-supportedcapabilities": "REDACTED",
+2025-11-25 17:48:04 +05:30:       "x-ms-cosmos-allow-tentative-writes": "REDACTED",
+2025-11-25 17:48:04 +05:30:       "x-ms-date": "REDACTED",
+2025-11-25 17:48:04 +05:30:       "content-type": "application/query+json",
+2025-11-25 17:48:04 +05:30:       "accept": "application/json",
+2025-11-25 17:48:04 +05:30:       "authorization": "REDACTED",
+2025-11-25 17:48:04 +05:30:       "x-ms-cosmos-correlated-activityid": "REDACTED",
+2025-11-25 17:48:04 +05:30:       "x-ms-documentdb-isquery": "REDACTED",
+2025-11-25 17:48:04 +05:30:       "content-length": "116"
+2025-11-25 17:48:04 +05:30:     },
+2025-11-25 17:48:04 +05:30:     "timeout": 0,
+2025-11-25 17:48:04 +05:30:     "withCredentials": false,
+2025-11-25 17:48:04 +05:30:     "enableBrowserStreams": false,
+2025-11-25 17:48:04 +05:30:     "disableKeepAlive": false,
+2025-11-25 17:48:04 +05:30:     "abortSignal": {},
+2025-11-25 17:48:04 +05:30:     "requestId": "3c602a69-6a80-4796-82e6-5635f60bc34b",
+2025-11-25 17:48:04 +05:30:     "allowInsecureConnection": false,
+2025-11-25 17:48:04 +05:30:     "agent": {
+2025-11-25 17:48:04 +05:30:       "maxFreeSockets": 256,
+2025-11-25 17:48:04 +05:30:       "maxSockets": null
+2025-11-25 17:48:04 +05:30:     }
+2025-11-25 17:48:04 +05:30:   }
+2025-11-25 17:48:04 +05:30: }
+2025-11-25 17:48:04 +05:30:    ⚠️  Confirmation errors: 1
+2025-11-25 17:50:32 +05:30:    ❌ BSC: read ETIMEDOUT
+2025-11-25 17:53:33 +05:30:    ❌ ETH: read ETIMEDOUT
+2025-11-25 18:02:26 +05:30: [Confirmation Tracker] Fatal error: RestError: read ETIMEDOUT 
+2025-11-25 18:02:26 +05:30:  {
+2025-11-25 18:02:26 +05:30:   "code": "ETIMEDOUT",
+2025-11-25 18:02:26 +05:30:   "name": "RestError",
+2025-11-25 18:02:26 +05:30:   "headers": {
+2025-11-25 18:02:26 +05:30:     "x-ms-cosmos-correlated-activityid": "REDACTED",
+2025-11-25 18:02:26 +05:30:     "x-ms-throttle-retry-count": "REDACTED",
+2025-11-25 18:02:26 +05:30:     "x-ms-throttle-retry-wait-time-ms": "REDACTED"
+2025-11-25 18:02:26 +05:30:   },
+2025-11-25 18:02:26 +05:30:   "diagnostics": {
+2025-11-25 18:02:26 +05:30:     "clientSideRequestStatistics": {
+2025-11-25 18:02:26 +05:30:       "requestStartTimeUTCInMs": 1764073910653,
+2025-11-25 18:02:26 +05:30:       "requestDurationInMs": 35923,
+2025-11-25 18:02:26 +05:30:       "totalRequestPayloadLengthInBytes": 0,
+2025-11-25 18:02:26 +05:30:       "totalResponsePayloadLengthInBytes": 0,
+2025-11-25 18:02:26 +05:30:       "locationEndpointsContacted": [
+2025-11-25 18:02:26 +05:30:         "https://fortknoxcosmos-brazilsouth.documents.azure.com:443/"
+2025-11-25 18:02:26 +05:30:       ],
+2025-11-25 18:02:26 +05:30:       "metadataDiagnostics": {
+2025-11-25 18:02:26 +05:30:         "metadataLookups": []
+2025-11-25 18:02:26 +05:30:       },
+2025-11-25 18:02:26 +05:30:       "retryDiagnostics": {
+2025-11-25 18:02:26 +05:30:         "failedAttempts": []
+2025-11-25 18:02:26 +05:30:       },
+2025-11-25 18:02:26 +05:30:       "gatewayStatistics": []
+2025-11-25 18:02:26 +05:30:     }
+2025-11-25 18:02:26 +05:30:   },
+2025-11-25 18:02:26 +05:30:   "request": {
+2025-11-25 18:02:26 +05:30:     "url": "https://fortknoxcosmos-brazilsouth.documents.azure.com:443/dbs/fortknox/colls/deposits/docs",
+2025-11-25 18:02:26 +05:30:     "method": "POST",
+2025-11-25 18:02:26 +05:30:     "headers": {
+2025-11-25 18:02:26 +05:30:       "x-ms-documentdb-responsecontinuationtokenlimitinkb": "REDACTED",
+2025-11-25 18:02:26 +05:30:       "x-ms-documentdb-query-enablecrosspartition": "REDACTED",
+2025-11-25 18:02:26 +05:30:       "cache-control": "no-cache",
+2025-11-25 18:02:26 +05:30:       "x-ms-version": "REDACTED",
+2025-11-25 18:02:26 +05:30:       "user-agent": "Node.js/24.11.1 (darwin; arm64) azure-cosmos-js/4.8.0",
+2025-11-25 18:02:26 +05:30:       "x-ms-useragent": "Node.js/24.11.1 (darwin; arm64) azure-cosmos-js/4.8.0",
+2025-11-25 18:02:26 +05:30:       "x-ms-cosmos-sdk-supportedcapabilities": "REDACTED",
+2025-11-25 18:02:26 +05:30:       "x-ms-cosmos-allow-tentative-writes": "REDACTED",
+2025-11-25 18:02:26 +05:30:       "x-ms-date": "REDACTED",
+2025-11-25 18:02:26 +05:30:       "content-type": "application/query+json",
+2025-11-25 18:02:26 +05:30:       "accept": "application/json",
+2025-11-25 18:02:26 +05:30:       "authorization": "REDACTED",
+2025-11-25 18:02:26 +05:30:       "x-ms-cosmos-correlated-activityid": "REDACTED",
+2025-11-25 18:02:26 +05:30:       "x-ms-documentdb-isquery": "REDACTED",
+2025-11-25 18:02:26 +05:30:       "content-length": "116"
+2025-11-25 18:02:26 +05:30:     },
+2025-11-25 18:02:26 +05:30:     "timeout": 0,
+2025-11-25 18:02:26 +05:30:     "withCredentials": false,
+2025-11-25 18:02:26 +05:30:     "enableBrowserStreams": false,
+2025-11-25 18:02:26 +05:30:     "disableKeepAlive": false,
+2025-11-25 18:02:26 +05:30:     "abortSignal": {},
+2025-11-25 18:02:26 +05:30:     "requestId": "9c28e4a3-868f-4653-aeeb-2efa23bfa8d4",
+2025-11-25 18:02:26 +05:30:     "allowInsecureConnection": false,
+2025-11-25 18:02:26 +05:30:     "agent": {
+2025-11-25 18:02:26 +05:30:       "maxFreeSockets": 256,
+2025-11-25 18:02:26 +05:30:       "maxSockets": null
+2025-11-25 18:02:26 +05:30:     }
+2025-11-25 18:02:26 +05:30:   }
+2025-11-25 18:02:26 +05:30: }
+2025-11-25 18:02:26 +05:30:    ⚠️  Confirmation errors: 1
+2025-11-25 18:04:51 +05:30:    ❌ MATIC: read ETIMEDOUT
+2025-11-25 18:19:20 +05:30:    ❌ ETH: read ETIMEDOUT
+2025-11-25 18:27:29 +05:30: [ETH Monitor] Error scanning address 0xA4AFF813050121a2b2b316758F7bE2480E41A55B: Error: socket hang up
+2025-11-25 18:27:29 +05:30:     at TLSSocket.socketOnEnd (node:_http_client:599:25)
+2025-11-25 18:27:29 +05:30:     at TLSSocket.emit (node:events:520:35)
+2025-11-25 18:27:29 +05:30:     at endReadableNT (node:internal/streams/readable:1701:12)
+2025-11-25 18:27:29 +05:30:     at process.processTicksAndRejections (node:internal/process/task_queues:89:21) {
+2025-11-25 18:27:29 +05:30:   code: 'ECONNRESET'
+2025-11-25 18:27:29 +05:30: }
+2025-11-25 18:27:29 +05:30:    ⚠️  ETH: 1 errors
+2025-11-25 19:10:46 +05:30:    ❌ BTC: read ETIMEDOUT
+2025-11-25 19:15:08 +05:30:    ❌ ETH: read ETIMEDOUT
+2025-11-25 19:30:49 +05:30:    ❌ ETH: read ETIMEDOUT
+2025-11-25 20:22:57 +05:30:    ❌ ETH: read ETIMEDOUT
+2025-11-25 20:22:58 +05:30: Error fetching more results: RestError: read ETIMEDOUT 
+2025-11-25 20:22:58 +05:30:  {
+2025-11-25 20:22:58 +05:30:   "code": "ETIMEDOUT",
+2025-11-25 20:22:58 +05:30:   "name": "RestError",
+2025-11-25 20:22:58 +05:30:   "headers": {
+2025-11-25 20:22:58 +05:30:     "x-ms-request-charge": "REDACTED",
+2025-11-25 20:22:58 +05:30:     "x-ms-documentdb-query-metrics": "REDACTED"
+2025-11-25 20:22:58 +05:30:   },
+2025-11-25 20:22:58 +05:30:   "request": {
+2025-11-25 20:22:58 +05:30:     "url": "https://fortknoxcosmos-brazilsouth.documents.azure.com:443/dbs/fortknox/colls/deposits/docs",
+2025-11-25 20:22:58 +05:30:     "method": "POST",
+2025-11-25 20:22:58 +05:30:     "headers": {
+2025-11-25 20:22:58 +05:30:       "x-ms-documentdb-responsecontinuationtokenlimitinkb": "REDACTED",
+2025-11-25 20:22:58 +05:30:       "x-ms-documentdb-query-enablecrosspartition": "REDACTED",
+2025-11-25 20:22:58 +05:30:       "cache-control": "no-cache",
+2025-11-25 20:22:58 +05:30:       "x-ms-version": "REDACTED",
+2025-11-25 20:22:58 +05:30:       "user-agent": "Node.js/24.11.1 (darwin; arm64) azure-cosmos-js/4.8.0",
+2025-11-25 20:22:58 +05:30:       "x-ms-useragent": "Node.js/24.11.1 (darwin; arm64) azure-cosmos-js/4.8.0",
+2025-11-25 20:22:58 +05:30:       "x-ms-cosmos-sdk-supportedcapabilities": "REDACTED",
+2025-11-25 20:22:58 +05:30:       "x-ms-cosmos-allow-tentative-writes": "REDACTED",
+2025-11-25 20:22:58 +05:30:       "x-ms-documentdb-partitionkeyrangeid": "REDACTED",
+2025-11-25 20:22:58 +05:30:       "x-ms-date": "REDACTED",
+2025-11-25 20:22:58 +05:30:       "content-type": "application/query+json",
+2025-11-25 20:22:58 +05:30:       "accept": "application/json",
+2025-11-25 20:22:58 +05:30:       "authorization": "REDACTED",
+2025-11-25 20:22:58 +05:30:       "x-ms-cosmos-correlated-activityid": "REDACTED",
+2025-11-25 20:22:58 +05:30:       "x-ms-documentdb-isquery": "REDACTED",
+2025-11-25 20:22:58 +05:30:       "content-length": "196"
+2025-11-25 20:22:58 +05:30:     },
+2025-11-25 20:22:58 +05:30:     "timeout": 0,
+2025-11-25 20:22:58 +05:30:     "withCredentials": false,
+2025-11-25 20:22:58 +05:30:     "enableBrowserStreams": false,
+2025-11-25 20:22:58 +05:30:     "disableKeepAlive": false,
+2025-11-25 20:22:58 +05:30:     "abortSignal": {},
+2025-11-25 20:22:58 +05:30:     "requestId": "b6755b30-8d24-412a-8ef3-add7555bb201",
+2025-11-25 20:22:58 +05:30:     "allowInsecureConnection": false,
+2025-11-25 20:22:58 +05:30:     "agent": {
+2025-11-25 20:22:58 +05:30:       "maxFreeSockets": 256,
+2025-11-25 20:22:58 +05:30:       "maxSockets": null
+2025-11-25 20:22:58 +05:30:     }
+2025-11-25 20:22:58 +05:30:   }
+2025-11-25 20:22:58 +05:30: }
+2025-11-25 20:22:58 +05:30: [Confirmation Tracker] Fatal error: RestError: read ETIMEDOUT 
+2025-11-25 20:22:58 +05:30:  {
+2025-11-25 20:22:58 +05:30:   "code": "ETIMEDOUT",
+2025-11-25 20:22:58 +05:30:   "name": "RestError",
+2025-11-25 20:22:58 +05:30:   "headers": {
+2025-11-25 20:22:58 +05:30:     "x-ms-request-charge": "REDACTED",
+2025-11-25 20:22:58 +05:30:     "x-ms-documentdb-query-metrics": "REDACTED"
+2025-11-25 20:22:58 +05:30:   },
+2025-11-25 20:22:58 +05:30:   "diagnostics": {
+2025-11-25 20:22:58 +05:30:     "clientSideRequestStatistics": {
+2025-11-25 20:22:58 +05:30:       "requestStartTimeUTCInMs": 1764082046719,
+2025-11-25 20:22:58 +05:30:       "requestDurationInMs": 331528,
+2025-11-25 20:22:58 +05:30:       "totalRequestPayloadLengthInBytes": 428,
+2025-11-25 20:22:58 +05:30:       "totalResponsePayloadLengthInBytes": 1932,
+2025-11-25 20:22:58 +05:30:       "locationEndpointsContacted": [
+2025-11-25 20:22:58 +05:30:         "https://fortknoxcosmos-brazilsouth.documents.azure.com:443/"
+2025-11-25 20:22:58 +05:30:       ],
+2025-11-25 20:22:58 +05:30:       "metadataDiagnostics": {
+2025-11-25 20:22:58 +05:30:         "metadataLookups": [
+2025-11-25 20:22:58 +05:30:           {
+2025-11-25 20:22:58 +05:30:             "requestPayloadLengthInBytes": 116,
+2025-11-25 20:22:58 +05:30:             "responsePayloadLengthInBytes": 681,
+2025-11-25 20:22:58 +05:30:             "startTimeUTCInMs": 1764082046724,
+2025-11-25 20:22:58 +05:30:             "operationType": "read",
+2025-11-25 20:22:58 +05:30:             "resourceType": "docs",
+2025-11-25 20:22:58 +05:30:             "durationInMs": 406,
+2025-11-25 20:22:58 +05:30:             "metaDataType": "QUERY_PLAN_LOOK_UP"
+2025-11-25 20:22:58 +05:30:           }
+2025-11-25 20:22:58 +05:30:         ]
+2025-11-25 20:22:58 +05:30:       },
+2025-11-25 20:22:58 +05:30:       "retryDiagnostics": {
+2025-11-25 20:22:58 +05:30:         "failedAttempts": [
+2025-11-25 20:22:58 +05:30:           {
+2025-11-25 20:22:58 +05:30:             "attemptNumber": 0,
+2025-11-25 20:22:58 +05:30:             "startTimeUTCInMs": 1764082047628,
+2025-11-25 20:22:58 +05:30:             "durationInMs": 321813,
+2025-11-25 20:22:58 +05:30:             "statusCode": "TimeoutError",
+2025-11-25 20:22:58 +05:30:             "requestPayloadLengthInBytes": 196,
+2025-11-25 20:22:58 +05:30:             "responsePayloadLengthInBytes": 0,
+2025-11-25 20:22:58 +05:30:             "operationType": "query",
+2025-11-25 20:22:58 +05:30:             "resourceType": "docs"
+2025-11-25 20:22:58 +05:30:           }
+2025-11-25 20:22:58 +05:30:         ]
+2025-11-25 20:22:58 +05:30:       },
+2025-11-25 20:22:58 +05:30:       "gatewayStatistics": [
+2025-11-25 20:22:58 +05:30:         {
+2025-11-25 20:22:58 +05:30:           "activityId": "7b6c2db1-6ce0-4c9b-98d9-5d0d82e8ce1a",
+2025-11-25 20:22:58 +05:30:           "correlateActivityId": "c2ee3628-2ff9-498e-bad5-70b5d1ba665b",
+2025-11-25 20:22:58 +05:30:           "startTimeUTCInMs": 1764082046751,
+2025-11-25 20:22:58 +05:30:           "durationInMs": 388,
+2025-11-25 20:22:58 +05:30:           "statusCode": 400,
+2025-11-25 20:22:58 +05:30:           "subStatusCode": 1004,
+2025-11-25 20:22:58 +05:30:           "requestPayloadLengthInBytes": 116,
+2025-11-25 20:22:58 +05:30:           "responsePayloadLengthInBytes": 1251,
+2025-11-25 20:22:58 +05:30:           "operationType": "query",
+2025-11-25 20:22:58 +05:30:           "resourceType": "docs"
+2025-11-25 20:22:58 +05:30:         }
+2025-11-25 20:22:58 +05:30:       ]
+2025-11-25 20:22:58 +05:30:     }
+2025-11-25 20:22:58 +05:30:   },
+2025-11-25 20:22:58 +05:30:   "request": {
+2025-11-25 20:22:58 +05:30:     "url": "https://fortknoxcosmos-brazilsouth.documents.azure.com:443/dbs/fortknox/colls/deposits/docs",
+2025-11-25 20:22:58 +05:30:     "method": "POST",
+2025-11-25 20:22:58 +05:30:     "headers": {
+2025-11-25 20:22:58 +05:30:       "x-ms-documentdb-responsecontinuationtokenlimitinkb": "REDACTED",
+2025-11-25 20:22:58 +05:30:       "x-ms-documentdb-query-enablecrosspartition": "REDACTED",
+2025-11-25 20:22:58 +05:30:       "cache-control": "no-cache",
+2025-11-25 20:22:58 +05:30:       "x-ms-version": "REDACTED",
+2025-11-25 20:22:58 +05:30:       "user-agent": "Node.js/24.11.1 (darwin; arm64) azure-cosmos-js/4.8.0",
+2025-11-25 20:22:58 +05:30:       "x-ms-useragent": "Node.js/24.11.1 (darwin; arm64) azure-cosmos-js/4.8.0",
+2025-11-25 20:22:58 +05:30:       "x-ms-cosmos-sdk-supportedcapabilities": "REDACTED",
+2025-11-25 20:22:58 +05:30:       "x-ms-cosmos-allow-tentative-writes": "REDACTED",
+2025-11-25 20:22:58 +05:30:       "x-ms-documentdb-partitionkeyrangeid": "REDACTED",
+2025-11-25 20:22:58 +05:30:       "x-ms-date": "REDACTED",
+2025-11-25 20:22:58 +05:30:       "content-type": "application/query+json",
+2025-11-25 20:22:58 +05:30:       "accept": "application/json",
+2025-11-25 20:22:58 +05:30:       "authorization": "REDACTED",
+2025-11-25 20:22:58 +05:30:       "x-ms-cosmos-correlated-activityid": "REDACTED",
+2025-11-25 20:22:58 +05:30:       "x-ms-documentdb-isquery": "REDACTED",
+2025-11-25 20:22:58 +05:30:       "content-length": "196"
+2025-11-25 20:22:58 +05:30:     },
+2025-11-25 20:22:58 +05:30:     "timeout": 0,
+2025-11-25 20:22:58 +05:30:     "withCredentials": false,
+2025-11-25 20:22:58 +05:30:     "enableBrowserStreams": false,
+2025-11-25 20:22:58 +05:30:     "disableKeepAlive": false,
+2025-11-25 20:22:58 +05:30:     "abortSignal": {},
+2025-11-25 20:22:58 +05:30:     "requestId": "b6755b30-8d24-412a-8ef3-add7555bb201",
+2025-11-25 20:22:58 +05:30:     "allowInsecureConnection": false,
+2025-11-25 20:22:58 +05:30:     "agent": {
+2025-11-25 20:22:58 +05:30:       "maxFreeSockets": 256,
+2025-11-25 20:22:58 +05:30:       "maxSockets": null
+2025-11-25 20:22:58 +05:30:     }
+2025-11-25 20:22:58 +05:30:   }
+2025-11-25 20:22:58 +05:30: }
+2025-11-25 20:22:58 +05:30:    ⚠️  Confirmation errors: 1
+2025-11-25 20:23:00 +05:30:    ❌ MATIC: read ETIMEDOUT
+2025-11-25 20:30:29 +05:30:    ❌ ETH: read ETIMEDOUT
+2025-11-26 03:23:32 +05:30:    ❌ ETH: read ETIMEDOUT
+2025-11-26 04:01:28 +05:30:    ❌ ETH: read ETIMEDOUT
+2025-11-26 05:36:35 +05:30:    ❌ ETH: read ETIMEDOUT
+2025-11-26 05:52:25 +05:30:    ❌ ETH: read ETIMEDOUT
+2025-11-26 06:08:08 +05:30:    ❌ ETH: read ETIMEDOUT
+2025-11-26 06:31:39 +05:30:    ❌ ETH: read ETIMEDOUT
+2025-11-26 09:29:46 +05:30:    ❌ ETH: read ETIMEDOUT
+2025-11-26 10:02:01 +05:30:    ❌ ETH: read ETIMEDOUT
+2025-11-26 10:18:44 +05:30:    ❌ ETH: read ETIMEDOUT
+2025-11-26 10:18:45 +05:30:    ❌ MATIC: read ETIMEDOUT
+2025-11-26 10:37:28 +05:30:    ❌ ETH: read ETIMEDOUT
+2025-11-26 11:22:31 +05:30:    ❌ MATIC: The authorization token is not valid at the current time. Please create another token and retry (token start time: Wed, 26 Nov 2025 05:07:28 GMT, token expiry time: Wed, 26 Nov 2025 05:07:28 GMT, current server time: Wed, 26 Nov 2025 05:52:30 GMT).
+2025-11-26 11:22:31 +05:30: ActivityId: 38758d26-4c2e-4119-a08c-a5c433b3a368, documentdb-dotnet-sdk/2.14.0 Host/64-bit MicrosoftWindowsNT/10.0.20348.0
+2025-11-26 11:54:31 +05:30:    ❌ ETH: read ETIMEDOUT
+2025-11-26 12:23:39 +05:30: Error fetching more results: RestError: read ETIMEDOUT 
+2025-11-26 12:23:39 +05:30:  {
+2025-11-26 12:23:39 +05:30:   "code": "ETIMEDOUT",
+2025-11-26 12:23:39 +05:30:   "name": "RestError",
+2025-11-26 12:23:39 +05:30:   "headers": {
+2025-11-26 12:23:39 +05:30:     "x-ms-request-charge": "REDACTED",
+2025-11-26 12:23:39 +05:30:     "x-ms-documentdb-query-metrics": "REDACTED"
+2025-11-26 12:23:39 +05:30:   },
+2025-11-26 12:23:39 +05:30:   "request": {
+2025-11-26 12:23:39 +05:30:     "url": "https://fortknoxcosmos-brazilsouth.documents.azure.com:443/dbs/fortknox/colls/deposits/docs",
+2025-11-26 12:23:39 +05:30:     "method": "POST",
+2025-11-26 12:23:39 +05:30:     "headers": {
+2025-11-26 12:23:39 +05:30:       "x-ms-documentdb-responsecontinuationtokenlimitinkb": "REDACTED",
+2025-11-26 12:23:39 +05:30:       "x-ms-documentdb-query-enablecrosspartition": "REDACTED",
+2025-11-26 12:23:39 +05:30:       "cache-control": "no-cache",
+2025-11-26 12:23:39 +05:30:       "x-ms-version": "REDACTED",
+2025-11-26 12:23:39 +05:30:       "user-agent": "Node.js/24.11.1 (darwin; arm64) azure-cosmos-js/4.8.0",
+2025-11-26 12:23:39 +05:30:       "x-ms-useragent": "Node.js/24.11.1 (darwin; arm64) azure-cosmos-js/4.8.0",
+2025-11-26 12:23:39 +05:30:       "x-ms-cosmos-sdk-supportedcapabilities": "REDACTED",
+2025-11-26 12:23:39 +05:30:       "x-ms-cosmos-allow-tentative-writes": "REDACTED",
+2025-11-26 12:23:39 +05:30:       "x-ms-documentdb-partitionkeyrangeid": "REDACTED",
+2025-11-26 12:23:39 +05:30:       "x-ms-date": "REDACTED",
+2025-11-26 12:23:39 +05:30:       "content-type": "application/query+json",
+2025-11-26 12:23:39 +05:30:       "accept": "application/json",
+2025-11-26 12:23:39 +05:30:       "authorization": "REDACTED",
+2025-11-26 12:23:39 +05:30:       "x-ms-cosmos-correlated-activityid": "REDACTED",
+2025-11-26 12:23:39 +05:30:       "x-ms-documentdb-isquery": "REDACTED",
+2025-11-26 12:23:39 +05:30:       "content-length": "196"
+2025-11-26 12:23:39 +05:30:     },
+2025-11-26 12:23:39 +05:30:     "timeout": 0,
+2025-11-26 12:23:39 +05:30:     "withCredentials": false,
+2025-11-26 12:23:39 +05:30:     "enableBrowserStreams": false,
+2025-11-26 12:23:39 +05:30:     "disableKeepAlive": false,
+2025-11-26 12:23:39 +05:30:     "abortSignal": {},
+2025-11-26 12:23:39 +05:30:     "requestId": "ebc13147-6327-40ec-a0d1-a0f9a822a7c5",
+2025-11-26 12:23:39 +05:30:     "allowInsecureConnection": false,
+2025-11-26 12:23:39 +05:30:     "agent": {
+2025-11-26 12:23:39 +05:30:       "maxFreeSockets": 256,
+2025-11-26 12:23:39 +05:30:       "maxSockets": null
+2025-11-26 12:23:39 +05:30:     }
+2025-11-26 12:23:39 +05:30:   }
+2025-11-26 12:23:39 +05:30: }
+2025-11-26 12:23:39 +05:30: [Confirmation Tracker] Fatal error: RestError: read ETIMEDOUT 
+2025-11-26 12:23:39 +05:30:  {
+2025-11-26 12:23:39 +05:30:   "code": "ETIMEDOUT",
+2025-11-26 12:23:39 +05:30:   "name": "RestError",
+2025-11-26 12:23:39 +05:30:   "headers": {
+2025-11-26 12:23:39 +05:30:     "x-ms-request-charge": "REDACTED",
+2025-11-26 12:23:39 +05:30:     "x-ms-documentdb-query-metrics": "REDACTED"
+2025-11-26 12:23:39 +05:30:   },
+2025-11-26 12:23:39 +05:30:   "diagnostics": {
+2025-11-26 12:23:39 +05:30:     "clientSideRequestStatistics": {
+2025-11-26 12:23:39 +05:30:       "requestStartTimeUTCInMs": 1764139195690,
+2025-11-26 12:23:39 +05:30:       "requestDurationInMs": 824119,
+2025-11-26 12:23:39 +05:30:       "totalRequestPayloadLengthInBytes": 428,
+2025-11-26 12:23:39 +05:30:       "totalResponsePayloadLengthInBytes": 1932,
+2025-11-26 12:23:39 +05:30:       "locationEndpointsContacted": [
+2025-11-26 12:23:39 +05:30:         "https://fortknoxcosmos-brazilsouth.documents.azure.com:443/"
+2025-11-26 12:23:39 +05:30:       ],
+2025-11-26 12:23:39 +05:30:       "metadataDiagnostics": {
+2025-11-26 12:23:39 +05:30:         "metadataLookups": [
+2025-11-26 12:23:39 +05:30:           {
+2025-11-26 12:23:39 +05:30:             "requestPayloadLengthInBytes": 116,
+2025-11-26 12:23:39 +05:30:             "responsePayloadLengthInBytes": 681,
+2025-11-26 12:23:39 +05:30:             "startTimeUTCInMs": 1764139195690,
+2025-11-26 12:23:39 +05:30:             "operationType": "read",
+2025-11-26 12:23:39 +05:30:             "resourceType": "docs",
+2025-11-26 12:23:39 +05:30:             "durationInMs": 502,
+2025-11-26 12:23:39 +05:30:             "metaDataType": "QUERY_PLAN_LOOK_UP"
+2025-11-26 12:23:39 +05:30:           }
+2025-11-26 12:23:39 +05:30:         ]
+2025-11-26 12:23:39 +05:30:       },
+2025-11-26 12:23:39 +05:30:       "retryDiagnostics": {
+2025-11-26 12:23:39 +05:30:         "failedAttempts": [
+2025-11-26 12:23:39 +05:30:           {
+2025-11-26 12:23:39 +05:30:             "attemptNumber": 0,
+2025-11-26 12:23:39 +05:30:             "startTimeUTCInMs": 1764139196546,
+2025-11-26 12:23:39 +05:30:             "durationInMs": 814748,
+2025-11-26 12:23:39 +05:30:             "statusCode": "TimeoutError",
+2025-11-26 12:23:39 +05:30:             "requestPayloadLengthInBytes": 196,
+2025-11-26 12:23:39 +05:30:             "responsePayloadLengthInBytes": 0,
+2025-11-26 12:23:39 +05:30:             "operationType": "query",
+2025-11-26 12:23:39 +05:30:             "resourceType": "docs"
+2025-11-26 12:23:39 +05:30:           }
+2025-11-26 12:23:39 +05:30:         ]
+2025-11-26 12:23:39 +05:30:       },
+2025-11-26 12:23:39 +05:30:       "gatewayStatistics": [
+2025-11-26 12:23:39 +05:30:         {
+2025-11-26 12:23:39 +05:30:           "activityId": "6ecbe79d-cdf3-4c88-aaea-df52af2db72c",
+2025-11-26 12:23:39 +05:30:           "correlateActivityId": "71fc4651-00a0-4e81-b7bf-1f3add17aa0f",
+2025-11-26 12:23:39 +05:30:           "startTimeUTCInMs": 1764139195690,
+2025-11-26 12:23:39 +05:30:           "durationInMs": 501,
+2025-11-26 12:23:39 +05:30:           "statusCode": 400,
+2025-11-26 12:23:39 +05:30:           "subStatusCode": 1004,
+2025-11-26 12:23:39 +05:30:           "requestPayloadLengthInBytes": 116,
+2025-11-26 12:23:39 +05:30:           "responsePayloadLengthInBytes": 1251,
+2025-11-26 12:23:39 +05:30:           "operationType": "query",
+2025-11-26 12:23:39 +05:30:           "resourceType": "docs"
+2025-11-26 12:23:39 +05:30:         }
+2025-11-26 12:23:39 +05:30:       ]
+2025-11-26 12:23:39 +05:30:     }
+2025-11-26 12:23:39 +05:30:   },
+2025-11-26 12:23:39 +05:30:   "request": {
+2025-11-26 12:23:39 +05:30:     "url": "https://fortknoxcosmos-brazilsouth.documents.azure.com:443/dbs/fortknox/colls/deposits/docs",
+2025-11-26 12:23:39 +05:30:     "method": "POST",
+2025-11-26 12:23:39 +05:30:     "headers": {
+2025-11-26 12:23:39 +05:30:       "x-ms-documentdb-responsecontinuationtokenlimitinkb": "REDACTED",
+2025-11-26 12:23:39 +05:30:       "x-ms-documentdb-query-enablecrosspartition": "REDACTED",
+2025-11-26 12:23:39 +05:30:       "cache-control": "no-cache",
+2025-11-26 12:23:39 +05:30:       "x-ms-version": "REDACTED",
+2025-11-26 12:23:39 +05:30:       "user-agent": "Node.js/24.11.1 (darwin; arm64) azure-cosmos-js/4.8.0",
+2025-11-26 12:23:39 +05:30:       "x-ms-useragent": "Node.js/24.11.1 (darwin; arm64) azure-cosmos-js/4.8.0",
+2025-11-26 12:23:39 +05:30:       "x-ms-cosmos-sdk-supportedcapabilities": "REDACTED",
+2025-11-26 12:23:39 +05:30:       "x-ms-cosmos-allow-tentative-writes": "REDACTED",
+2025-11-26 12:23:39 +05:30:       "x-ms-documentdb-partitionkeyrangeid": "REDACTED",
+2025-11-26 12:23:39 +05:30:       "x-ms-date": "REDACTED",
+2025-11-26 12:23:39 +05:30:       "content-type": "application/query+json",
+2025-11-26 12:23:39 +05:30:       "accept": "application/json",
+2025-11-26 12:23:39 +05:30:       "authorization": "REDACTED",
+2025-11-26 12:23:39 +05:30:       "x-ms-cosmos-correlated-activityid": "REDACTED",
+2025-11-26 12:23:39 +05:30:       "x-ms-documentdb-isquery": "REDACTED",
+2025-11-26 12:23:39 +05:30:       "content-length": "196"
+2025-11-26 12:23:39 +05:30:     },
+2025-11-26 12:23:39 +05:30:     "timeout": 0,
+2025-11-26 12:23:39 +05:30:     "withCredentials": false,
+2025-11-26 12:23:39 +05:30:     "enableBrowserStreams": false,
+2025-11-26 12:23:39 +05:30:     "disableKeepAlive": false,
+2025-11-26 12:23:39 +05:30:     "abortSignal": {},
+2025-11-26 12:23:39 +05:30:     "requestId": "ebc13147-6327-40ec-a0d1-a0f9a822a7c5",
+2025-11-26 12:23:39 +05:30:     "allowInsecureConnection": false,
+2025-11-26 12:23:39 +05:30:     "agent": {
+2025-11-26 12:23:39 +05:30:       "maxFreeSockets": 256,
+2025-11-26 12:23:39 +05:30:       "maxSockets": null
+2025-11-26 12:23:39 +05:30:     }
+2025-11-26 12:23:39 +05:30:   }
+2025-11-26 12:23:39 +05:30: }
+2025-11-26 12:23:39 +05:30:    ⚠️  Confirmation errors: 1
+2025-11-26 12:23:42 +05:30:    ❌ ETH: read ETIMEDOUT
+2025-11-26 13:24:42 +05:30:    ❌ ETH: read ETIMEDOUT
+2025-11-26 14:05:17 +05:30:    ❌ ETH: read ETIMEDOUT
+2025-11-26 14:25:42 +05:30: Error fetching more results: RestError: read ETIMEDOUT 
+2025-11-26 14:25:42 +05:30:  {
+2025-11-26 14:25:42 +05:30:   "code": "ETIMEDOUT",
+2025-11-26 14:25:42 +05:30:   "name": "RestError",
+2025-11-26 14:25:42 +05:30:   "headers": {
+2025-11-26 14:25:42 +05:30:     "x-ms-throttle-retry-count": "REDACTED",
+2025-11-26 14:25:42 +05:30:     "x-ms-throttle-retry-wait-time-ms": "REDACTED"
+2025-11-26 14:25:42 +05:30:   },
+2025-11-26 14:25:42 +05:30:   "request": {
+2025-11-26 14:25:42 +05:30:     "url": "https://fortknoxcosmos.documents.azure.com:443/dbs/fortknox/colls/deposits/pkranges",
+2025-11-26 14:25:42 +05:30:     "method": "GET",
+2025-11-26 14:25:42 +05:30:     "headers": {
+2025-11-26 14:25:42 +05:30:       "x-ms-documentdb-responsecontinuationtokenlimitinkb": "REDACTED",
+2025-11-26 14:25:42 +05:30:       "x-ms-documentdb-query-enablecrosspartition": "REDACTED",
+2025-11-26 14:25:42 +05:30:       "cache-control": "no-cache",
+2025-11-26 14:25:42 +05:30:       "x-ms-version": "REDACTED",
+2025-11-26 14:25:42 +05:30:       "user-agent": "Node.js/24.11.1 (darwin; arm64) azure-cosmos-js/4.8.0",
+2025-11-26 14:25:42 +05:30:       "x-ms-useragent": "Node.js/24.11.1 (darwin; arm64) azure-cosmos-js/4.8.0",
+2025-11-26 14:25:42 +05:30:       "x-ms-cosmos-sdk-supportedcapabilities": "REDACTED",
+2025-11-26 14:25:42 +05:30:       "x-ms-cosmos-allow-tentative-writes": "REDACTED",
+2025-11-26 14:25:42 +05:30:       "x-ms-date": "REDACTED",
+2025-11-26 14:25:42 +05:30:       "accept": "application/json",
+2025-11-26 14:25:42 +05:30:       "authorization": "REDACTED"
+2025-11-26 14:25:42 +05:30:     },
+2025-11-26 14:25:42 +05:30:     "timeout": 0,
+2025-11-26 14:25:42 +05:30:     "withCredentials": false,
+2025-11-26 14:25:42 +05:30:     "enableBrowserStreams": false,
+2025-11-26 14:25:42 +05:30:     "disableKeepAlive": false,
+2025-11-26 14:25:42 +05:30:     "abortSignal": {},
+2025-11-26 14:25:42 +05:30:     "requestId": "3ad0f051-9fe2-4cf2-af81-cbc68ea911f5",
+2025-11-26 14:25:42 +05:30:     "allowInsecureConnection": false,
+2025-11-26 14:25:42 +05:30:     "agent": {
+2025-11-26 14:25:42 +05:30:       "maxFreeSockets": 256,
+2025-11-26 14:25:42 +05:30:       "maxSockets": null
+2025-11-26 14:25:42 +05:30:     }
+2025-11-26 14:25:42 +05:30:   }
+2025-11-26 14:25:42 +05:30: }
+2025-11-26 14:25:42 +05:30: [Confirmation Tracker] Fatal error: RestError: read ETIMEDOUT 
+2025-11-26 14:25:42 +05:30:  {
+2025-11-26 14:25:42 +05:30:   "code": "ETIMEDOUT",
+2025-11-26 14:25:42 +05:30:   "name": "RestError",
+2025-11-26 14:25:42 +05:30:   "headers": {
+2025-11-26 14:25:42 +05:30:     "x-ms-request-charge": "REDACTED",
+2025-11-26 14:25:42 +05:30:     "x-ms-documentdb-query-metrics": "REDACTED"
+2025-11-26 14:25:42 +05:30:   },
+2025-11-26 14:25:42 +05:30:   "diagnostics": {
+2025-11-26 14:25:42 +05:30:     "clientSideRequestStatistics": {
+2025-11-26 14:25:42 +05:30:       "requestStartTimeUTCInMs": 1764147074240,
+2025-11-26 14:25:42 +05:30:       "requestDurationInMs": 268212,
+2025-11-26 14:25:42 +05:30:       "totalRequestPayloadLengthInBytes": 232,
+2025-11-26 14:25:42 +05:30:       "totalResponsePayloadLengthInBytes": 1932,
+2025-11-26 14:25:42 +05:30:       "locationEndpointsContacted": [
+2025-11-26 14:25:42 +05:30:         "https://fortknoxcosmos.documents.azure.com:443/"
+2025-11-26 14:25:42 +05:30:       ],
+2025-11-26 14:25:42 +05:30:       "metadataDiagnostics": {
+2025-11-26 14:25:42 +05:30:         "metadataLookups": [
+2025-11-26 14:25:42 +05:30:           {
+2025-11-26 14:25:42 +05:30:             "requestPayloadLengthInBytes": 116,
+2025-11-26 14:25:42 +05:30:             "responsePayloadLengthInBytes": 681,
+2025-11-26 14:25:42 +05:30:             "startTimeUTCInMs": 1764147074241,
+2025-11-26 14:25:42 +05:30:             "operationType": "read",
+2025-11-26 14:25:42 +05:30:             "resourceType": "docs",
+2025-11-26 14:25:42 +05:30:             "durationInMs": 1239,
+2025-11-26 14:25:42 +05:30:             "metaDataType": "QUERY_PLAN_LOOK_UP"
+2025-11-26 14:25:42 +05:30:           }
+2025-11-26 14:25:42 +05:30:         ]
+2025-11-26 14:25:42 +05:30:       },
+2025-11-26 14:25:42 +05:30:       "retryDiagnostics": {
+2025-11-26 14:25:42 +05:30:         "failedAttempts": []
+2025-11-26 14:25:42 +05:30:       },
+2025-11-26 14:25:42 +05:30:       "gatewayStatistics": [
+2025-11-26 14:25:42 +05:30:         {
+2025-11-26 14:25:42 +05:30:           "activityId": "49b7f2a0-e578-4ff7-b033-e07cbf8713ed",
+2025-11-26 14:25:42 +05:30:           "correlateActivityId": "80c74ba1-aadc-41fd-8639-fe0a6ac68f03",
+2025-11-26 14:25:42 +05:30:           "startTimeUTCInMs": 1764147074242,
+2025-11-26 14:25:42 +05:30:           "durationInMs": 421,
+2025-11-26 14:25:42 +05:30:           "statusCode": 400,
+2025-11-26 14:25:42 +05:30:           "subStatusCode": 1004,
+2025-11-26 14:25:42 +05:30:           "requestPayloadLengthInBytes": 116,
+2025-11-26 14:25:42 +05:30:           "responsePayloadLengthInBytes": 1251,
+2025-11-26 14:25:42 +05:30:           "operationType": "query",
+2025-11-26 14:25:42 +05:30:           "resourceType": "docs"
+2025-11-26 14:25:42 +05:30:         }
+2025-11-26 14:25:42 +05:30:       ]
+2025-11-26 14:25:42 +05:30:     }
+2025-11-26 14:25:42 +05:30:   },
+2025-11-26 14:25:42 +05:30:   "request": {
+2025-11-26 14:25:42 +05:30:     "url": "https://fortknoxcosmos.documents.azure.com:443/dbs/fortknox/colls/deposits/pkranges",
+2025-11-26 14:25:42 +05:30:     "method": "GET",
+2025-11-26 14:25:42 +05:30:     "headers": {
+2025-11-26 14:25:42 +05:30:       "x-ms-documentdb-responsecontinuationtokenlimitinkb": "REDACTED",
+2025-11-26 14:25:42 +05:30:       "x-ms-documentdb-query-enablecrosspartition": "REDACTED",
+2025-11-26 14:25:42 +05:30:       "cache-control": "no-cache",
+2025-11-26 14:25:42 +05:30:       "x-ms-version": "REDACTED",
+2025-11-26 14:25:42 +05:30:       "user-agent": "Node.js/24.11.1 (darwin; arm64) azure-cosmos-js/4.8.0",
+2025-11-26 14:25:42 +05:30:       "x-ms-useragent": "Node.js/24.11.1 (darwin; arm64) azure-cosmos-js/4.8.0",
+2025-11-26 14:25:42 +05:30:       "x-ms-cosmos-sdk-supportedcapabilities": "REDACTED",
+2025-11-26 14:25:42 +05:30:       "x-ms-cosmos-allow-tentative-writes": "REDACTED",
+2025-11-26 14:25:42 +05:30:       "x-ms-date": "REDACTED",
+2025-11-26 14:25:42 +05:30:       "accept": "application/json",
+2025-11-26 14:25:42 +05:30:       "authorization": "REDACTED"
+2025-11-26 14:25:42 +05:30:     },
+2025-11-26 14:25:42 +05:30:     "timeout": 0,
+2025-11-26 14:25:42 +05:30:     "withCredentials": false,
+2025-11-26 14:25:42 +05:30:     "enableBrowserStreams": false,
+2025-11-26 14:25:42 +05:30:     "disableKeepAlive": false,
+2025-11-26 14:25:42 +05:30:     "abortSignal": {},
+2025-11-26 14:25:42 +05:30:     "requestId": "3ad0f051-9fe2-4cf2-af81-cbc68ea911f5",
+2025-11-26 14:25:42 +05:30:     "allowInsecureConnection": false,
+2025-11-26 14:25:42 +05:30:     "agent": {
+2025-11-26 14:25:42 +05:30:       "maxFreeSockets": 256,
+2025-11-26 14:25:42 +05:30:       "maxSockets": null
+2025-11-26 14:25:42 +05:30:     }
+2025-11-26 14:25:42 +05:30:   }
+2025-11-26 14:25:42 +05:30: }
+2025-11-26 14:25:42 +05:30:    ⚠️  Confirmation errors: 1
+2025-11-26 14:25:43 +05:30:    ❌ ETH: read ETIMEDOUT
+2025-11-26 15:16:59 +05:30:    ❌ ETH: The authorization token is not valid at the current time. Please create another token and retry (token start time: Wed, 26 Nov 2025 09:13:42 GMT, token expiry time: Wed, 26 Nov 2025 09:13:42 GMT, current server time: Wed, 26 Nov 2025 09:46:58 GMT).
+2025-11-26 15:16:59 +05:30: ActivityId: 6220bbb8-3afc-49cc-93b1-6d460b068511, documentdb-dotnet-sdk/2.14.0 Host/64-bit MicrosoftWindowsNT/10.0.20348.0
+2025-11-26 16:27:39 +05:30:    ❌ ETH: read ETIMEDOUT
+2025-11-26 16:34:29 +05:30:    ❌ ETH: read ETIMEDOUT
+2025-11-26 17:06:02 +05:30:    ❌ ETH: read ETIMEDOUT
+2025-11-26 19:02:42 +05:30:    ❌ ETH: read ETIMEDOUT
+2025-11-26 19:02:42 +05:30:    ❌ MATIC: read ETIMEDOUT
+2025-11-26 22:14:56 +05:30:    ❌ ETH: read ETIMEDOUT
+2025-11-26 22:31:36 +05:30:    ❌ ETH: read ETIMEDOUT
+2025-11-27 00:15:01 +05:30:    ❌ ETH: read ETIMEDOUT
+2025-11-27 00:15:02 +05:30:    ❌ ETH: read ETIMEDOUT
+2025-11-27 01:18:20 +05:30:    ❌ ETH: read ETIMEDOUT
+2025-11-27 01:45:56 +05:30:    ❌ MATIC: The authorization token is not valid at the current time. Please create another token and retry (token start time: Wed, 26 Nov 2025 19:48:20 GMT, token expiry time: Wed, 26 Nov 2025 19:48:20 GMT, current server time: Wed, 26 Nov 2025 20:15:55 GMT).
+2025-11-27 01:45:56 +05:30: ActivityId: b4cc0ed5-6e39-4bd4-ab71-36a8bea2cb98, documentdb-dotnet-sdk/2.14.0 Host/64-bit MicrosoftWindowsNT/10.0.20348.0
+2025-11-27 02:36:56 +05:30: [ETH Monitor] Error scanning address 0xA4AFF813050121a2b2b316758F7bE2480E41A55B: Error: request timeout (code=TIMEOUT, version=6.15.0)
+2025-11-27 02:36:56 +05:30:     at makeError (/Users/anurag/Downloads/voice-bharat-main/backend/fort-knox-exchange/node_modules/ethers/src.ts/utils/errors.ts:698:21)
+2025-11-27 02:36:56 +05:30:     at ClientRequest.<anonymous> (/Users/anurag/Downloads/voice-bharat-main/backend/fort-knox-exchange/node_modules/ethers/src.ts/utils/geturl.ts:66:33)
+2025-11-27 02:36:56 +05:30:     at ClientRequest.emit (node:events:508:28)
+2025-11-27 02:36:56 +05:30:     at TLSSocket.emitRequestTimeout (node:_http_client:927:9)
+2025-11-27 02:36:56 +05:30:     at Object.onceWrapper (node:events:622:28)
+2025-11-27 02:36:56 +05:30:     at TLSSocket.emit (node:events:520:35)
+2025-11-27 02:36:56 +05:30:     at Socket._onTimeout (node:net:604:8)
+2025-11-27 02:36:56 +05:30:     at listOnTimeout (node:internal/timers:605:17)
+2025-11-27 02:36:56 +05:30:     at process.processTimers (node:internal/timers:541:7) {
+2025-11-27 02:36:56 +05:30:   code: 'TIMEOUT',
+2025-11-27 02:36:56 +05:30:   shortMessage: 'request timeout'
+2025-11-27 02:36:56 +05:30: }
+2025-11-27 02:36:58 +05:30:    ⚠️  ETH: 1 errors
+2025-11-27 02:46:46 +05:30:    ❌ ETH: read ETIMEDOUT
+2025-11-27 02:46:47 +05:30:    ❌ MATIC: read ETIMEDOUT
+2025-11-27 03:03:06 +05:30:    ❌ ETH: read ETIMEDOUT
+2025-11-27 04:21:30 +05:30:    ❌ ETH: read ETIMEDOUT
+2025-11-27 06:23:15 +05:30:    ❌ ETH: read ETIMEDOUT
+2025-11-27 07:24:53 +05:30:    ❌ ETH: read ETIMEDOUT
+2025-11-27 08:52:45 +05:30: [ETH Monitor] Error scanning address 0xA4AFF813050121a2b2b316758F7bE2480E41A55B: Error: request timeout (code=TIMEOUT, version=6.15.0)
+2025-11-27 08:52:45 +05:30:     at makeError (/Users/anurag/Downloads/voice-bharat-main/backend/fort-knox-exchange/node_modules/ethers/src.ts/utils/errors.ts:698:21)
+2025-11-27 08:52:45 +05:30:     at ClientRequest.<anonymous> (/Users/anurag/Downloads/voice-bharat-main/backend/fort-knox-exchange/node_modules/ethers/src.ts/utils/geturl.ts:66:33)
+2025-11-27 08:52:45 +05:30:     at ClientRequest.emit (node:events:508:28)
+2025-11-27 08:52:45 +05:30:     at TLSSocket.emitRequestTimeout (node:_http_client:927:9)
+2025-11-27 08:52:45 +05:30:     at Object.onceWrapper (node:events:622:28)
+2025-11-27 08:52:45 +05:30:     at TLSSocket.emit (node:events:520:35)
+2025-11-27 08:52:45 +05:30:     at Socket._onTimeout (node:net:604:8)
+2025-11-27 08:52:45 +05:30:     at listOnTimeout (node:internal/timers:605:17)
+2025-11-27 08:52:45 +05:30:     at process.processTimers (node:internal/timers:541:7) {
+2025-11-27 08:52:45 +05:30:   code: 'TIMEOUT',
+2025-11-27 08:52:45 +05:30:   shortMessage: 'request timeout'
+2025-11-27 08:52:45 +05:30: }
+2025-11-27 08:52:45 +05:30:    ⚠️  MATIC: 1 errors
+2025-11-27 08:52:56 +05:30:    ❌ ETH: read ETIMEDOUT
+2025-11-27 09:16:19 +05:30:    ❌ ETH: read ETIMEDOUT

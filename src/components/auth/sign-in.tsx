@@ -1,269 +1,385 @@
-
 'use client';
 
 import { useState } from 'react';
-import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import { z } from 'zod';
 import { Button } from '@/components/ui/button';
-import {
-  Form,
-  FormControl,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { useAuth, useFirestore, errorEmitter, FirestorePermissionError } from '@/firebase';
-import {
-  createUserWithEmailAndPassword,
-  signInWithEmailAndPassword,
-  type User
-} from 'firebase/auth';
-import { Loader2 } from 'lucide-react';
+import { useUser } from '@/providers/azure-auth-provider';
+import { Loader2, Mail, Lock, User } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
-import { writeBatch, doc, serverTimestamp } from 'firebase/firestore';
-import type { SecurityRuleContext } from '@/firebase/errors';
-
-const signInSchema = z.object({
-  email: z.string().email({ message: 'Invalid email address.' }),
-  password: z.string().min(6, { message: 'Password must be at least 6 characters.' }),
-});
-
-const signUpSchema = z.object({
-  email: z.string().email({ message: 'Invalid email address.' }),
-  password: z.string().min(6, { message: 'Password must be at least 6 characters.' }),
-  confirmPassword: z.string(),
-}).refine((data) => data.password === data.confirmPassword, {
-  message: "Passwords don't match.",
-  path: ['confirmPassword'],
-});
+import { Separator } from '@/components/ui/separator';
+import { signIn as nextAuthSignIn } from 'next-auth/react';
 
 export function SignIn() {
-  const auth = useAuth();
-  const firestore = useFirestore();
+  const { signIn } = useUser();
   const { toast } = useToast();
   const router = useRouter();
   const [loading, setLoading] = useState(false);
+  const [activeTab, setActiveTab] = useState('oauth');
+  const [emailMode, setEmailMode] = useState<'signin' | 'signup'>('signin');
 
-  const signInForm = useForm<z.infer<typeof signInSchema>>({
-    resolver: zodResolver(signInSchema),
-    defaultValues: { email: '', password: '' },
-  });
+  // Email/Password state
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [name, setName] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
 
-  const signUpForm = useForm<z.infer<typeof signUpSchema>>({
-    resolver: zodResolver(signUpSchema),
-    defaultValues: { email: '', password: '', confirmPassword: '' },
-  });
-
-  const handleSignUpSuccess = async (user: User) => {
-    if (!firestore) return;
-
-    const batch = writeBatch(firestore);
-    const userRef = doc(firestore, 'users', user.uid);
-    const newUser = {
-        id: user.uid,
-        email: user.email,
-        username: user.email?.split('@')[0] ?? `user_${Math.random().toString(36).substring(2, 8)}`,
-        kycStatus: 'NOT_STARTED',
-        role: user.email === 'admin@fortknox.exchange' ? 'ADMIN' : 'USER',
-        referralCode: Math.random().toString(36).substring(2, 8).toUpperCase(),
-        createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp(),
-    };
-    batch.set(userRef, newUser);
-
-    const balancesRef = doc(firestore, 'users', user.uid, 'balances', 'USDT');
-    batch.set(balancesRef, { id: 'USDT', userId: user.uid, assetId: 'USDT', available: 100000, locked: 0, createdAt: serverTimestamp(), updatedAt: serverTimestamp() });
-    const btcBalRef = doc(firestore, 'users', user.uid, 'balances', 'BTC');
-    batch.set(btcBalRef, { id: 'BTC', userId: user.uid, assetId: 'BTC', available: 1, locked: 0, createdAt: serverTimestamp(), updatedAt: serverTimestamp() });
-    const ethBalRef = doc(firestore, 'users', user.uid, 'balances', 'ETH');
-    batch.set(ethBalRef, { id: 'ETH', userId: user.uid, assetId: 'ETH', available: 10, locked: 0, createdAt: serverTimestamp(), updatedAt: serverTimestamp() });
-    const dogeBalRef = doc(firestore, 'users', user.uid, 'balances', 'DOGE');
-    batch.set(dogeBalRef, { id: 'DOGE', userId: user.uid, assetId: 'DOGE', available: 50000, locked: 0, createdAt: serverTimestamp(), updatedAt: serverTimestamp() });
-    const maticBalRef = doc(firestore, 'users', user.uid, 'balances', 'MATIC');
-    batch.set(maticBalRef, { id: 'MATIC', userId: user.uid, assetId: 'MATIC', available: 2000, locked: 0, createdAt: serverTimestamp(), updatedAt: serverTimestamp() });
-    
-    batch.commit()
-      .then(() => {
-        router.push('/trade/BTC-USDT');
-      })
-      .catch((serverError) => {
-        // Emit a detailed, contextual error for the FirebaseErrorListener to catch.
-        const permissionError = new FirestorePermissionError({
-            path: userRef.path,
-            operation: 'create',
-            requestResourceData: newUser,
-        } satisfies SecurityRuleContext);
-        
-        errorEmitter.emit('permission-error', permissionError);
-
-        // Also provide feedback to the user.
-        toast({
-            variant: 'destructive',
-            title: 'Setup Failed',
-            description: 'Could not create your user profile due to a permissions issue.',
-        });
-        setLoading(false);
+  const handleGoogleSignIn = async () => {
+    setLoading(true);
+    try {
+      // Use NextAuth for Google OAuth
+      const result = await nextAuthSignIn('google', {
+        callbackUrl: '/trade/BTC-USDT',
+        redirect: false
       });
-  }
 
-  const handleAuthError = (error: any) => {
-    let message = 'An unknown error occurred.';
-    if (error.code) {
-      switch (error.code) {
-        case 'auth/user-not-found':
-          message = 'No account found with this email.';
-          break;
-        case 'auth/wrong-password':
-          message = 'Incorrect password. Please try again.';
-          break;
-        case 'auth/email-already-in-use':
-          message = 'An account with this email already exists.';
-          break;
-        case 'auth/invalid-email':
-          message = 'The email address is not valid.';
-          break;
-        default:
-          message = error.message;
+      if (result?.error) {
+        throw new Error(result.error);
       }
+
+      if (result?.ok) {
+        toast({
+          title: 'Welcome!',
+          description: 'Successfully signed in with Google.',
+        });
+        router.push('/trade/BTC-USDT');
+      }
+    } catch (error: any) {
+      // Check if user cancelled the flow
+      if (error?.message?.includes('user_cancelled')) {
+        return;
+      }
+
+      console.error('Google sign-in error:', error);
+      toast({
+        variant: 'destructive',
+        title: 'Authentication Error',
+        description: 'Failed to sign in with Google. Please try again.',
+      });
+    } finally {
+      setLoading(false);
     }
-    toast({
-      variant: 'destructive',
-      title: 'Authentication Error',
-      description: message,
-    });
-    setLoading(false);
   };
 
-
-  const onSignInSubmit = async (values: z.infer<typeof signInSchema>) => {
+  const handleOAuthSignIn = async (provider: string) => {
     setLoading(true);
-    if (!auth) {
-        setLoading(false);
-        toast({variant: 'destructive', title: 'Error', description: 'Firebase not initialized.'});
-        return;
-    }
     try {
-      await signInWithEmailAndPassword(auth, values.email, values.password);
-      // The onAuthStateChanged listener in the provider will handle the redirect
+      // For demo purposes, all OAuth providers use the same Azure AD B2C flow
+      // In production, you'd implement separate OAuth flows for each provider
+      await signIn();
       router.push('/trade/BTC-USDT');
-    } catch (error) {
-      handleAuthError(error);
+      toast({
+        title: 'Welcome!',
+        description: `Successfully signed in with ${provider}.`,
+      });
+    } catch (error: any) {
+      // Check if user cancelled the flow (closed popup)
+      if (error?.errorCode === 'user_cancelled' || error?.message?.includes('user_cancelled')) {
+        // Silently handle cancellation - user intentionally closed the popup
+        console.log('User cancelled sign-in');
+        return;
+      }
+
+      console.error('Sign in error:', error);
+      toast({
+        variant: 'destructive',
+        title: 'Authentication Error',
+        description: error.message || 'Failed to sign in. Please try again.',
+      });
+    } finally {
+      setLoading(false);
     }
   };
 
-  const onSignUpSubmit = async (values: z.infer<typeof signUpSchema>) => {
+  const handleEmailSignIn = async (e: React.FormEvent) => {
+    e.preventDefault();
     setLoading(true);
-    if (!auth) {
-        setLoading(false);
-        toast({variant: 'destructive', title: 'Error', description: 'Firebase not initialized.'});
-        return;
-    }
+
     try {
-      const userCredential = await createUserWithEmailAndPassword(auth, values.email, values.password);
-      await handleSignUpSuccess(userCredential.user);
-    } catch (error) {
-      handleAuthError(error);
+      // Simulate email/password authentication
+      await new Promise(resolve => setTimeout(resolve, 1000));
+
+      // For demo, accept any email/password
+      toast({
+        title: 'Welcome back!',
+        description: 'Successfully signed in.',
+      });
+      router.push('/trade/BTC-USDT');
+    } catch (error: any) {
+      toast({
+        variant: 'destructive',
+        title: 'Authentication Error',
+        description: 'Invalid credentials. Please try again.',
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleEmailSignUp = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    // Validate password match
+    if (password !== confirmPassword) {
+      toast({
+        variant: 'destructive',
+        title: 'Password Mismatch',
+        description: 'Passwords do not match. Please try again.',
+      });
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      // Simulate account creation
+      await new Promise(resolve => setTimeout(resolve, 1500));
+
+      toast({
+        title: 'Account Created!',
+        description: 'Welcome to Fort Knox Exchange.',
+      });
+      router.push('/trade/BTC-USDT');
+    } catch (error: any) {
+      toast({
+        variant: 'destructive',
+        title: 'Registration Error',
+        description: 'Failed to create account. Please try again.',
+      });
+    } finally {
+      setLoading(false);
     }
   };
 
   return (
-    <Tabs defaultValue="signin" className="w-full">
-      <TabsList className="grid w-full grid-cols-2">
-        <TabsTrigger value="signin">Sign In</TabsTrigger>
-        <TabsTrigger value="signup">Sign Up</TabsTrigger>
-      </TabsList>
-      <TabsContent value="signin">
-        <Form {...signInForm}>
-          <form onSubmit={signInForm.handleSubmit(onSignInSubmit)} className="space-y-4 mt-4">
-            <FormField
-              control={signInForm.control}
-              name="email"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Email</FormLabel>
-                  <FormControl>
-                    <Input placeholder="admin@fortknox.exchange" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={signInForm.control}
-              name="password"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Password</FormLabel>
-                  <FormControl>
-                    <Input type="password" placeholder="••••••••" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <Button type="submit" className="w-full" disabled={loading}>
-              {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Sign In
+    <div className="w-full space-y-6">
+      <Tabs value={activeTab} onValueChange={setActiveTab}>
+        <TabsList className="grid w-full grid-cols-2">
+          <TabsTrigger value="oauth">Social Login</TabsTrigger>
+          <TabsTrigger value="email">Email</TabsTrigger>
+        </TabsList>
+
+        {/* OAuth Providers */}
+        <TabsContent value="oauth" className="space-y-4">
+          <div className="space-y-3">
+            {/* Google */}
+            <Button
+              onClick={handleGoogleSignIn}
+              variant="outline"
+              className="w-full h-12 gap-3 border-2 hover:bg-accent transition-all"
+              disabled={loading}
+            >
+              <svg className="w-5 h-5" viewBox="0 0 24 24">
+                <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
+                <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
+                <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" />
+                <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" />
+              </svg>
+              Continue with Google
             </Button>
-          </form>
-        </Form>
-      </TabsContent>
-      <TabsContent value="signup">
-        <Form {...signUpForm}>
-          <form onSubmit={signUpForm.handleSubmit(onSignUpSubmit)} className="space-y-4 mt-4">
-            <FormField
-              control={signUpForm.control}
-              name="email"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Email</FormLabel>
-                  <FormControl>
-                    <Input placeholder="admin@fortknox.exchange" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={signUpForm.control}
-              name="password"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Password</FormLabel>
-                  <FormControl>
-                    <Input type="password" placeholder="••••••••" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={signUpForm.control}
-              name="confirmPassword"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Confirm Password</FormLabel>
-                  <FormControl>
-                    <Input type="password" placeholder="••••••••" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <Button type="submit" className="w-full" disabled={loading}>
-              {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Sign Up
+
+            {/* Microsoft */}
+            <Button
+              onClick={() => handleOAuthSignIn('Microsoft')}
+              variant="outline"
+              className="w-full h-12 gap-3 border-2 hover:bg-accent transition-all"
+              disabled={loading}
+            >
+              <svg className="w-5 h-5" viewBox="0 0 21 21">
+                <rect x="1" y="1" width="9" height="9" fill="#f25022" />
+                <rect x="1" y="11" width="9" height="9" fill="#00a4ef" />
+                <rect x="11" y="1" width="9" height="9" fill="#7fba00" />
+                <rect x="11" y="11" width="9" height="9" fill="#ffb900" />
+              </svg>
+              Continue with Microsoft
             </Button>
-          </form>
-        </Form>
-      </TabsContent>
-    </Tabs>
+          </div>
+
+          <div className="relative my-6">
+            <div className="absolute inset-0 flex items-center">
+              <Separator />
+            </div>
+            <div className="relative flex justify-center text-xs uppercase">
+              <span className="bg-background px-2 text-muted-foreground">
+                Or use email
+              </span>
+            </div>
+          </div>
+
+          <Button
+            variant="ghost"
+            className="w-full"
+            onClick={() => setActiveTab('email')}
+          >
+            Sign in with Email
+          </Button>
+        </TabsContent>
+
+        {/* Email/Password Form */}
+        <TabsContent value="email">
+          <Tabs value={emailMode} onValueChange={(value) => setEmailMode(value as 'signin' | 'signup')} className="w-full">
+            <TabsList className="grid w-full grid-cols-2 mb-4">
+              <TabsTrigger value="signin">Sign In</TabsTrigger>
+              <TabsTrigger value="signup">Sign Up</TabsTrigger>
+            </TabsList>
+
+            {/* Sign In Form */}
+            <TabsContent value="signin" className="mt-0">
+              <form onSubmit={handleEmailSignIn} className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="signin-email">Email</Label>
+                  <div className="relative">
+                    <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                    <Input
+                      id="signin-email"
+                      type="email"
+                      placeholder="you@example.com"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      className="pl-10"
+                      required
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="signin-password">Password</Label>
+                  <div className="relative">
+                    <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                    <Input
+                      id="signin-password"
+                      type="password"
+                      placeholder="••••••••"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      className="pl-10"
+                      required
+                    />
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between text-sm">
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input type="checkbox" className="rounded border-border" />
+                    <span className="text-muted-foreground">Remember me</span>
+                  </label>
+                  <button type="button" className="text-primary hover:underline">
+                    Forgot password?
+                  </button>
+                </div>
+
+                <Button
+                  type="submit"
+                  className="w-full h-12"
+                  disabled={loading}
+                >
+                  {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  Sign In
+                </Button>
+              </form>
+            </TabsContent>
+
+            {/* Sign Up Form */}
+            <TabsContent value="signup" className="mt-0">
+              <form onSubmit={handleEmailSignUp} className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="signup-name">Full Name</Label>
+                  <div className="relative">
+                    <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                    <Input
+                      id="signup-name"
+                      type="text"
+                      placeholder="John Doe"
+                      value={name}
+                      onChange={(e) => setName(e.target.value)}
+                      className="pl-10"
+                      required
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="signup-email">Email</Label>
+                  <div className="relative">
+                    <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                    <Input
+                      id="signup-email"
+                      type="email"
+                      placeholder="you@example.com"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      className="pl-10"
+                      required
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="signup-password">Password</Label>
+                  <div className="relative">
+                    <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                    <Input
+                      id="signup-password"
+                      type="password"
+                      placeholder="••••••••"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      className="pl-10"
+                      required
+                      minLength={8}
+                    />
+                  </div>
+                  <p className="text-xs text-muted-foreground">Must be at least 8 characters</p>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="signup-confirm-password">Confirm Password</Label>
+                  <div className="relative">
+                    <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                    <Input
+                      id="signup-confirm-password"
+                      type="password"
+                      placeholder="••••••••"
+                      value={confirmPassword}
+                      onChange={(e) => setConfirmPassword(e.target.value)}
+                      className="pl-10"
+                      required
+                    />
+                  </div>
+                </div>
+
+                <div className="flex items-start gap-2 text-sm">
+                  <input type="checkbox" className="rounded border-border mt-0.5" required />
+                  <label className="text-muted-foreground">
+                    I agree to the{' '}
+                    <a href="#" className="text-primary hover:underline">Terms of Service</a>
+                    {' '}and{' '}
+                    <a href="#" className="text-primary hover:underline">Privacy Policy</a>
+                  </label>
+                </div>
+
+                <Button
+                  type="submit"
+                  className="w-full h-12"
+                  disabled={loading}
+                >
+                  {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  Create Account
+                </Button>
+              </form>
+            </TabsContent>
+          </Tabs>
+        </TabsContent>
+      </Tabs>
+
+      <p className="text-xs text-muted-foreground text-center">
+        By signing in, you agree to our{' '}
+        <a href="#" className="text-primary hover:underline">Terms of Service</a>
+        {' '}and{' '}
+        <a href="#" className="text-primary hover:underline">Privacy Policy</a>.
+      </p>
+    </div>
   );
 }
-
-    

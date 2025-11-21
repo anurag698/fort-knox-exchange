@@ -1,27 +1,16 @@
 
 'use client';
 
-import { collectionGroup, query, where, orderBy } from 'firebase/firestore';
-import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
+import useSWR from 'swr';
 import type { Withdrawal } from '@/lib/types';
 
-export function useWithdrawals(status: Withdrawal['status'] = 'PENDING') {
-  const firestore = useFirestore();
+const fetcher = (url: string) => fetch(url).then((res) => res.json());
 
-  const withdrawalsQuery = useMemoFirebase(
-    () => {
-      if (!firestore) return null;
-      const withdrawalsCollectionGroup = collectionGroup(firestore, 'withdrawals');
-      return query(
-        withdrawalsCollectionGroup,
-        where('status', '==', status),
-        orderBy('createdAt', 'desc')
-      );
-    },
-    [firestore, status]
+export function useWithdrawals(status: Withdrawal['status'] = 'pending') {
+  const { data, error, isLoading } = useSWR<Withdrawal[]>(
+    `/api/withdrawals?status=${status}`,
+    fetcher
   );
 
-  const { data, isLoading, error } = useCollection<Withdrawal>(withdrawalsQuery);
-  
   return { data, isLoading, error };
 }

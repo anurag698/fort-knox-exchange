@@ -1,28 +1,24 @@
-
 "use client";
 
-import React, { useEffect, useRef, useState, useCallback } from "react";
-import { createChart, IChartApi, ISeriesApi } from "lightweight-charts";
+import React, { useEffect, useRef, useState } from "react";
+import { createChart, IChartApi, ISeriesApi, ColorType } from "lightweight-charts";
 import { bus } from "@/components/bus";
+import useMarketDataStore from "@/state/market-data-store";
 
-// Engine modules (from Part 13.7-A)
-import { ChartEngine } from "@/lib/chart-engine/engine-core";
-import {
-  IndicatorManager,
-} from "@/lib/chart-engine/engine-indicators";
-import {
-  DrawingManager,
-} from "@/lib/chart-engine/engine-drawings";
-import {
-  OverlayManager,
-} from "@/lib/chart-engine/engine-overlays";
+// Engine modules
+import { ChartEngine, calculateHeikinAshi } from "@/lib/chart-engine/engine-core";
+import { IndicatorManager } from "@/lib/chart-engine/engine-indicators";
+import { DrawingManager } from "@/lib/chart-engine/engine-drawings";
+import { OverlayManager } from "@/lib/chart-engine/engine-overlays";
 import { LiquidationManager } from "@/lib/chart-engine/engine-liquidations";
+
 
 interface ChartEngineProps {
   symbol: string;        // e.g. BTCUSDT
   interval: string;      // e.g. 1m, 5m, 15m
-  height?: number;       // Chart height
-    chartType?: string;      // e.g., candlestick, line, area
+  chartType?: "candlestick" | "line" | "area" | "heikin_ashi";  // Chart type
+  height?: number | string;       // Chart height
+  initialDrawings?: any[];        // Saved drawings to restore
   onEngineReady?: (api: {
     chart: IChartApi;
     engine: ChartEngine;
@@ -33,10 +29,13 @@ interface ChartEngineProps {
   }) => void;
 }
 
+
 export default function ChartEngineComponent({
   symbol,
   interval,
-    chartType = "candlestick,
+  chartType = "candlestick",
+  height = "100%",
+  initialDrawings = [],
   onEngineReady,
 }: ChartEngineProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -52,17 +51,15 @@ export default function ChartEngineComponent({
   const candleSeriesRef = useRef<ISeriesApi<"Candlestick"> | null>(null);
   const volumeSeriesRef = useRef<ISeriesApi<"Histogram"> | null>(null);
   const tradeMarkerSeriesRef = useRef<ISeriesApi<"Candlestick"> | null>(null);
+
   const currentPositionRef = useRef<any>(null);
   const pnlRef = useRef<any>(null);
   const pnlLineRef = useRef<any>(null);
   const tpLineRef = useRef<any>(null);
   const slLineRef = useRef<any>(null);
 
-
   // Theme adaptation
   const [theme, setTheme] = useState<"light" | "dark">("dark");
-
-  // Resize observer attached to container
   const resizeObserver = useRef<ResizeObserver | null>(null);
 
   // ------------------------------------------------------------------------
@@ -75,7 +72,7 @@ export default function ChartEngineComponent({
     // 1. Create LW Chart
     const chart = createChart(container, {
       layout: {
-        background: { color: theme === "dark" ? "#01060F" : "#FFFFFF" },
+        background: { type: ColorType.Solid, color: theme === "dark" ? "#01060F" : "#FFFFFF" },
         textColor: theme === "dark" ? "#EBF4FF" : "#101B33",
       },
       grid: {
@@ -83,33 +80,88 @@ export default function ChartEngineComponent({
         horzLines: { color: theme === "dark" ? "#07111D" : "#E1E5EE" },
       },
       width: container.clientWidth,
-      height,
+      height: typeof height === 'number' ? height : container.clientHeight,
       rightPriceScale: {
         borderColor: theme === "dark" ? "#12263F" : "#D5DFEF",
       },
       timeScale: {
         borderColor: theme === "dark" ? "#12263F" : "#D5DFEF",
         rightOffset: 8,
+        timeVisible: true,
+        secondsVisible: false,
       },
       crosshair: { mode: 1 as any },
+      handleScroll: {
+        vertTouchDrag: false, // Allow vertical page scroll on mobile
+      },
+      handleScale: {
+        axisPressedMouseMove: true,
+      },
     });
 
     chartRef.current = chart;
-    candleSeriesRef.current = chart.addCandlestickSeries();
-    volumeSeriesRef.current = chart.addHistogramSeries();
-    tradeMarkerSeriesRef.current = chart.addCandlestickSeries();
 
+    // Initialize main series based on chartType
+    if (chartType === "line") {
+      // Create line series for line chart
+      const lineSeries = chart.addLineSeries({
+        color: '#2962FF',
+        lineWidth: 2,
+      });
+      candleSeriesRef.current = lineSeries as any; // Store in same ref for compatibility
+    } else if (chartType === "area") {
+      // Create area series for area chart
+      const areaSeries = chart.addAreaSeries({
+        topColor: 'rgba(41, 98, 255, 0.4)',
+        bottomColor: 'rgba(41, 98, 255, 0.0)',
+        lineColor: 'rgba(41, 98, 255, 1)',
+        lineWidth: 2,
+      });
+      candleSeriesRef.current = areaSeries as any; // Store in same ref for compatibility
+    } else {
+      // Create candlestick series for candlestick and heikin_ashi
+      candleSeriesRef.current = chart.addCandlestickSeries({
+        upColor: '#26a69a',
+        downColor: '#ef5350',
+        borderVisible: false,
+        wickUpColor: '#26a69a',
+        wickDownColor: '#ef5350',
+      });
+    }
+
+    volumeSeriesRef.current = chart.addHistogramSeries({
+      color: '#26a69a',
+      priceFormat: {
+        type: 'volume',
+      },
+      priceScaleId: '', // set as an overlay by setting a blank priceScaleId
+    });
+    // Set volume to overlay on main chart but at bottom
+    volumeSeriesRef.current.priceScale().applyOptions({
+      scaleMargins: {
+        top: 0.8, // highest point of the series will be 80% away from the top
+        bottom: 0,
+      },
+    });
+
+    tradeMarkerSeriesRef.current = chartType === "candlestick" || chartType === "heikin_ashi"
+      ? chart.addCandlestickSeries() // Placeholder for markers if needed
+      : null; // No markers for line/area charts
 
     // 2. Engine Instance
     const engine = new ChartEngine(chart);
+    engine.setContainer(container); // Critical for native events (drag/drop)
     engineRef.current = engine;
+
+    // Critical: Link series to engine for DrawingManager
+    engine.candleSeries = candleSeriesRef.current;
 
     // 3. Indicators / Drawings / Overlays / Liquidations Managers
     const indicators = new IndicatorManager(chart, engine);
     const drawings = new DrawingManager(chart, engine);
     const overlays = new OverlayManager(chart, engine);
     const liquidations = new LiquidationManager(chart, engine);
-    overlays.init(container); 
+    overlays.init(container);
 
     indicatorsRef.current = indicators;
     drawingsRef.current = drawings;
@@ -117,245 +169,13 @@ export default function ChartEngineComponent({
     liquidationsRef.current = liquidations;
 
     // 4. Resize Observer
-    resizeObserver.current = new ResizeObserver(() => {
+    resizeObserver.current = new ResizeObserver((entries) => {
       if (!container || !chartRef.current) return;
-      chartRef.current.applyOptions({ width: container.clientWidth });
+      const { width, height } = entries[0].contentRect;
+      chartRef.current.applyOptions({ width, height });
     });
     resizeObserver.current.observe(container);
 
-    // 5. Callback to parent (Toolbar, Shell, Layout)
-    if (onEngineReady) {
-      onEngineReady({
-        chart,
-        engine,
-        indicators,
-        drawings,
-        overlays,
-        liquidations,
-      });
-    }
-
-    return () => {
-      // Cleanup
-      resizeObserver.current?.disconnect();
-      resizeObserver.current = null;
-
-      engine.destroy();
-      indicators.destroy();
-      drawings.destroy();
-      overlays.destroy();
-      liquidations.destroy();
-
-      chart.remove();
-      chartRef.current = null;
-      engineRef.current = null;
-      indicatorsRef.current = null;
-      drawingsRef.current = null;
-      overlaysRef.current = null;
-      liquidationsRef.current = null;
-    };
-  }, [theme, height, onEngineReady]);
-  
-  // ------------------------------------------------------------------------
-  // HYBRID KLINE ROUTER (FKX primary, MEXC secondary, offline fallback)
-  // ------------------------------------------------------------------------
-  useEffect(() => {
-    const engine = engineRef.current;
-    if (!engine) return;
-  
-    let fkxWS: WebSocket | null = null;
-    let mexcWS: WebSocket | null = null;
-    let offlineTimer: NodeJS.Timeout | null = null;
-  
-    let fkxConnected = false;
-    let mexcConnected = false;
-    let fkxFailed = false;
-    let mexcFailed = false;
-  
-    // -------------------------------------------------------------
-    // OFFLINE SIMULATOR (Firebase Studio safety)
-    // -------------------------------------------------------------
-    const startOfflineFallback = () => {
-      if (offlineTimer) return;
-  
-      console.warn("[FKX-Engine] Offline fallback enabled.");
-  
-      offlineTimer = setInterval(() => {
-        const last = engine.getLastCandle();
-        const t = (last?.t || Date.now()) + 60_000;
-  
-        const simulated = {
-          t,
-          o: last ? last.c : 100,
-          h: last ? last.c + Math.random() * 2 : 100.5,
-          l: last ? last.c - Math.random() * 2 : 99.5,
-          c: last ? last.c + (Math.random() - 0.5) * 3 : 101,
-          v: Math.random() * 5,
-          final: false,
-        };
-  
-        engine.applyRealtimeCandle(simulated, interval);
-      }, 1500);
-    };
-  
-    const stopOfflineFallback = () => {
-      if (offlineTimer) {
-        clearInterval(offlineTimer);
-        offlineTimer = null;
-      }
-    };
-  
-    // -------------------------------------------------------------
-    // FKX WEBSOCKET (Primary)
-    // -------------------------------------------------------------
-    const connectFKX = () => {
-      try {
-        fkxWS = new WebSocket("wss://api.fortknox.com/ws");
-  
-        fkxWS.onopen = () => {
-          fkxConnected = true;
-          fkxWS?.send(
-            JSON.stringify({
-              type: "subscribe",
-              channel: "kline",
-              symbol,
-              interval,
-            })
-          );
-          stopOfflineFallback();
-          console.log("[FKX WS] Connected.");
-        };
-  
-        fkxWS.onerror = () => {
-          fkxFailed = true;
-          console.warn("[FKX WS] Error.");
-        };
-  
-        fkxWS.onclose = () => {
-          fkxConnected = false;
-          console.warn("[FKX WS] Closed.");
-          fkxFailed = true;
-  
-          // Try fallback to MEXC
-          if (!mexcConnected && !mexcFailed) connectMEXC();
-          else startOfflineFallback();
-        };
-  
-        fkxWS.onmessage = (ev) => {
-          try {
-            const msg = JSON.parse(ev.data);
-  
-            if (msg.type === "kline" && msg.candle) {
-              engine.applyRealtimeCandle(msg.candle, interval);
-            }
-          } catch (e) {
-            console.error("[FKX WS] Parse error:", e);
-          }
-        };
-      } catch (e) {
-        fkxFailed = true;
-        console.error("[FKX WS] Failed to connect:", e);
-      }
-    };
-  
-    // -------------------------------------------------------------
-    // MEXC WEBSOCKET (Fallback)
-    // -------------------------------------------------------------
-    const connectMEXC = () => {
-      try {
-        const normalized = symbol.toLowerCase();
-        const stream = `${normalized}@kline_${interval.replace("m", "")}m`;
-  
-        mexcWS = new WebSocket(`wss://wbs.mexc.com/ws`);
-  
-        mexcWS.onopen = () => {
-          mexcConnected = true;
-          mexcWS?.send(
-            JSON.stringify({
-              method: "SUBSCRIPTION",
-              params: [`spot@public.kline.v3.api@${symbol}@Min1`],
-              id: 1,
-            })
-          );
-  
-          console.log("[MEXC WS] Fallback connected.");
-        };
-  
-        mexcWS.onerror = () => {
-          mexcFailed = true;
-          console.warn("[MEXC WS] Error.");
-        };
-  
-        mexcWS.onclose = () => {
-          mexcConnected = false;
-          mexcFailed = true;
-          console.warn("[MEXC WS] Closed.");
-  
-          if (!fkxConnected) startOfflineFallback();
-        };
-  
-        mexcWS.onmessage = (ev) => {
-          try {
-            const msg = JSON.parse(ev.data);
-            if (msg.c && msg.c.includes("kline")) {
-              const d = msg.d;
-              if (d) {
-                const candle = {
-                  t: d.ts,
-                  o: parseFloat(d.o),
-                  h: parseFloat(d.h),
-                  l: parseFloat(d.l),
-                  c: parseFloat(d.c),
-                  v: parseFloat(d.v),
-                  final: d.e === "kline_end",
-                };
-                engine.applyRealtimeCandle(candle, interval);
-              }
-            }
-          } catch (e) {
-            console.error("[MEXC WS] Parse error:", e);
-          }
-        };
-      } catch (e) {
-        mexcFailed = true;
-        console.error("[MEXC WS] Failed to connect:", e);
-      }
-    };
-  
-    // -------------------------------------------------------------
-    // BOOTSTRAP: FKX → MEXC → OFFLINE
-    // -------------------------------------------------------------
-    connectFKX();
-  
-    const timeout = setTimeout(() => {
-      if (!fkxConnected && !mexcConnected) {
-        console.warn("[Hybrid Router] FKX & MEXC both not connected → offline mode.");
-        startOfflineFallback();
-      }
-    }, 3000);
-  
-    // Cleanup on unmount
-    return () => {
-      clearTimeout(timeout);
-  
-      if (fkxWS) fkxWS.close();
-      if (mexcWS) mexcWS.close();
-      stopOfflineFallback();
-    };
-  }, [symbol, interval]);
-
-  // -----------------------------
-  // Part 13.7-B (3/3) — Indicators, Drawings, Overlays, API
-  // -----------------------------
-  useEffect(() => {
-    const engine = engineRef.current;
-    const indicators = indicatorsRef.current;
-    const drawings = drawingsRef.current;
-    const overlays = overlaysRef.current;
-    const chart = chartRef.current;
-  
-    if (!engine || !indicators || !drawings || !overlays || !chart) return;
-  
     // -------------------------
     // Helper: safe caller
     // -------------------------
@@ -368,84 +188,49 @@ export default function ChartEngineComponent({
         }
       };
     };
-  
+
     // -------------------------
     // Indicators API
     // -------------------------
-    const addSMA = safe((period = 20, color = "#f6e05e") => {
-      if (!indicators) return;
-      indicators.addSMA(period, color);
-    });
-  
-    const removeSMA = safe((period = 20) => {
-      indicators?.removeSMA(period);
-    });
-  
-    const addEMA = safe((period = 20, color = "#fb7185") => {
-      indicators?.addEMA(period, color);
-    });
-  
-    const addRSI = safe((period = 14, panelId = "rsi") => {
-      indicators?.addRSI(period, panelId);
-    });
-  
-    const addVWAP = safe((session = "today") => {
-      indicators?.addVWAP(session);
-    });
-  
+    const addSMA = safe((period = 20, color = "#f6e05e") => indicators.addSMA(period, color));
+    const removeSMA = safe((period = 20) => indicators.removeSMA(period));
+    const addEMA = safe((period = 20, color = "#fb7185") => indicators.addEMA(period, color));
+    const removeEMA = safe((period = 20) => indicators.removeEMA(period));
+    const addRSI = safe((period = 14, panelId = "rsi") => indicators.addRSI(period, panelId));
+    const addVWAP = safe((session = "today") => indicators.addVWAP(session));
+    const removeVWAP = safe((session = "today") => indicators.removeVWAP(session));
+    const addBB = safe((period = 20, stdDev = 2) => indicators.addBB(period, stdDev));
+    const removeBB = safe((period = 20, stdDev = 2) => indicators.removeBB(period, stdDev));
+    const addMACD = safe((fast = 12, slow = 26, signal = 9) => indicators.addMACD(fast, slow, signal));
+    const removeMACD = safe((fast = 12, slow = 26, signal = 9) => indicators.removeMACD(fast, slow, signal));
+
     // -------------------------
     // Drawing Tools API
     // -------------------------
-    const enableFreeDraw = safe(() => {
-      drawings?.enableFreeDraw();
-    });
-  
-    const enableTrendTool = safe(() => {
-      drawings?.enableTrendTool();
-    });
-  
-    const addTrendLine = safe((p1: any, p2: any) => {
-      drawings?.addTrend(p1, p2);
-    });
-  
-    const addFib = safe((high: any, low: any) => {
-      drawings?.addFib(high, low);
-    });
-  
-    const clearDrawings = safe(() => {
-      drawings?.clearAll();
-    });
-  
+    const enableFreeDraw = safe(() => drawings.enableFreeDraw());
+    const enableTrendTool = safe(() => drawings.enableTrendTool());
+    const addTrendLine = safe((p1: any, p2: any) => drawings.addTrend(p1, p2));
+    const addFib = safe((high: any, low: any) => drawings.addFib(high, low));
+    const clearDrawings = safe(() => drawings.clearAll());
+
     // -------------------------
     // TP / SL and Multi-entry
     // -------------------------
-    const setTPSL = safe((list: { price: number; type: "tp" | "sl" }[]) => {
-      overlays?.setTPSL(list);
-    });
-  
-    const setEntries = safe((entries: { price: number; size: number }[]) => {
-      overlays?.setEntries(entries);
-    });
-  
-    // -------------------------
-    // Trade markers (recent trades)
-    // -------------------------
-    const setTradeMarkers = safe((markers: { price: number; size: number; side: "buy" | "sell"; ts?: number }[]) => {
-      overlays?.setTradeMarkers(markers);
-    });
-  
+    const setTPSL = safe((list: { price: number; type: "tp" | "sl" }[]) => overlays.setTPSL(list));
+    const setEntries = safe((entries: { price: number; size: number }[]) => overlays.setEntries(entries));
+    const setTradeMarkers = safe((markers: { price: number; size: number; side: "buy" | "sell"; ts?: number }[]) => overlays.setTradeMarkers(markers));
+
     // -------------------------
     // PnL overlay updater
     // -------------------------
     const updatePositionPnl = safe((position: { avgEntry: number; size: number; side?: "long" | "short" }) => {
-      // compute unrealized pnl and display via overlays manager
       try {
         const last = engine.getLastCandle();
         if (!last) return;
         const lastPrice = last.c;
         const side = position.side ?? (position.size >= 0 ? "long" : "short");
         const pnl = side === "long" ? (lastPrice - position.avgEntry) * Math.abs(position.size) : (position.avgEntry - lastPrice) * Math.abs(position.size);
-        overlays?.setPositionOverlay({
+        overlays.setPositionOverlay({
           avgEntry: position.avgEntry,
           size: position.size,
           pnl,
@@ -455,36 +240,79 @@ export default function ChartEngineComponent({
         console.warn("updatePositionPnl failed", e);
       }
     });
-  
+
     // -------------------------
-    // Expose UI API for toolbar and parent components
+    // Expose UI API
     // -------------------------
-    // already passed via onEngineReady once on mount — add a second guard store on engine object
     (engine as any).ui = {
       addSMA,
       removeSMA,
       addEMA,
+      removeEMA,
       addRSI,
       addVWAP,
+      removeVWAP,
+      addBB,
+      removeBB,
+      addMACD,
+      removeMACD,
       enableFreeDraw,
-      enableTrendTool,
+      enableTrendTool: safe(() => { drawings.activateTool("trend"); }),
+      enableRayTool: safe(() => { drawings.activateTool("ray"); }),
+      enableMeasureTool: safe(() => { drawings.activateTool("measure"); }),
+      enableHorizontalTool: safe(() => { drawings.activateTool("horizontal"); }),
+      enableFibTool: safe(() => drawings.enableFibTool()),
       addTrendLine,
       addFib,
       clearDrawings,
+      undoDrawing: safe(() => drawings.undoLastDrawing()),
+      deleteSelectedDrawing: safe(() => drawings.deleteSelectedDrawing()),
+      toggleMagnet: safe(() => drawings.toggleMagnet()),
       setTPSL,
       setEntries,
       setTradeMarkers,
       updatePositionPnl,
-      zoomIn: () => chart.timeScale().zoomIn(),
-      zoomOut: () => chart.timeScale().zoomOut(),
+      zoomIn: () => {
+        const range = chart.timeScale().getVisibleLogicalRange();
+        if (range) {
+          const span = range.to - range.from;
+          const center = (range.to + range.from) / 2;
+          const newSpan = span * 0.8;
+          chart.timeScale().setVisibleLogicalRange({
+            from: center - newSpan / 2,
+            to: center + newSpan / 2,
+          });
+        }
+      },
+      zoomOut: () => {
+        const range = chart.timeScale().getVisibleLogicalRange();
+        if (range) {
+          const span = range.to - range.from;
+          const center = (range.to + range.from) / 2;
+          const newSpan = span * 1.25;
+          chart.timeScale().setVisibleLogicalRange({
+            from: center - newSpan / 2,
+            to: center + newSpan / 2,
+          });
+        }
+      },
       resetZoom: () => chart.timeScale().fitContent(),
     };
-  
+
+    // 5. Callback to parent (NOW SAFE TO CALL)
+    if (onEngineReady) {
+      onEngineReady({
+        chart,
+        engine,
+        indicators,
+        drawings,
+        overlays,
+        liquidations,
+      });
+    }
+
     // -------------------------
-    // Auto-sync some widgets:
-    // - When engine emits 'trade', add marker
-    // - When new internal-depth arrives, update depth overlay
-    // - When a final candle arrives, recompute VWAP/indicators
+    // Event Listeners (moved from separate effect)
     // -------------------------
     const onTrade = (t: any) => {
       setTradeMarkers([
@@ -496,37 +324,136 @@ export default function ChartEngineComponent({
         },
       ]);
     };
-  
-    const onInternalDepth = (d: any) => {
-      const bids = d.bids.map((b: any) => [b.price, b.size]);
-      const asks = d.asks.map((a: any) => [a.price, a.size]);
-      overlays?.setDepth(bids, asks, engine.getLastCandle()?.c ?? 0);
-    };
-  
+
     const onFinalCandle = (c: any) => {
-      // Recompute VWAP and indicators lightly
-      safe(() => indicators?.recalculateAll())();
-      // Update PnL overlays if any
-      safe(() => overlays?.refreshPositionOverlays())();
+      safe(() => indicators.recalculateAll())();
+      safe(() => overlays.refreshPositionOverlays())();
     };
-  
+
+    // Listen for kline updates from MarketDataService
+    const onKline = (data: any) => {
+      if (data.symbol !== symbol || data.interval !== interval) return;
+      engine.applyRealtimeCandle(data.candle, interval);
+      // Also update the series directly if engine doesn't do it automatically (engine emits 'candles-updated')
+    };
+
+    // Engine emits 'candles-updated', we need to update the series
+    const onEngineCandlesUpdated = (candles: any[]) => {
+      if (candleSeriesRef.current) {
+        let data: any[] = [];
+
+        if (chartType === "line" || chartType === "area") {
+          data = candles.map(c => ({
+            time: Math.floor(c.t / 1000) as any,
+            value: c.c,
+          }));
+        } else if (chartType === "heikin_ashi") {
+          data = calculateHeikinAshi(candles);
+        } else {
+          // Standard Candlestick
+          data = candles.map(c => ({
+            time: Math.floor(c.t / 1000) as any,
+            open: c.o,
+            high: c.h,
+            low: c.l,
+            close: c.c,
+          }));
+        }
+        candleSeriesRef.current.setData(data);
+      }
+
+      if (volumeSeriesRef.current) {
+        const volData = candles.map(c => ({
+          time: Math.floor(c.t / 1000) as any,
+          value: c.v,
+          color: c.c >= c.o ? '#26a69a' : '#ef5350'
+        }));
+        volumeSeriesRef.current.setData(volData);
+      }
+    };
+
     engine.eventBus.on("trade", onTrade);
-    engine.eventBus.on("internal-depth", onInternalDepth);
     engine.eventBus.on("candle-final", onFinalCandle);
-  
-    // -------------------------
-    // Cleanup
-    // -------------------------
+    engine.eventBus.on("candles-updated", onEngineCandlesUpdated);
+
+    // Listen to global bus for kline
+    bus.on("kline", onKline);
+
     return () => {
+      resizeObserver.current?.disconnect();
+
       engine.eventBus.off("trade", onTrade);
-      engine.eventBus.off("internal-depth", onInternalDepth);
       engine.eventBus.off("candle-final", onFinalCandle);
-      // detach ui object
-      try {
-        delete (engine as any).ui;
-      } catch {}
+      engine.eventBus.off("candles-updated", onEngineCandlesUpdated);
+
+      bus.off("kline", onKline);
+
+      engine.destroy();
+      indicators.destroy();
+      drawings.destroy();
+      overlays.destroy();
+      liquidations.destroy();
+      chart.remove();
+      chartRef.current = null;
+      engineRef.current = null;
     };
-  }, [symbol, interval]);
+  }, [theme, height, onEngineReady, chartType]); // Added chartType dependency to recreate chart on type change
+
+  // ------------------------------------------------------------------------
+  // HISTORICAL DATA FETCHING
+  // ------------------------------------------------------------------------
+  // ------------------------------------------------------------------------
+  // HISTORICAL DATA FETCHING
+  // ------------------------------------------------------------------------
+  useEffect(() => {
+    const fetchHistory = async () => {
+      if (!symbol || !interval || !candleSeriesRef.current || !engineRef.current) return;
+
+      try {
+        // Use internal API proxy to avoid CORS
+        const res = await fetch(`/api/mexc/klines?symbol=${symbol}&interval=${interval}&limit=1000`);
+        if (!res.ok) throw new Error("Failed to fetch history");
+        const raw = await res.json();
+
+        if (!Array.isArray(raw)) {
+          console.warn("Invalid kline data format", raw);
+          return;
+        }
+
+        // MEXC format: [t, o, h, l, c, v, ...]
+        const candles = raw.map((c: any) => ({
+          t: c[0],
+          o: parseFloat(c[1]),
+          h: parseFloat(c[2]),
+          l: parseFloat(c[3]),
+          c: parseFloat(c[4]),
+          v: parseFloat(c[5]),
+        }));
+
+        // Sort by time just in case
+        candles.sort((a: any, b: any) => a.t - b.t);
+
+        // Update Engine State
+        // This will emit 'candles-updated', which triggers onEngineCandlesUpdated
+        // onEngineCandlesUpdated handles chartType transformation (HA vs Candle) and updates both series
+        if (engineRef.current && engineRef.current.setCandles) {
+          engineRef.current.setCandles(candles);
+        } else {
+          console.warn('[ChartEngine] Engine not ready, skipping setCandles');
+        }
+
+        // Fit content after loading history
+        // chartRef.current?.timeScale().fitContent(); 
+
+      } catch (e) {
+        console.error("Failed to load chart history", e);
+      }
+    };
+
+    fetchHistory();
+  }, [symbol, interval, chartType]); // Added chartType to reload history when type changes (needed for new engine instance)
+
+  // Removed redundant effect that was causing race condition
 
   // -----------------------------
   // 13.7-D LIVE STREAM INTEGRATION LAYER
@@ -540,69 +467,41 @@ export default function ChartEngineComponent({
     const overlays = overlaysRef.current;
 
     if (!chart || !candleSeries || !volumeSeries || !tradeMarkerSeries || !indicators || !overlays) return;
-  
+
     // Firebase Studio sandbox protection (prevent crashes)
     const isSandbox =
       typeof window !== "undefined" &&
       window.location.href.includes("firebase");
-  
+
     // ------------------------------
-    // Candle update throttler (16 FPS)
+    // Candle update throttler (REMOVED - using engine.applyRealtimeCandle instead)
     // ------------------------------
-    let candleUpdateTimer: any = null;
-  
-    const updateCandleThrottled = (k: any) => {
-      if (candleUpdateTimer) return;
-      candleUpdateTimer = setTimeout(() => {
-        candleUpdateTimer = null;
-  
-        const t = Math.floor(k.t / 1000);
-  
-        candleSeries.update({
-          time: t,
-          open: Number(k.o),
-          high: Number(k.h),
-          low: Number(k.l),
-          close: Number(k.c),
-        });
-  
-        volumeSeries.update({
-          time: t,
-          value: Number(k.v),
-          color: Number(k.c) >= Number(k.o) ? "#26a69a" : "#ef5350",
-        });
-  
-        // Recompute MAs / EMA20 live
-        if (typeof indicators.recalculateAll === "function") {
-            indicators.recalculateAll();
-        }
-      }, 60);
-    };
-  
+    // Logic moved to primary useEffect to ensure indicators update correctly
+
     // ------------------------------
     // DEPTH HEATMAP
     // ------------------------------
     let depthTimer: any = null;
-  
+
     const updateDepthThrottled = (d: any) => {
       if (depthTimer) return;
       depthTimer = setTimeout(() => {
         depthTimer = null;
         if (overlays.setDepth) {
-            overlays.setDepth(d.bids || [], d.asks || [], d.mid);
+          overlays.setDepth(d.bids || [], d.asks || [], d.mid);
         }
       }, 100);
     };
-  
+
     // ------------------------------
     // TRADE MARKERS (bubbles)
     // ------------------------------
     const tradeMarkers: any[] = [];
     let tradeTimer: any = null;
-  
+
     const addTradeMarker = (t: any) => {
       if (!candleSeries) return;
-  
+
       tradeMarkers.push({
         time: Math.floor(t.t / 1000),
         position: t.S === "buy" ? "belowBar" : "aboveBar",
@@ -610,41 +509,41 @@ export default function ChartEngineComponent({
         shape: "circle",
         text: Number(t.p).toFixed(4),
       });
-  
+
       if (tradeMarkers.length > 50) tradeMarkers.shift();
-  
+
       if (tradeTimer) return;
       tradeTimer = setTimeout(() => {
         tradeTimer = null;
-        if(tradeMarkerSeries) {
-            tradeMarkerSeries.setData(tradeMarkers as any);
+        if (tradeMarkerSeries) {
+          tradeMarkerSeries.setData(tradeMarkers as any);
         }
       }, 120);
     };
-  
+
     // ------------------------------
     // PNL OVERLAY (Real-time)
     // ------------------------------
     const updatePnL = (ticker: any) => {
       if (!currentPositionRef.current) return;
-  
+
       const lastPrice = Number(ticker.askPrice || ticker.c || ticker.p);
       if (!lastPrice || Number.isNaN(lastPrice)) return;
-  
+
       // Recalculate PnL (net across all entries)
       const { entries } = currentPositionRef.current;
       const totalQty = entries.reduce((s: number, e: any) => s + Number(e.qty), 0);
       const avg = entries.reduce((s: number, e: any) => s + Number(e.price) * Number(e.qty), 0) / totalQty;
-  
+
       const side = currentPositionRef.current.side; // "long" or "short"
       const pnl = side === "long"
         ? (lastPrice - avg) * totalQty
         : (avg - lastPrice) * totalQty;
-  
-      if(pnlRef.current) {
+
+      if (pnlRef.current) {
         pnlRef.current.innerText = `PnL: ${pnl.toFixed(2)} USDT`;
       }
-  
+
       // Update floating PnL label on chart
       if (pnlLineRef.current) {
         pnlLineRef.current.applyOptions({
@@ -653,15 +552,15 @@ export default function ChartEngineComponent({
         });
       }
     };
-  
+
     // ------------------------------
     // TP / SL Real-time lines
     // ------------------------------
     const updateTpsl = () => {
       if (!currentPositionRef.current) return;
-  
+
       const { tp, sl } = currentPositionRef.current;
-  
+
       if (tp && tpLineRef.current) {
         tpLineRef.current.applyOptions({
           price: Number(tp),
@@ -669,7 +568,7 @@ export default function ChartEngineComponent({
           title: "TP",
         });
       }
-  
+
       if (sl && slLineRef.current) {
         slLineRef.current.applyOptions({
           price: Number(sl),
@@ -678,38 +577,37 @@ export default function ChartEngineComponent({
         });
       }
     };
-  
+
     // --------------------------------------
     // REGISTER EVENT BUS LISTENERS
     // --------------------------------------
-    bus.on("kline", (k) => {
-        if (!isSandbox) updateCandleThrottled(k);
-    });
 
-    bus.on("depth", (d) => {
-        if (!isSandbox) updateDepthThrottled(d);
-    });
+    const handleDepth = (payload: any) => {
+      if (!isSandbox && payload.depth) updateDepthThrottled(payload.depth);
+    };
 
-    bus.on("trade", (t) => {
-        if (!isSandbox) addTradeMarker(t);
-    });
+    const handleTrade = (payload: any) => {
+      if (!isSandbox && payload.trade) addTradeMarker(payload.trade);
+    };
 
-    bus.on("ticker", (t) => {
-        if (!isSandbox) {
-            updatePnL(t);
-            updateTpsl();
-        }
-    });
-  
+    const handleTicker = (payload: any) => {
+      if (!isSandbox && payload.ticker) {
+        updatePnL(payload.ticker);
+        updateTpsl();
+      }
+    };
+
+    bus.on("depth", handleDepth);
+    bus.on("trade", handleTrade);
+    bus.on("ticker", handleTicker);
+
     // --------------------------------------
     // CLEANUP
     // --------------------------------------
-     return () => {
-      bus.off("kline", updateCandleThrottled);
-      bus.off("depth", updateDepthThrottled);
-      bus.off("trade", addTradeMarker);
-      bus.off("ticker", updatePnL);
-      bus.off("ticker", updateTpsl);
+    return () => {
+      bus.off("depth", handleDepth);
+      bus.off("trade", handleTrade);
+      bus.off("ticker", handleTicker);
     };
   }, [
     chartRef,
@@ -740,29 +638,19 @@ export default function ChartEngineComponent({
 
 
   // ------------------------------------------------------------------------
-  // THEME LISTENER (auto-switch when Fort Knox theme changes)
+  // THEME LISTENER
   // ------------------------------------------------------------------------
   useEffect(() => {
     if (typeof window === "undefined") return;
-
     const html = document.documentElement;
-
     const observer = new MutationObserver(() => {
       const isDark = html.classList.contains("dark");
       setTheme(isDark ? "dark" : "light");
     });
-
-    observer.observe(html, {
-      attributes: true,
-      attributeFilter: ["class"],
-    });
-
+    observer.observe(html, { attributes: true, attributeFilter: ["class"] });
     return () => observer.disconnect();
   }, []);
 
-  // ------------------------------------------------------------------------
-  // CHART CONTAINER
-  // ------------------------------------------------------------------------
   return (
     <div
       ref={containerRef}

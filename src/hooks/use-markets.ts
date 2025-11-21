@@ -1,20 +1,19 @@
-
 'use client';
 
-import { collection, query, orderBy } from 'firebase/firestore';
-import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
+import useSWR from 'swr';
 import type { Market } from '@/lib/types';
 
-export function useMarkets() {
-  const firestore = useFirestore();
+const fetcher = (url: string) => fetch(url).then((res) => res.json());
 
-  const marketsQuery = useMemoFirebase(
-    () => {
-      if (!firestore) return null;
-      return query(collection(firestore, 'markets'), orderBy('id', 'asc'));
-    },
-    [firestore]
+export function useMarkets() {
+  const { data, error, isLoading } = useSWR<Market[]>(
+    '/api/markets',
+    fetcher
   );
 
-  return useCollection<Market>(marketsQuery);
+  return {
+    data: data || [],
+    isLoading,
+    error
+  };
 }

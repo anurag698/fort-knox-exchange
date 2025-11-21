@@ -2,13 +2,52 @@ import "./globals.css";
 import { ThemeProvider } from "@/providers/theme-provider";
 import ProHeader from "@/components/layout/pro-header";
 import { Toaster } from "@/components/ui/toaster";
-import { FirebaseClientProvider } from "@/firebase";
+import { AzureAuthProvider } from "@/providers/azure-auth-provider";
 import Script from "next/script";
-import FeedStatusWidget from "@/components/debug/FeedStatusWidget";
+import { MobileNav } from "@/components/layout/mobile-nav";
+import { TwoFactorGuard } from "@/components/security/two-factor-guard";
 
 export const metadata = {
-  title: "Fort Knox Exchange",
-  description: "A secure and modern cryptocurrency exchange.",
+  title: {
+    default: "Fort Knox Exchange | Secure Crypto Trading",
+    template: "%s | Fort Knox Exchange",
+  },
+  description: "A secure, ultra-modern cryptocurrency exchange featuring real-time trading, advanced charting, and social trading features.",
+  keywords: ["crypto", "exchange", "bitcoin", "ethereum", "trading", "finance", "secure", "fort knox"],
+  authors: [{ name: "Fort Knox Team" }],
+  creator: "Fort Knox Exchange",
+  openGraph: {
+    type: "website",
+    locale: "en_US",
+    url: "https://fortknox.exchange",
+    title: "Fort Knox Exchange | Secure Crypto Trading",
+    description: "Experience the future of crypto trading with Fort Knox Exchange. Secure, fast, and feature-rich.",
+    siteName: "Fort Knox Exchange",
+    images: [
+      {
+        url: "/og-image.png",
+        width: 1200,
+        height: 630,
+        alt: "Fort Knox Exchange Preview",
+      },
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Fort Knox Exchange | Secure Crypto Trading",
+    description: "Experience the future of crypto trading with Fort Knox Exchange. Secure, fast, and feature-rich.",
+    images: ["/twitter-image.png"],
+    creator: "@fortknox_ex",
+  },
+  viewport: {
+    width: "device-width",
+    initialScale: 1,
+    maximumScale: 1,
+  },
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "white" },
+    { media: "(prefers-color-scheme: dark)", color: "black" },
+  ],
 };
 
 export default function RootLayout({
@@ -56,19 +95,23 @@ export default function RootLayout({
           `}
         </Script>
       </head>
-      <body>
+      <body suppressHydrationWarning>
         <ThemeProvider>
-          <FirebaseClientProvider>
+          <AzureAuthProvider>
             {/* GLOBAL HEADER */}
             <ProHeader />
 
-            {/* PAGE CONTENT (with header spacing) */}
-            <main className="container mx-auto px-4 py-8 pt-24">
+            {/* PAGE CONTENT (with header spacing and mobile nav spacing) */}
+            <main className="w-full pb-16 md:pb-0">
               {children}
             </main>
+
+            {/* MOBILE NAVIGATION */}
+            <MobileNav />
+
+            <TwoFactorGuard />
             <Toaster />
-            {process.env.NODE_ENV === "development" && <FeedStatusWidget defaultSymbol="BTC-USDT" />}
-          </FirebaseClientProvider>
+          </AzureAuthProvider>
         </ThemeProvider>
       </body>
     </html>

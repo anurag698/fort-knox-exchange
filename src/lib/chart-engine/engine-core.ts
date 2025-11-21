@@ -5,7 +5,7 @@
 // -------------------------
 // Imports
 // -------------------------
-import { createChart, IChartApi, ISeriesApi } from "lightweight-charts";
+import { createChart, IChartApi, ISeriesApi, CandlestickData } from "lightweight-charts";
 
 // Safe, Firebase-friendly event emitter
 export class EngineEventBus {
@@ -258,19 +258,22 @@ export function applyAdaptiveScaling(
 // Base Chart Engine Class
 // -------------------------
 export class ChartEngine {
-  container: HTMLElement | null = null;
-  chart: IChartApi | null = null;
-  candleSeries: ISeriesApi<"Candlestick"> | null = null;
+  public chart: IChartApi | null = null;
+  public candleSeries: ISeriesApi<"Candlestick"> | null = null;
+  public container: HTMLElement | null = null; // Exposed for native events
+  public candles: Candle[] = [];
 
   eventBus = engineBus; // Use the singleton instance
 
   // Data State
-  candles: Candle[] = [];
   depthInternal: OrderbookSnapshot | null = null;
   depthExternal: DepthOverlaySnapshot | null = null;
   trades: Trade[] = [];
   position: SpotPosition | PerpPosition | null = null;
   tpSlLines: TPSLLine[] = [];
+  drawings: any[] = []; // Store user drawings (trend lines, fibs, etc.)
+  selectedDrawingIndex: number | null = null; // Exposed for overlay
+  hoveredDrawingIndex: number | null = null; // Exposed for hover effect
   mtf: MTFState = {
     primary: "1m",
     overlays: [],
@@ -307,7 +310,7 @@ export class ChartEngine {
     if (this.mtf.primary !== interval) return; // Ignore updates for other timeframes
 
     const last = this.getLastCandle();
-    
+
     // If the new candle's timestamp matches the last one, update it.
     if (last && c.t === last.t) {
       this.candles[this.candles.length - 1] = c;
@@ -318,7 +321,7 @@ export class ChartEngine {
     this.eventBus.emit("candles-updated", this.candles);
 
     if (c.final) {
-        this.eventBus.emit("candle-final", c);
+      this.eventBus.emit("candle-final", c);
     }
   }
 
@@ -346,4 +349,48 @@ export class ChartEngine {
   destroy() {
     // any cleanup logic
   }
+}
+
+// -------------------------
+// Heikin Ashi Transformer
+// -------------------------
+export function calculateHeikinAshi(candles: Candle[]): LWCandle[] {
+  if (candles.length === 0) return [];
+
+  const result: LWCandle[] = [];
+
+  // First HA candle
+  let prevHaOpen = (candles[0].o + candles[0].c) / 2;
+  let prevHaClose = (candles[0].o + candles[0].h + candles[0].l + candles[0].c) / 4;
+
+  for (let i = 0; i < candles.length; i++) {
+    const c = candles[i];
+
+    // HA Formulas
+    // haClose = (O + H + L + C) / 4
+    const haClose = (c.o + c.h + c.l + c.c) / 4;
+
+    // haOpen = (prevHaOpen + prevHaClose) / 2
+    // For first candle, we use standard open/close avg as proxy or just c.o
+    const haOpen = i === 0 ? (c.o + c.c) / 2 : (prevHaOpen + prevHaClose) / 2;
+
+    // haHigh = max(H, haOpen, haClose)
+    const haHigh = Math.max(c.h, haOpen, haClose);
+
+    // haLow = min(L, haOpen, haClose)
+    const haLow = Math.min(c.l, haOpen, haClose);
+
+    result.push({
+      time: Math.floor(c.t / 1000) as any,
+      open: haOpen,
+      high: haHigh,
+      low: haLow,
+      close: haClose,
+    });
+
+    prevHaOpen = haOpen;
+    prevHaClose = haClose;
+  }
+
+  return result;
 }

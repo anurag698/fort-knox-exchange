@@ -4,87 +4,235 @@
 
 /* --------------------------------------------
    GLOBAL THEME VARIABLES (LIGHT + DARK)
-   Fort Knox Exchange — Brand Theme System
+   Fort Knox Exchange — Premium Design System
 --------------------------------------------- */
 
 @layer base {
   :root {
-    --background: 240 10% 97%; /* #f7f8fa */
-    --foreground: 240 6% 10%; /* #17191c */
-    --card: 240 0% 100%;
-    --card-foreground: 240 6% 10%;
-    --popover: 240 0% 100%;
-    --popover-foreground: 240 6% 10%;
-    --primary: 221 83% 53%; /* Fort Knox Blue */
+    --background: 0 0% 100%;
+    --foreground: 210 11% 15%;
+    --card: 0 0% 100%;
+    --card-foreground: 210 11% 15%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 210 11% 15%;
+    --primary: 258 90% 66%;
+    /* #8B5CF6 - Vibrant Purple */
     --primary-foreground: 0 0% 100%;
-    --secondary: 240 5% 96%;
-    --secondary-foreground: 240 6% 10%;
-    --muted: 240 5% 90%;
-    --muted-foreground: 240 4% 46%;
-    --accent: 240 5% 96%;
-    --accent-foreground: 240 6% 10%;
-    --destructive: 0 72% 51%;
-    --destructive-foreground: 0 0% 100%;
-    --border: 240 6% 88%;
-    --input: 240 6% 88%;
-    --ring: 221 83% 53%;
+    --secondary: 210 9% 96%;
+    --secondary-foreground: 210 11% 15%;
+    --muted: 210 9% 96%;
+    --muted-foreground: 215 6% 58%;
+    --accent: 210 9% 96%;
+    --accent-foreground: 210 11% 15%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 214 10% 90%;
+    --input: 214 10% 90%;
+    --ring: 258 90% 66%;
     --radius: 0.5rem;
 
-    --chart-green: #26a69a;
-    --chart-red: #ef5350;
-    --gold: #d4af37;
+    --chart-green: 156 87% 42%;
+    --chart-red: 346 87% 62%;
+    --gold: 47 97% 60%;
+
+    /* Premium Gradients with Purple */
+    --gradient-primary: linear-gradient(135deg, hsl(258 90% 66%) 0%, hsl(270 91% 65%) 100%);
+    --gradient-success: linear-gradient(135deg, hsl(156 87% 42%) 0%, hsl(156 87% 35%) 100%);
+    --gradient-danger: linear-gradient(135deg, hsl(346 87% 62%) 0%, hsl(346 87% 55%) 100%);
+    --gradient-glass: linear-gradient(135deg, rgba(139, 92, 246, 0.1) 0%, rgba(139, 92, 246, 0.05) 100%);
+
+    /* Glassmorphism */
+    --glass-bg: rgba(255, 255, 255, 0.1);
+    --glass-border: rgba(139, 92, 246, 0.2);
+
+    /* Shadows with Purple Glow */
+    --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+    --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+    --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+    --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
+    --shadow-glow: 0 0 20px rgba(139, 92, 246, 0.5), 0 0 40px rgba(139, 92, 246, 0.25);
   }
 
   .dark {
-    --background: 240 10% 4%; /* #0a0f1a */
-    --foreground: 0 0% 98%; /* #fafafa */
-    --card: 240 6% 12%; /* #131A24 */
-    --card-foreground: 0 0% 98%;
-    --popover: 240 10% 4%;
-    --popover-foreground: 0 0% 98%;
-    --primary: 210 100% 50%; /* Fort Knox Neon Blue */
-    --primary-foreground: 240 6% 10%;
-    --secondary: 240 5% 16%;
-    --secondary-foreground: 0 0% 98%;
-    --muted: 240 5% 16%;
-    --muted-foreground: 240 4% 65%;
-    --accent: 240 5% 16%;
-    --accent-foreground: 0 0% 98%;
-    --destructive: 0 63% 31%;
-    --destructive-foreground: 0 0% 98%;
-    --border: 240 5% 16%;
-    --input: 240 5% 16%;
-    --ring: 210 100% 50%;
-    
-    --chart-green: #45f0ad;
-    --chart-red: #f87171;
-    --gold: #f4c542;
+    --background: 216 14% 10%;
+    --foreground: 210 9% 93%;
+    --card: 213 14% 14%;
+    --card-foreground: 210 9% 93%;
+    --popover: 213 14% 14%;
+    --popover-foreground: 210 9% 93%;
+    --primary: 258 90% 66%;
+    /* #8B5CF6 - Vibrant Purple */
+    --primary-foreground: 0 0% 100%;
+    --secondary: 215 14% 19%;
+    --secondary-foreground: 210 9% 93%;
+    --muted: 215 14% 19%;
+    --muted-foreground: 215 8% 56%;
+    --accent: 215 14% 19%;
+    --accent-foreground: 210 9% 93%;
+    --destructive: 346 87% 62%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 215 14% 19%;
+    --input: 215 14% 19%;
+    --ring: 258 90% 66%;
+
+    --chart-green: 156 87% 42%;
+    --chart-red: 346 87% 62%;
+    --gold: 47 97% 60%;
+
+    /* Premium Gradients - Dark Mode with Purple */
+    --gradient-primary: linear-gradient(135deg, hsl(258 90% 66%) 0%, hsl(270 91% 70%) 100%);
+    --gradient-success: linear-gradient(135deg, hsl(156 87% 42%) 0%, hsl(156 87% 32%) 100%);
+    --gradient-danger: linear-gradient(135deg, hsl(346 87% 62%) 0%, hsl(346 87% 50%) 100%);
+    --gradient-glass: linear-gradient(135deg, rgba(139, 92, 246, 0.08) 0%, rgba(139, 92, 246, 0.03) 100%);
+
+    /* Glassmorphism - Dark */
+    --glass-bg: rgba(30, 35, 41, 0.7);
+    --glass-border: rgba(139, 92, 246, 0.18);
+
+    /* Shadows - Dark Mode with Purple Glow */
+    --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.3);
+    --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.3), 0 2px 4px -2px rgb(0 0 0 / 0.3);
+    --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.4), 0 4px 6px -4px rgb(0 0 0 / 0.4);
+    --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.5), 0 8px 10px -6px rgb(0 0 0 / 0.5);
+    --shadow-glow: 0 0 30px rgba(139, 92, 246, 0.4), 0 0 60px rgba(139, 92, 246, 0.2);
   }
 }
 
 @layer base {
-  html,
+  html {
+    scroll-behavior: smooth;
+    overflow-x: hidden;
+  }
+
   body {
     @apply antialiased;
     background-color: hsl(var(--background));
     color: hsl(var(--foreground));
+    min-height: 100%;
+    width: 100%;
+    overflow-x: hidden;
+    overflow-y: auto;
   }
 
   * {
     border-color: hsl(var(--border));
   }
 
-  /* Scrollbars — modern + minimal */
+  /* Premium Scrollbars */
   ::-webkit-scrollbar {
-    width: 8px;
-    height: 8px;
+    width: 12px;
+    height: 12px;
   }
+
+  ::-webkit-scrollbar-track {
+    background: hsl(var(--background));
+    border-radius: 10px;
+  }
+
   ::-webkit-scrollbar-thumb {
-    background: hsl(var(--muted));
-    border-radius: 20px;
+    background: linear-gradient(180deg, hsl(var(--muted)) 0%, hsl(var(--muted-foreground) / 0.5) 100%);
+    border-radius: 10px;
+    border: 2px solid hsl(var(--background));
+    transition: all 0.3s ease;
   }
-   ::-webkit-scrollbar-thumb:hover {
-    background: hsl(var(--muted-foreground));
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: linear-gradient(180deg, hsl(var(--muted-foreground)) 0%, hsl(var(--primary) / 0.3) 100%);
+  }
+
+  /* Mobile Optimizations */
+  @media (max-width: 768px) {
+
+    button,
+    a,
+    input[type="submit"],
+    input[type="button"] {
+      min-height: 44px;
+      /* Minimum touch target size */
+      min-width: 44px;
+      touch-action: manipulation;
+      /* Prevent double-tap zoom */
+    }
+
+    /* Prevent text selection on interactive elements */
+    button,
+    a,
+    .clickable {
+      user-select: none;
+      -webkit-user-select: none;
+    }
+  }
+}
+
+/* ============================================
+   ANIMATION SYSTEM
+============================================ */
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes slide-in-up {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes slide-in-down {
+  from {
+    opacity: 0;
+    transform: translateY(-20px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes pulse-glow {
+
+  0%,
+  100% {
+    box-shadow: 0 0 20px rgba(139, 92, 246, 0.5);
+  }
+
+  50% {
+    box-shadow: 0 0 30px rgba(139, 92, 246, 0.7);
+  }
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: -1000px 0;
+  }
+
+  100% {
+    background-position: 1000px 0;
+  }
+}
+
+@keyframes gradient-shift {
+
+  0%,
+  100% {
+    background-position: 0% 50%;
+  }
+
+  50% {
+    background-position: 100% 50%;
   }
 }
 
@@ -97,11 +245,211 @@
 }
 
 @keyframes flash-green {
-  0% { background-color: rgba(34, 197, 94, 0.3); }
-  100% { background-color: transparent; }
+  0% {
+    background-color: rgba(14, 203, 129, 0.3);
+  }
+
+  100% {
+    background-color: transparent;
+  }
 }
 
 @keyframes flash-red {
-  0% { background-color: rgba(239, 68, 68, 0.3); }
-  100% { background-color: transparent; }
+  0% {
+    background-color: rgba(246, 70, 93, 0.3);
+  }
+
+  100% {
+    background-color: transparent;
+  }
+}
+
+/* Animation Utilities */
+.animate-fade-in {
+  animation: fade-in 0.5s ease-out;
+}
+
+.animate-slide-in-up {
+  animation: slide-in-up 0.6s ease-out;
+}
+
+.animate-slide-in-down {
+  animation: slide-in-down 0.6s ease-out;
+}
+
+.animate-pulse-glow {
+  animation: pulse-glow 2s ease-in-out infinite;
+}
+
+.animate-shimmer {
+  background: linear-gradient(90deg,
+      hsl(var(--muted)) 0%,
+      hsl(var(--muted-foreground) / 0.1) 50%,
+      hsl(var(--muted)) 100%);
+  background-size: 2000px 100%;
+  animation: shimmer 2s infinite linear;
+}
+
+.animate-gradient {
+  background-size: 200% 200%;
+  animation: gradient-shift 3s ease infinite;
+}
+
+/* Glassmorphism Utility */
+.glass {
+  background: var(--glass-bg);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--glass-border);
+}
+
+/* Smooth Transitions */
+.transition-smooth {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.transition-spring {
+  transition: all 0.5s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+}
+
+/* Micro-interactions */
+@keyframes bounce-subtle {
+
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+
+  50% {
+    transform: translateY(-4px);
+  }
+}
+
+@keyframes scale-in {
+  0% {
+    transform: scale(0.95);
+    opacity: 0;
+  }
+
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes ripple {
+  0% {
+    transform: scale(0);
+    opacity: 1;
+  }
+
+  100% {
+    transform: scale(4);
+    opacity: 0;
+  }
+}
+
+@keyframes shake {
+
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+
+  25% {
+    transform: translateX(-4px);
+  }
+
+  75% {
+    transform: translateX(4px);
+  }
+}
+
+.animate-bounce-subtle {
+  animation: bounce-subtle 0.6s ease-in-out;
+}
+
+.animate-scale-in {
+  animation: scale-in 0.3s ease-out;
+}
+
+.animate-shake {
+  animation: shake 0.4s ease-in-out;
+}
+
+/* Interactive Hover Effects */
+.hover-lift {
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.hover-lift:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 16px rgba(139, 92, 246, 0.15);
+}
+
+.hover-glow {
+  transition: box-shadow 0.3s ease;
+}
+
+.hover-glow:hover {
+  box-shadow: 0 0 20px rgba(139, 92, 246, 0.4), 0 0 40px rgba(139, 92, 246, 0.2);
+}
+
+.hover-scale {
+  transition: transform 0.2s ease;
+}
+
+.hover-scale:hover {
+  transform: scale(1.05);
+}
+
+/* Click/Active Effects */
+.active-press {
+  transition: transform 0.1s ease;
+}
+
+.active-press:active {
+  transform: scale(0.95);
+}
+
+/* Scrollbar Thin */
+.scrollbar-thin::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.scrollbar-thin::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.scrollbar-thin::-webkit-scrollbar-thumb {
+  background: hsl(var(--primary) / 0.3);
+  border-radius: 3px;
+}
+
+.scrollbar-thin::-webkit-scrollbar-thumb:hover {
+  background: hsl(var(--primary) / 0.5);
+}
+
+/* Loading State */
+@keyframes skeleton-pulse {
+
+  0%,
+  100% {
+    opacity: 1;
+  }
+
+  50% {
+    opacity: 0.5;
+  }
+}
+
+.skeleton {
+  animation: skeleton-pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  background: linear-gradient(90deg,
+      hsl(var(--muted)) 25%,
+      hsl(var(--muted-foreground) / 0.1) 50%,
+      hsl(var(--muted)) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 2s infinite;
 }

@@ -1,23 +1,23 @@
-
 'use client';
 
-import { collection, query, orderBy } from 'firebase/firestore';
-import { useCollection, useFirestore, useUser, useMemoFirebase } from '@/firebase';
+import useSWR from 'swr';
+import { useUser } from '@/providers/azure-auth-provider';
 import type { Deposit } from '@/lib/types';
 
+const fetcher = (url: string) => fetch(url).then((res) => res.json());
+
 export function useUserDeposits(userId?: string) {
-  const firestore = useFirestore();
   const { user: authUser } = useUser();
   const targetUserId = userId || authUser?.uid;
 
-  const depositsQuery = useMemoFirebase(
-    () => {
-      if (!firestore || !targetUserId) return null;
-      const depositsCollectionRef = collection(firestore, 'users', targetUserId, 'deposits');
-      return query(depositsCollectionRef, orderBy('createdAt', 'desc'));
-    },
-    [firestore, targetUserId]
+  const { data, error, isLoading } = useSWR<Deposit[]>(
+    targetUserId ? `/api/deposits?userId=${targetUserId}` : null,
+    fetcher
   );
 
-  return useCollection<Deposit>(depositsQuery);
+  return {
+    data: data || [],
+    isLoading,
+    error
+  };
 }

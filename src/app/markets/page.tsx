@@ -1,21 +1,20 @@
 
 'use client';
 
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import type { Market, Asset, MarketData } from '@/lib/types';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { MarketsTable } from '@/components/markets/markets-table';
-import { AlertCircle, DatabaseZap } from 'lucide-react';
+import { EnhancedMarketsTable } from '@/components/markets/enhanced-markets-table';
+import { MarketFilters } from '@/components/markets/market-filters';
+import { DatabaseZap, TrendingUp, Users, BarChart3, Zap } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
-import { useFirestore } from '@/firebase';
-import { collection, onSnapshot, query } from 'firebase/firestore';
 import { MarketStatCard } from '@/components/markets/market-stat-card';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import Link from 'next/link';
 import { useAssets } from '@/hooks/use-assets';
 import { useMarkets } from '@/hooks/use-markets';
+import useSWR from 'swr';
 
 export type EnrichedMarket = Market & {
   baseAsset?: Asset;
@@ -23,44 +22,32 @@ export type EnrichedMarket = Market & {
   marketData?: MarketData;
 };
 
+const fetcher = (url: string) => fetch(url).then(res => res.json());
+
+// Category mappings (simplified - in production, this would come from market metadata)
+const marketCategories: Record<string, string[]> = {
+  defi: ['UNI', 'AAVE', 'COMP', 'MKR', 'SNX', 'CRV'],
+  nft: ['APE', 'SAND', 'MANA', 'AXS', 'ENJ'],
+  metaverse: ['SAND', 'MANA', 'RACA', 'GALA'],
+  meme: ['DOGE', 'SHIB', 'FLOKI', 'PEPE'],
+  layer1: ['BTC', 'ETH', 'SOL', 'ADA', 'AVAX', 'DOT', 'MATIC'],
+};
+
 export default function MarketsPage() {
-  const firestore = useFirestore();
   const { data: markets, isLoading: marketsLoading, error: marketsError } = useMarkets();
   const { data: assets, isLoading: assetsLoading, error: assetsError } = useAssets();
-  const [marketData, setMarketData] = useState<Record<string, MarketData>>({});
-  const [marketDataLoading, setMarketDataLoading] = useState(true);
-  const [marketDataError, setMarketDataError] = useState<Error | null>(null);
+  const { data: marketData, isLoading: marketDataLoading, error: marketDataError } = useSWR<Record<string, MarketData>>(
+    '/api/market-data',
+    fetcher,
+    { refreshInterval: 5000 }
+  );
+
+  const [searchTerm, setSearchTerm] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState('all');
+  const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
 
   const isLoading = marketsLoading || assetsLoading || marketDataLoading;
   const error = marketsError || assetsError || marketDataError;
-
-  useEffect(() => {
-    if (!firestore) {
-      setMarketDataLoading(false);
-      return;
-    };
-
-    setMarketDataLoading(true);
-    const marketDataQuery = query(collection(firestore, 'market_data'));
-
-    const unsubMarketData = onSnapshot(marketDataQuery, (snapshot) => {
-        const liveData: Record<string, MarketData> = {};
-        snapshot.forEach(doc => {
-            liveData[doc.id] = { ...doc.data() as MarketData, id: doc.id };
-        });
-        setMarketData(liveData);
-        setMarketDataLoading(false);
-        setMarketDataError(null);
-    }, (err) => {
-        console.error("Market live data subscription error:", err);
-        setMarketDataError(new Error("Failed to subscribe to live market data."));
-        setMarketDataLoading(false);
-    });
-
-    return () => {
-      unsubMarketData();
-    };
-  }, [firestore]);
 
   const enrichedMarkets: EnrichedMarket[] = useMemo(() => {
     if (!markets || !assets) {
@@ -72,9 +59,30 @@ export default function MarketsPage() {
       ...market,
       baseAsset: assetsMap.get(market.baseAssetId),
       quoteAsset: assetsMap.get(market.quoteAssetId),
-      marketData: marketData[market.id],
+      marketData: marketData?.[market.id],
     }));
   }, [markets, assets, marketData]);
+
+  const filteredMarkets = useMemo(() => {
+    let filtered = enrichedMarkets.filter(m => m.quoteAssetId === 'USDT');
+
+    // Apply search filter
+    if (searchTerm) {
+      const search = searchTerm.toLowerCase();
+      filtered = filtered.filter(m =>
+        m.baseAssetId.toLowerCase().includes(search) ||
+        m.baseAsset?.name?.toLowerCase().includes(search)
+      );
+    }
+
+    // Apply category filter
+    if (selectedCategory !== 'all') {
+      const categoryAssets = marketCategories[selectedCategory] || [];
+      filtered = filtered.filter(m => categoryAssets.includes(m.baseAssetId));
+    }
+
+    return filtered;
+  }, [enrichedMarkets, searchTerm, selectedCategory]);
 
   const usdtMarkets = useMemo(() => enrichedMarkets.filter(m => m.quoteAssetId === 'USDT'), [enrichedMarkets]);
 
@@ -93,107 +101,169 @@ export default function MarketsPage() {
   }, [usdtMarkets]);
 
   const hotList = useMemo(() => {
-    // Simple "hot" logic: a mix of high volume and high change
     return [...usdtMarkets]
-       .filter(m => m.marketData?.volume && m.marketData?.priceChangePercent)
-       .sort((a, b) => ((b.marketData?.volume || 0) * Math.abs(b.marketData?.priceChangePercent || 0)) - ((a.marketData?.volume || 0) * Math.abs(a.marketData?.priceChangePercent || 0)))
-       .slice(0, 4);
+      .filter(m => m.marketData?.volume && m.marketData?.priceChangePercent)
+      .sort((a, b) => ((b.marketData?.volume || 0) * Math.abs(b.marketData?.priceChangePercent || 0)) - ((a.marketData?.volume || 0) * Math.abs(a.marketData?.priceChangePercent || 0)))
+      .slice(0, 4);
   }, [usdtMarkets]);
 
   const newTokens = useMemo(() => {
-    // Simple "new" logic: sort by creation date if available
-     return [...usdtMarkets]
-       .sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0))
-       .slice(0, 4);
+    return [...usdtMarkets]
+      .sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0))
+      .slice(0, 4);
   }, [usdtMarkets]);
 
+  // Calculate total stats
+  const totalVolume = useMemo(() => {
+    return usdtMarkets.reduce((sum, m) => {
+      const volume = (m.marketData?.volume || 0) * (m.marketData?.price || 0);
+      return sum + volume;
+    }, 0);
+  }, [usdtMarkets]);
 
-  const renderContent = () => {
-    if (isLoading && (!markets || markets.length === 0)) {
-      return (
-         <div className="rounded-md border">
-            <div className="p-4">
-              <Skeleton className="h-10 w-full" />
-            </div>
-            {[...Array(10)].map((_, i) => (
-                <div className="border-t p-4" key={i}>
-                    <Skeleton className="h-8 w-full" />
-                </div>
-            ))}
-          </div>
-      );
-    }
-
-    if (error) {
-       return (
-         <Alert variant="destructive">
-            <AlertTitle>Error Loading Markets</AlertTitle>
-            <AlertDescription>
-                {error.message || "Could not fetch market data. Please ensure your Firestore security rules allow public read access for the 'markets' and 'assets' collections."}
-            </AlertDescription>
+  if (error) {
+    return (
+      <div className="container mx-auto px-4 py-20">
+        <Alert variant="destructive">
+          <AlertTitle>Error Loading Markets</AlertTitle>
+          <AlertDescription>
+            {error.message || "Could not fetch market data."}
+          </AlertDescription>
         </Alert>
-      );
-    }
-    
-    if (!isLoading && (!markets || markets.length === 0)) {
-      return (
-        <div className="flex flex-col items-center justify-center rounded-lg border-2 border-dashed border-muted-foreground/30 p-12 text-center">
-            <div className="flex h-20 w-20 items-center justify-center rounded-full bg-muted">
-                <DatabaseZap className="h-10 w-10 text-muted-foreground" />
-            </div>
-            <h3 className="mt-4 text-lg font-semibold">Database Not Initialized</h3>
-            <p className="mb-4 mt-2 text-sm text-muted-foreground">
-                The exchange requires initial data for assets and markets. Please use the "Update Data" page to seed the database.
-            </p>
-            <Button asChild>
-                <Link href="/seed-data">Go to Update Data Page</Link>
-            </Button>
-        </div>
-      );
-    }
-
-    return <MarketsTable markets={usdtMarkets} />;
+      </div>
+    );
   }
 
+  if (!isLoading && (!markets || markets.length === 0)) {
+    return (
+      <div className="container mx-auto px-4 py-20">
+        <div className="flex flex-col items-center justify-center rounded-lg border-2 border-dashed border-muted-foreground/30 p-12 text-center">
+          <div className="flex h-20 w-20 items-center justify-center rounded-full bg-muted">
+            <DatabaseZap className="h-10 w-10 text-muted-foreground" />
+          </div>
+          <h3 className="mt-4 text-lg font-semibold">Database Not Initialized</h3>
+          <p className="mb-4 mt-2 text-sm text-muted-foreground">
+            The exchange requires initial data for assets and markets. Please use the "Update Data" page to seed the database.
+          </p>
+          <Button asChild>
+            <Link href="/seed-data">Go to Update Data Page</Link>
+          </Button>
+        </div>
+      </div>
+    );
+  }
 
   return (
-     <div className="flex flex-col gap-8">
-       <div className="flex flex-col gap-2">
-        <h1 className="font-headline text-3xl font-bold tracking-tight">
-          Markets
-        </h1>
-        <p className="max-w-3xl text-muted-foreground">
-          Explore real-time market data from the Fort Knox Exchange.
-        </p>
-      </div>
+    <div className="min-h-screen bg-gradient-to-b from-background via-primary/5 to-background">
+      {/* Hero Section */}
+      <section className="relative overflow-hidden bg-gradient-to-br from-primary/10 via-purple-500/10 to-background py-16 border-b border-primary/10">
+        <div className="absolute inset-0 opacity-30">
+          <div className="absolute top-10 left-10 w-64 h-64 bg-primary/20 rounded-full blur-3xl animate-pulse" />
+          <div className="absolute bottom-10 right-10 w-80 h-80 bg-purple-500/20 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '1s' }} />
+        </div>
 
-       <Tabs defaultValue="overview">
-        <TabsList>
-            <TabsTrigger value="overview">Overview</TabsTrigger>
-            <TabsTrigger value="data">All Tokens</TabsTrigger>
-        </TabsList>
-        <TabsContent value="overview" className="mt-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-              <MarketStatCard title="Hot" markets={hotList} isLoading={isLoading} />
-              <MarketStatCard title="Top Gainer" markets={topGainers} isLoading={isLoading} />
-              <MarketStatCard title="Top Volume" markets={topVolume} isLoading={isLoading} />
-              <MarketStatCard title="New" markets={newTokens} isLoading={isLoading} />
+        <div className="container mx-auto px-4 relative z-10">
+          <div className="max-w-4xl">
+            <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold mb-4 bg-gradient-to-r from-foreground via-primary to-foreground bg-clip-text text-transparent">
+              Explore Markets
+            </h1>
+            <p className="text-lg md:text-xl text-muted-foreground mb-8">
+              Trade 100+ cryptocurrency pairs with real-time data and advanced tools
+            </p>
+
+            {/* Quick Stats */}
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+              <Card variant="glass" className="p-4 hover-lift">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 rounded-lg bg-primary/10">
+                    <BarChart3 className="h-5 w-5 text-primary" />
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground">24h Volume</p>
+                    <p className="text-lg font-bold">${(totalVolume / 1000000).toFixed(2)}M</p>
+                  </div>
+                </div>
+              </Card>
+              <Card variant="glass" className="p-4 hover-lift">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 rounded-lg bg-green-500/10">
+                    <TrendingUp className="h-5 w-5 text-green-500" />
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground">Markets</p>
+                    <p className="text-lg font-bold">{usdtMarkets.length}</p>
+                  </div>
+                </div>
+              </Card>
+              <Card variant="glass" className="p-4 hover-lift">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 rounded-lg bg-blue-500/10">
+                    <Users className="h-5 w-5 text-blue-500" />
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground">Active Traders</p>
+                    <p className="text-lg font-bold">150K+</p>
+                  </div>
+                </div>
+              </Card>
+              <Card variant="glass" className="p-4 hover-lift">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 rounded-lg bg-yellow-500/10">
+                    <Zap className="h-5 w-5 text-yellow-500" />
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground">Trading Fee</p>
+                    <p className="text-lg font-bold">0.1%</p>
+                  </div>
+                </div>
+              </Card>
             </div>
-        </TabsContent>
-         <TabsContent value="data" className="mt-6">
-            <Card>
-                <CardHeader>
-                <CardTitle>Top Tokens by Market Capitalization</CardTitle>
-                <CardDescription>
-                    Get a comprehensive snapshot of all cryptocurrencies available on Fort Knox Exchange.
-                </CardDescription>
-                </CardHeader>
-                <CardContent>
-                    {renderContent()}
-                </CardContent>
-            </Card>
-        </TabsContent>
-       </Tabs>
+          </div>
+        </div>
+      </section>
+
+      {/* Main Content */}
+      <div className="container mx-auto px-4 py-8">
+        {/* Market Overview Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+          <MarketStatCard title="🔥 Hot" markets={hotList} isLoading={isLoading} />
+          <MarketStatCard title="📈 Top Gainers" markets={topGainers} isLoading={isLoading} />
+          <MarketStatCard title="💹 Top Volume" markets={topVolume} isLoading={isLoading} />
+          <MarketStatCard title="✨ New Listings" markets={newTokens} isLoading={isLoading} />
+        </div>
+
+        {/* Filters */}
+        <Card variant="glass" className="p-6 mb-6">
+          <MarketFilters
+            searchTerm={searchTerm}
+            onSearchChange={setSearchTerm}
+            selectedCategory={selectedCategory}
+            onCategoryChange={setSelectedCategory}
+            showFavoritesOnly={showFavoritesOnly}
+            onToggleFavorites={() => setShowFavoritesOnly(!showFavoritesOnly)}
+          />
+        </Card>
+
+        {/* Markets Table */}
+        <Card variant="glass" className="p-6">
+          <div className="mb-4">
+            <h2 className="text-2xl font-bold mb-1">All Markets</h2>
+            <p className="text-sm text-muted-foreground">
+              {filteredMarkets.length} markets • Updated every 5 seconds
+            </p>
+          </div>
+
+          {isLoading ? (
+            <div className="space-y-4">
+              {[...Array(10)].map((_, i) => (
+                <Skeleton key={i} className="h-16 w-full" />
+              ))}
+            </div>
+          ) : (
+            <EnhancedMarketsTable markets={filteredMarkets} />
+          )}
+        </Card>
+      </div>
     </div>
   );
 }

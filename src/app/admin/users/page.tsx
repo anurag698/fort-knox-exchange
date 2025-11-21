@@ -1,145 +1,130 @@
-'use client';
+"use client";
 
-import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
+import { useState } from "react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { ArrowRight, AlertCircle, Users, ArrowLeft } from "lucide-react";
-import { Skeleton } from '@/components/ui/skeleton';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import Link from 'next/link';
-import { useUsers } from "@/hooks/use-users";
+import { Search, MoreHorizontal, Shield, Ban, CheckCircle } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
-export default function AdminUsersPage() {
-  const { data: users, isLoading, error } = useUsers();
+// Mock user data
+const initialUsers = [
+  { id: "1", name: "Alice Johnson", email: "alice@example.com", status: "Active", role: "User", joined: "2023-01-15" },
+  { id: "2", name: "Bob Smith", email: "bob@example.com", status: "Active", role: "User", joined: "2023-02-20" },
+  { id: "3", name: "Charlie Brown", email: "charlie@example.com", status: "Suspended", role: "User", joined: "2023-03-10" },
+  { id: "4", name: "Diana Prince", email: "diana@example.com", status: "Active", role: "Admin", joined: "2022-11-05" },
+  { id: "5", name: "Evan Wright", email: "evan@example.com", status: "Active", role: "User", joined: "2023-04-12" },
+];
 
-  const getKYCBadgeVariant = (status: string) => {
-    switch (status) {
-      case 'VERIFIED':
-        return 'default';
-      case 'PENDING':
-        return 'secondary';
-      case 'REJECTED':
-        return 'destructive';
-      default:
-        return 'outline';
-    }
+export default function UserManagementPage() {
+  const [users, setUsers] = useState(initialUsers);
+  const [searchTerm, setSearchTerm] = useState("");
+
+  const filteredUsers = users.filter(user =>
+    user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    user.email.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  const handleStatusChange = (userId: string, newStatus: string) => {
+    setUsers(users.map(user =>
+      user.id === userId ? { ...user, status: newStatus } : user
+    ));
   };
 
-  const renderUsers = () => {
-    if (isLoading) {
-      return (
-        <>
-          {[...Array(5)].map((_, i) => (
-            <TableRow key={i}>
-              <TableCell><Skeleton className="h-4 w-32" /></TableCell>
-              <TableCell><Skeleton className="h-4 w-48" /></TableCell>
-              <TableCell><Skeleton className="h-4 w-24" /></TableCell>
-              <TableCell><Skeleton className="h-4 w-24" /></TableCell>
-              <TableCell className="text-right"><Skeleton className="h-8 w-20 ml-auto" /></TableCell>
-            </TableRow>
-          ))}
-        </>
-      );
-    }
-
-    if (error) {
-       return (
-        <TableRow>
-            <TableCell colSpan={5}>
-                 <Alert variant="destructive" className="mt-4">
-                    <AlertCircle className="h-4 w-4" />
-                    <AlertTitle>Error Loading Users</AlertTitle>
-                    <AlertDescription>
-                        {error.message || "Could not fetch user data. You may not have permission to view this page."}
-                    </AlertDescription>
-                </Alert>
-            </TableCell>
-        </TableRow>
-      );
-    }
-
-    if (!users || users.length === 0) {
-      return (
-         <TableRow>
-            <TableCell colSpan={5} className="text-center py-12">
-                 <div className="flex flex-col items-center justify-center text-muted-foreground">
-                    <Users className="h-10 w-10 mb-4" />
-                    <h3 className="text-lg font-semibold">No Users Found</h3>
-                    <p className="text-sm">There are no registered users in the system yet.</p>
-                </div>
-            </TableCell>
-        </TableRow>
-      );
-    }
-
-    return users.map((user) => {
-        const creationDate = user.createdAt?.toDate ? user.createdAt.toDate() : new Date();
-
-        return (
-            <TableRow key={user.id}>
-                <TableCell className="font-mono text-xs">{user.id}</TableCell>
-                <TableCell>{user.email}</TableCell>
-                <TableCell>{user.username}</TableCell>
-                <TableCell>
-                    <Badge variant={getKYCBadgeVariant(user.kycStatus)}>
-                        {user.kycStatus}
-                    </Badge>
-                </TableCell>
-                <TableCell>{creationDate.toLocaleDateString()}</TableCell>
-                <TableCell className="text-right">
-                <Button variant="ghost" size="sm" asChild>
-                  <Link href={`/admin/users/${user.id}`}>
-                    Manage <ArrowRight className="ml-2 h-4 w-4" />
-                  </Link>
-                </Button>
-                </TableCell>
-            </TableRow>
-        )
-    });
-  }
-
   return (
-    <div className="flex flex-col gap-8">
-        <div className="flex items-center gap-4">
-         <Button variant="outline" size="icon" asChild>
-            <Link href="/admin">
-                <ArrowLeft className="h-4 w-4" />
-                <span className="sr-only">Back to Admin</span>
-            </Link>
-        </Button>
-        <div className="flex flex-col gap-1">
-            <h1 className="font-headline text-3xl font-bold tracking-tight">
-            User Management
-            </h1>
-            <p className="text-muted-foreground">
-            View and manage all registered users.
-            </p>
+    <div className="space-y-6">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">User Management</h1>
+          <p className="text-muted-foreground">Manage user accounts, roles, and permissions.</p>
         </div>
+        <Button>
+          <Shield className="w-4 h-4 mr-2" />
+          Add Admin User
+        </Button>
       </div>
-
 
       <Card>
         <CardHeader>
-          <CardTitle>All Users</CardTitle>
-          <CardDescription>
-            A list of all users on the Fort Knox Exchange.
-          </CardDescription>
+          <div className="flex items-center justify-between">
+            <CardTitle>All Users</CardTitle>
+            <div className="relative w-64">
+              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+              <Input
+                type="search"
+                placeholder="Search users..."
+                className="pl-8"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
+            </div>
+          </div>
         </CardHeader>
         <CardContent>
-           <Table>
+          <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>User ID</TableHead>
+                <TableHead>Name</TableHead>
                 <TableHead>Email</TableHead>
-                <TableHead>Username</TableHead>
-                <TableHead>KYC Status</TableHead>
-                <TableHead>Member Since</TableHead>
-                <TableHead className="text-right">Action</TableHead>
+                <TableHead>Role</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead>Joined</TableHead>
+                <TableHead className="text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {renderUsers()}
+              {filteredUsers.map((user) => (
+                <TableRow key={user.id}>
+                  <TableCell className="font-medium">{user.name}</TableCell>
+                  <TableCell>{user.email}</TableCell>
+                  <TableCell>
+                    <Badge variant="outline" className={user.role === 'Admin' ? 'border-primary text-primary' : ''}>
+                      {user.role}
+                    </Badge>
+                  </TableCell>
+                  <TableCell>
+                    <Badge variant={user.status === 'Active' ? 'default' : 'destructive'} className={user.status === 'Active' ? 'bg-green-500 hover:bg-green-600' : ''}>
+                      {user.status}
+                    </Badge>
+                  </TableCell>
+                  <TableCell>{user.joined}</TableCell>
+                  <TableCell className="text-right">
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="icon">
+                          <MoreHorizontal className="w-4 h-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                        <DropdownMenuItem>View Details</DropdownMenuItem>
+                        <DropdownMenuItem>Edit Profile</DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                        {user.status === 'Active' ? (
+                          <DropdownMenuItem className="text-red-600" onClick={() => handleStatusChange(user.id, 'Suspended')}>
+                            <Ban className="w-4 h-4 mr-2" />
+                            Suspend User
+                          </DropdownMenuItem>
+                        ) : (
+                          <DropdownMenuItem className="text-green-600" onClick={() => handleStatusChange(user.id, 'Active')}>
+                            <CheckCircle className="w-4 h-4 mr-2" />
+                            Activate User
+                          </DropdownMenuItem>
+                        )}
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </TableCell>
+                </TableRow>
+              ))}
             </TableBody>
           </Table>
         </CardContent>

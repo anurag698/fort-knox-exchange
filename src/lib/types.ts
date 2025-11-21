@@ -28,6 +28,8 @@ export type Asset = {
   contractAddress: string;
   decimals: number;
   createdAt: string;
+  free: number;
+  locked: number;
 };
 
 export type MarketData = {
@@ -46,9 +48,10 @@ export type Order = {
   userId: string;
   marketId: string;
   side: 'BUY' | 'SELL';
-  type: 'LIMIT' | 'MARKET';
+  type: 'LIMIT' | 'MARKET' | 'STOP_LIMIT';
   mode?: 'CUSTODIAL' | 'NON_CUSTODIAL';
   price?: number; // Optional for MARKET orders
+  stopPrice?: number; // Optional for STOP_LIMIT orders
   quantity: number;
   status: 'OPEN' | 'PARTIAL' | 'FILLED' | 'CANCELED' | 'EXECUTING' | 'FAILED';
   filledAmount: number;
@@ -71,39 +74,39 @@ export type DexTransaction = {
 }
 
 export type Deposit = {
-    id: string;
-    userId: string;
-    assetId: string;
-    amount: number;
-    status: 'PENDING' | 'COMPLETED' | 'FAILED';
-    transactionHash?: string;
-    createdAt: any;
-    updatedAt: any;
+  id: string;
+  userId: string;
+  assetId: string;
+  amount: number;
+  status: 'PENDING' | 'COMPLETED' | 'FAILED';
+  transactionHash?: string;
+  createdAt: any;
+  updatedAt: any;
 };
 
 export type Withdrawal = {
-    id: string;
-    userId: string;
-    assetId: string;
-    amount: number;
-    status: 'PENDING' | 'APPROVED' | 'SENT' | 'REJECTED' | 'FAILED';
-    withdrawalAddress: string;
-    transactionHash?: string;
-    createdAt: any;
-    updatedAt: any;
-    aiRiskLevel?: 'Low' | 'Medium' | 'High' | 'Critical';
-    aiReason?: string;
+  id: string;
+  userId: string;
+  assetId: string;
+  amount: number;
+  status: 'PENDING' | 'APPROVED' | 'SENT' | 'REJECTED' | 'FAILED';
+  withdrawalAddress: string;
+  transactionHash?: string;
+  createdAt: any;
+  updatedAt: any;
+  aiRiskLevel?: 'Low' | 'Medium' | 'High' | 'Critical';
+  aiReason?: string;
 };
 
 export type UserProfile = {
-    id: string;
-    email: string;
-    username: string;
-    kycStatus: 'PENDING' | 'VERIFIED' | 'REJECTED' | 'NOT_STARTED';
-    role?: 'USER' | 'ADMIN';
-    createdAt: any;
-    updatedAt: any;
-    referralCode?: string;
+  id: string;
+  email: string;
+  username: string;
+  kycStatus: 'none' | 'pending' | 'approved' | 'rejected';
+  role?: 'USER' | 'ADMIN';
+  createdAt: any;
+  updatedAt: any;
+  referralCode?: string;
 };
 
 export type LedgerEntry = {
@@ -130,14 +133,14 @@ export type Balance = {
 };
 
 export type PriceAlert = {
-    id: string;
-    userId: string;
-    marketId: string;
-    condition: 'above' | 'below';
-    price: number;
-    enabled: boolean;
-    createdAt: any;
-    lastTriggeredAt: any;
+  id: string;
+  userId: string;
+  marketId: string;
+  condition: 'above' | 'below';
+  price: number;
+  enabled: boolean;
+  createdAt: any;
+  lastTriggeredAt: any;
 };
 
 export type SpotPosition = {

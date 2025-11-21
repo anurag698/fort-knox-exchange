@@ -1,20 +1,19 @@
-
 'use client';
 
-import { collection, query, orderBy } from 'firebase/firestore';
-import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
+import useSWR from 'swr';
 import type { Asset } from '@/lib/types';
 
-export function useAssets() {
-  const firestore = useFirestore();
+const fetcher = (url: string) => fetch(url).then((res) => res.json());
 
-  const assetsQuery = useMemoFirebase(
-    () => {
-      if (!firestore) return null;
-      return query(collection(firestore, 'assets'), orderBy('name', 'asc'));
-    },
-    [firestore]
+export function useAssets() {
+  const { data, error, isLoading } = useSWR<Asset[]>(
+    '/api/assets',
+    fetcher
   );
 
-  return useCollection<Asset>(assetsQuery);
+  return {
+    data: data || [],
+    isLoading,
+    error
+  };
 }

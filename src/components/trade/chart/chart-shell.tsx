@@ -3,68 +3,76 @@
 
 import React, { useCallback, useState, useEffect } from "react";
 import ChartEngineComponent from "./chart-engine";
-import ChartToolbar from "./chart-toolbar";
-import TimeframeSwitcher from "./timeframe-switcher";
+import { ChartToolbar } from "./chart-toolbar";
 import { useMarketDataStore } from "@/state/market-data-store";
 import marketDataService from "@/services/market-data-service";
 
-export default function ChartShell({ initialSymbol }: { initialSymbol: string }) {
-  const storeSymbol = useMarketDataStore((s) => s.symbol);
-  const symbol = (initialSymbol ?? storeSymbol).toUpperCase();
+type Interval = "1m" | "5m" | "15m" | "30m" | "1H" | "4H" | "1D";
+type ChartType = "candlestick" | "line" | "area" | "heikin_ashi";
+
+export default function ChartShell({ initialSymbol }: { initialSymbol?: string }) {
+  const symbol = (initialSymbol ?? "BTCUSDT").replace("-", "").toUpperCase();
   const [engineApi, setEngineApi] = useState<any>(null);
-  const [timeframe, setTimeframe] = useState<string>("1m");
-  const [chartType, setChartType] = useState<string>("candlestick");
+  const [interval, setInterval] = useState<Interval>("1m");
+  const [chartType, setChartType] = useState<ChartType>("candlestick");
+  const [chartKey, setChartKey] = useState(0);
 
   const onEngineReady = useCallback((ctx: any) => {
-    // expose UI object for toolbar
-    setEngineApi(ctx.engine?.ui ?? null);
+    setEngineApi(ctx);
+    // Also expose to window for toolbar access
+    if (typeof window !== 'undefined') {
+      (window as any).__FK_CHART__ = ctx;
+    }
   }, []);
 
-  // ensure feed started for this chart with selected timeframe
+  // Start market data feed when interval changes
   useEffect(() => {
-    marketDataService.startFeed(symbol, timeframe);
+    console.log(`🔄 ChartShell: Starting feed for ${symbol} @ ${interval}`);
+    marketDataService.startFeed(symbol, interval);
+
     return () => {
-      // don't stop global feed here by default
-      // marketDataService.stopFeed();
+      // Cleanup if needed
     };
-  }, [symbol, timeframe]);
+  }, [symbol, interval]);
 
-  // Handle timeframe change
-  const handleTimeframeChange = useCallback((newTimeframe: string) => {
-    setTimeframe(newTimeframe);
-    // Restart feed with new timeframe
-    marketDataService.stopFeed();
-    marketDataService.startFeed(symbol, newTimeframe);
-  }, [symbol]);
-
-  // Handle chart type change
-  const handleChartTypeChange = useCallback((newType: string) => {
-    setChartType(newType);
-    if (engineApi?.setChartType) {
-      engineApi.setChartType(newType);
+  const handleIntervalChange = (newInterval: Interval) => {
+    console.log(`📊 User clicked: ${newInterval}, current: ${interval}`);
+    if (newInterval !== interval) {
+      setInterval(newInterval);
+      // Force chart remount by incrementing key
+      setChartKey(prev => prev + 1);
     }
-  }, [engineApi]);
+  };
+
+  const handleChartTypeChange = (newType: ChartType) => {
+    console.log(`📈 Chart type change: ${chartType} -> ${newType}`);
+    if (newType !== chartType) {
+      setChartType(newType);
+      // Force chart remount for type change
+      setChartKey(prev => prev + 1);
+    }
+  };
 
   return (
-    <div className="chart-shell" style={{ width: "100%", height: "100%" }}>
-      <div style={{ display: "flex", justifyContent: "space-between", padding: "8px" }}>
-        <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
-          <h3 style={{ margin: 0 }}>{symbol}</h3>
-          <TimeframeSwitcher value={timeframe} onChange={handleTimeframeChange} />
-        </div>
-        <ChartToolbar 
-          engineApi={engineApi} 
-          chartType={chartType}
-          onChartTypeChange={handleChartTypeChange}
-        />
-      </div>
+    <div className="relative w-full h-full bg-card">
+      {/* Chart Toolbar Overlay */}
+      <ChartToolbar
+        selectedInterval={interval}
+        onIntervalChange={handleIntervalChange}
+        chartType={chartType}
+        onChartTypeChange={handleChartTypeChange}
+        engineAPI={engineApi}
+      />
 
-      <div style={{ height: "calc(100% - 48px)" }}>
-        <ChartEngineComponent 
-          symbol={symbol} 
-          interval={timeframe}
+      {/* Chart Engine */}
+      <div className="absolute inset-0">
+        <ChartEngineComponent
+          key={`chart-${chartKey}-${interval}-${chartType}`}
+          symbol={symbol}
+          interval={interval}
           chartType={chartType}
-          onEngineReady={onEngineReady} 
+          height="100%"
+          onEngineReady={onEngineReady}
         />
       </div>
     </div>

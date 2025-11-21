@@ -1,43 +1,111 @@
-
 "use client";
 
-import { useMarketDataStore, Trade } from "@/state/market-data-store";
-import { useMemo } from 'react';
+import useMarketDataStore from "@/state/market-data-store";
+import { useOrderStore } from "@/state/order-management-store";
+import type { Trade } from "@/lib/market-types";
+import { useMemo, useState, useEffect, useRef } from 'react';
 import { useMarkets } from '@/hooks/use-markets';
+import { cn } from "@/lib/utils";
+import { User } from "lucide-react";
 
 export function RecentTrades({ marketId }: { marketId: string }) {
-  const trades = useMarketDataStore((s) => s.trades);
-  const symbol = useMarketDataStore((s) => s.symbol);
+  const symbol = useMarketDataStore((s) => (s as any).symbol) || marketId;
+  const getTrades = useMarketDataStore((s) => s.getTrades);
+  const localTrades = useOrderStore((s) => s.trades);
   const { data: markets } = useMarkets();
-  const market = useMemo(() => markets?.find(m => m.id.replace('-','') === symbol), [markets, symbol]);
-  const pricePrecision = market?.pricePrecision ?? 2;
+  const [flashingTrades, setFlashingTrades] = useState<Set<number>>(new Set());
+  const prevTradesRef = useRef<Trade[]>([]);
 
-  const Row = ({ trade }: { trade: Trade }) => {
+  // Get trades for current symbol
+  const marketTrades = useMemo(() => getTrades(symbol || 'BTCUSDT', 50), [getTrades, symbol]);
+
+  // Merge local user trades with market trades
+  const trades = useMemo(() => {
+    // Filter local trades for this market
+    const relevantLocalTrades = localTrades
+      .filter(t => t.pair === marketId && t.status === 'completed')
+      .map(t => ({
+        t: t.timestamp,
+        p: t.price.toString(),
+        q: t.quantity.toString(),
+        b: t.id, // Use ID as buyer order ID
+        a: t.id, // Use ID as seller order ID
+        T: t.timestamp,
+        m: t.side === 'sell', // isBuyerMaker true if sell? (simplification)
+        M: true,
+        S: t.side,
+        isUserTrade: true // Custom flag
+      } as Trade & { isUserTrade?: boolean }));
+
+    // Combine and sort by time desc
+    return [...relevantLocalTrades, ...marketTrades]
+      .sort((a, b) => b.t - a.t)
+      .slice(0, 50);
+  }, [marketTrades, localTrades, marketId]);
+
+  const market = useMemo(() => markets?.find(m => m.id.replace('-', '') === symbol), [markets, symbol]);
+  const pricePrecision = market?.pricePrecision ?? 2;
+  const qtyPrecision = market?.quantityPrecision ?? 4;
+
+  // Flash animation on new trades
+  useEffect(() => {
+    if (trades && prevTradesRef.current.length > 0) {
+      const newTrades = trades.filter(t => !prevTradesRef.current.some(pt => pt.t === t.t));
+      if (newTrades.length > 0) {
+        const newFlashes = new Set(newTrades.map(t => t.t));
+        setFlashingTrades(newFlashes);
+        setTimeout(() => setFlashingTrades(new Set()), 400);
+      }
+    }
+    prevTradesRef.current = trades || [];
+  }, [trades]);
+
+  const Row = ({ trade }: { trade: Trade & { isUserTrade?: boolean } }) => {
     const isBuy = trade.S === 'buy';
-    const priceColor = isBuy ? "text-chartgreen" : "text-chartred";
+    const priceColor = isBuy ? "text-green-500" : "text-red-500";
     const time = new Date(trade.t).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
-    
+    const isFlashing = flashingTrades.has(trade.t);
+
     return (
-      <div className="grid grid-cols-3 gap-2 px-2 text-xs font-mono">
-        <span className={priceColor}>{Number(trade.p).toFixed(pricePrecision)}</span>
-        <span>{Number(trade.q).toFixed(4)}</span>
-        <span className="text-muted-foreground">{time}</span>
+      <div className={cn(
+        "grid grid-cols-3 gap-2 px-3 py-1 text-[11px] font-mono hover:bg-primary/5 cursor-pointer transition-all group relative",
+        isFlashing && (isBuy ? "flash-green" : "flash-red"),
+        trade.isUserTrade && "bg-primary/10 border-l-2 border-primary"
+      )}>
+        <span className={cn(priceColor, "font-medium group-hover:font-bold transition-all flex items-center gap-1")}>
+          {Number(trade.p).toFixed(pricePrecision)}
+          {trade.isUserTrade && <User className="h-3 w-3 text-primary opacity-70" />}
+        </span>
+        <span className="text-right text-foreground/80 group-hover:text-foreground">{Number(trade.q).toFixed(qtyPrecision)}</span>
+        <span className="text-right text-muted-foreground group-hover:text-foreground">{time}</span>
       </div>
     );
   };
 
   return (
-    <div className="bg-card border rounded-lg h-full flex flex-col">
-      <div className="trading-panel-header px-3 py-2 border-b">
-        <h2 className="text-sm font-medium">Recent Trades</h2>
+    <div className="h-full flex flex-col glass overflow-hidden animate-slide-in-up rounded-lg">
+      {/* Header with Glassmorphism */}
+      <div className="px-3 py-2.5 bg-gradient-to-r from-background/50 to-background/30 backdrop-blur-sm border-b border-primary/20">
+        <h2 className="text-xs font-semibold flex items-center gap-2">
+          <span className="h-2 w-2 rounded-full bg-primary animate-pulse"></span>
+          Recent Trades
+        </h2>
       </div>
-       <div className="trading-panel-body flex-grow overflow-y-auto space-y-1 py-1">
-        {trades.length === 0 ? (
-          <div className="h-full flex items-center justify-center text-sm text-muted-foreground">
-            No trades yet
+
+      {/* HEADERS */}
+      <div className="grid grid-cols-3 gap-2 px-3 py-1.5 text-[10px] text-muted-foreground font-medium uppercase tracking-wider bg-muted/10">
+        <span>Price(USDT)</span>
+        <span className="text-right">Amount({symbol?.replace('USDT', '') || 'BTC'})</span>
+        <span className="text-right">Time</span>
+      </div>
+
+      <div className="flex-grow overflow-y-auto scrollbar-thin">
+        {!trades || trades.length === 0 ? (
+          <div className="h-full flex items-center justify-center text-xs text-muted-foreground">
+            No recent trades
           </div>
         ) : (
-          [...trades].reverse().map((trade, i) => <Row key={i} trade={trade} />)
+          trades.map((trade, i) => <Row key={`${trade.t}-${i}`} trade={trade} />)
         )}
       </div>
     </div>

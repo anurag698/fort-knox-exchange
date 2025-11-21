@@ -121,7 +121,7 @@ class MarketDataServiceClass {
   private emitStatus(status: string) {
     try {
       bus.emit?.("market-feed:status", { status, symbol: this.feedSymbol, interval: this.feedInterval });
-    } catch {}
+    } catch { }
   }
 
   /**
@@ -234,11 +234,26 @@ class MarketDataServiceClass {
   private subscribeToFeeds = () => {
     if (!this.feedSymbol || !this.feedInterval) return;
     if (!this.ws) return;
-    // MEXC subscription format used earlier
+
+    // Map intervals to MEXC format
+    const intervalMap: Record<string, string> = {
+      "1m": "Min1",
+      "5m": "Min5",
+      "15m": "Min15",
+      "30m": "Min30",
+      "1H": "Hour1",
+      "4H": "Hour4",
+      "1D": "Day1",
+    };
+
+    const mexcInterval = intervalMap[this.feedInterval] || "Min1";
+    // console.log(`📡 Subscribing to MEXC feeds for ${this.feedSymbol} @ ${mexcInterval}`);
+
+    // MEXC subscription format
     const sub = {
       method: "SUBSCRIPTION",
       params: [
-        `spot@public.kline.v3.api@${this.feedSymbol}@Min1`,
+        `spot@public.kline.v3.api@${this.feedSymbol}@${mexcInterval}`,
         `spot@public.deal.v3.api@${this.feedSymbol}`,
         `spot@public.depth.v3.api@${this.feedSymbol}@0`,
         `spot@public.bookTicker.v3.api@${this.feedSymbol}`,
@@ -253,12 +268,47 @@ class MarketDataServiceClass {
    */
   public startFeed = (symbol: string, interval: string = "1m") => {
     const normalized = (symbol ?? "").replace("-", "").toUpperCase();
+    const changed = this.feedSymbol !== normalized || this.feedInterval !== interval;
+
+    // If feed changed, unsubscribe from old feeds first
+    if (changed && this.feedSymbol && this.feedInterval && this.ws && this.ws.readyState === WebSocket.OPEN) {
+      // console.log(`🔄 Changing feed from ${this.feedSymbol}@${this.feedInterval} to ${normalized}@${interval}`);
+
+      // Unsubscribe from old feeds
+      const oldIntervalMap: Record<string, string> = {
+        "1m": "Min1",
+        "5m": "Min5",
+        "15m": "Min15",
+        "30m": "Min30",
+        "1H": "Hour1",
+        "4H": "Hour4",
+        "1D": "Day1",
+      };
+
+      const oldMexcInterval = oldIntervalMap[this.feedInterval] || "Min1";
+      const unsub = {
+        method: "UNSUBSCRIPTION",
+        params: [
+          `spot@public.kline.v3.api@${this.feedSymbol}@${oldMexcInterval}`,
+          `spot@public.deal.v3.api@${this.feedSymbol}`,
+          `spot@public.depth.v3.api@${this.feedSymbol}@0`,
+          `spot@public.bookTicker.v3.api@${this.feedSymbol}`,
+        ],
+        id: 2,
+      };
+      this.safeWsSend(unsub);
+    }
+
     this.feedSymbol = normalized as SymbolId;
     this.feedInterval = interval;
+
     // connect socket if needed and subscribe
     this.connectSocket();
     // if connected immediately, subscribe
-    if (this.ws && this.ws.readyState === WebSocket.OPEN) this.subscribeToFeeds();
+    if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+      // Small delay to ensure unsubscribe completes first
+      setTimeout(() => this.subscribeToFeeds(), 100);
+    }
     this.emitStatus("started");
   };
 
@@ -268,7 +318,7 @@ class MarketDataServiceClass {
     if (this.ws) {
       try {
         this.ws.close(1000, "stopFeed");
-      } catch {}
+      } catch { }
       this.ws = null;
     }
     this.emitStatus("stopped");

@@ -1,0 +1,1 @@
+{"error":"Market order failed","message":"External routing failed: invalid FixedNumber string value (argument=\"value\", value=\"NaN\", code=INVALID_ARGUMENT, version=6.15.0)"}

@@ -2,29 +2,27 @@
 'use client';
 
 import { useEffect, useRef } from "react";
-import { onSnapshot, collection, query, where } from "firebase/firestore";
-import { useUser, useFirestore } from "@/firebase";
+import useSWR from 'swr';
+import { useUser } from "@/providers/azure-auth-provider";
 import { useToast } from "@/hooks/use-toast";
 import type { PriceAlert } from "@/lib/types";
-import { useCollection } from "@/firebase";
 
 const COOLDOWN_PERIOD = 300 * 1000; // 5 minutes
+const fetcher = (url: string) => fetch(url).then((res) => res.json());
 
 export function usePriceAlerts(marketId: string, currentPrice: number) {
   const { user } = useUser();
-  const firestore = useFirestore();
   const { toast } = useToast();
   const lastTriggeredRef = useRef<Record<string, number>>({});
 
-  const alertsQuery = query(
-    collection(firestore, `users/${user?.uid}/alerts`),
-    where("marketId", "==", marketId),
-    where("enabled", "==", true)
+  const { data: alerts, isLoading } = useSWR<PriceAlert[]>(
+    user ? `/api/price-alerts?userId=${user.uid}&marketId=${marketId}&enabled=true` : null,
+    fetcher,
+    {
+      refreshInterval: 5000, // Poll every 5 seconds for updates
+      revalidateOnFocus: true,
+    }
   );
-
-  const { data: alerts, isLoading } = useCollection<PriceAlert>(alertsQuery, {
-    enabled: !!user,
-  });
 
   useEffect(() => {
     if (!alerts || alerts.length === 0 || !currentPrice || currentPrice === 0) {

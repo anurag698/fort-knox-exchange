@@ -37,6 +37,7 @@ interface MarketDataState {
 
   // meta
   feedStatus: any; // { status, symbol, interval, ... }
+  symbol?: string; // Current active symbol
 
   // actions (mutations)
   setKline: (symbol: SymbolId, candleOrArray: Candle | Candle[], trimTo?: number) => void;
@@ -44,6 +45,7 @@ interface MarketDataState {
   setDepth: (symbol: SymbolId, depth: Depth) => void;
   setTicker: (symbol: SymbolId, ticker: Ticker) => void;
   setFeedStatus: (payload: any) => void;
+  setSymbol: (symbol: string) => void;
 
   // selectors / helpers (pure functions)
   getLatestCandle: (symbol: SymbolId) => Candle | null;
@@ -62,6 +64,9 @@ export const useMarketDataStore = create<MarketDataState>((set, get) => ({
   depth: {},
   ticker: {},
   feedStatus: null,
+  symbol: "BTC-USDT", // Default symbol
+
+  setSymbol: (symbol) => set({ symbol }),
 
   // setKline: accepts single candle (append/update) or full array (snapshot)
   setKline: (symbol, candleOrArray, trimTo = DEFAULT_MAX_CANDLES) =>
@@ -111,13 +116,13 @@ export const useMarketDataStore = create<MarketDataState>((set, get) => ({
         const safeDepth: Depth = {
           bids: Array.isArray(depth.bids)
             ? depth.bids
-                .map((d) => ({ price: Number(d.price), size: Number(d.size) }))
-                .sort((a, b) => b.price - a.price)
+              .map((d) => ({ price: Number(d.price), size: Number(d.size) }))
+              .sort((a, b) => b.price - a.price)
             : [],
           asks: Array.isArray(depth.asks)
             ? depth.asks
-                .map((d) => ({ price: Number(d.price), size: Number(d.size) }))
-                .sort((a, b) => a.price - b.price)
+              .map((d) => ({ price: Number(d.price), size: Number(d.size) }))
+              .sort((a, b) => a.price - b.price)
             : [],
           ts: depth.ts ?? Date.now(),
           mid: depth.mid ?? undefined,

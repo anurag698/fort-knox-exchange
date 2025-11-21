@@ -1,55 +1,27 @@
 'use client';
 
-import { collection, query, where, orderBy, type QueryConstraint } from 'firebase/firestore';
-import { useCollection, useFirestore, useMemoFirebase, useUser } from '@/firebase';
+import useSWR from 'swr';
+import { useUser } from '@/providers/azure-auth-provider';
 import type { Order } from '@/lib/types';
 
-/**
- * Fetches orders for a specific user and optionally filters by market.
- * This hook now queries the `users/{userId}/orders` subcollection.
- * @param userId The UID of the user whose orders are to be fetched.
- * @param marketId Optional market ID to filter orders.
- */
-export function useOrders(userId?: string, marketId?: string) {
-  const firestore = useFirestore();
-  const { user, isUserLoading } = useUser();
+const fetcher = (url: string) => fetch(url).then((res) => res.json().then(data => data.orders));
 
-  // Use the passed userId or fallback to the authenticated user's ID
+export function useOrders(userId?: string, marketId?: string) {
+  const { user, isUserLoading } = useUser();
   const targetUserId = userId || user?.uid;
 
-  const ordersQuery = useMemoFirebase(() => {
-    // Guard: Do not build the query if the userId isn't available.
-    if (!firestore || !targetUserId) {
-      return null;
-    }
+  const queryParams = new URLSearchParams();
+  if (targetUserId) queryParams.append('userId', targetUserId);
+  if (marketId) queryParams.append('symbol', marketId);
 
-    // Query the subcollection path: `users/{userId}/orders`
-    const ordersCollectionRef = collection(firestore, 'users', targetUserId, 'orders');
+  const { data, error, isLoading } = useSWR<Order[]>(
+    targetUserId ? `/api/orders?${queryParams.toString()}` : null,
+    fetcher
+  );
 
-    const constraints: QueryConstraint[] = [];
-
-    if (marketId) {
-      constraints.push(where('marketId', '==', marketId));
-    }
-    
-    // We remove the orderBy here to avoid needing a composite index.
-    // Sorting will be done on the client.
-    // constraints.push(orderBy('createdAt', 'desc'));
-
-    return query(ordersCollectionRef, ...constraints);
-    
-  }, [firestore, targetUserId, marketId]); 
-
-  // The useCollection hook is now passed an `enabled` flag.
-  // It will only run the query if auth is finished and we have a valid query object.
-  const { data, isLoading, error } = useCollection<Order>(ordersQuery, {
-    enabled: !isUserLoading && !!ordersQuery,
-  });
-
-  return { 
-    data, 
-    // The overall loading state is true if auth is loading OR the query is loading.
-    isLoading: isUserLoading || isLoading, 
-    error 
+  return {
+    data: data || [],
+    isLoading: isUserLoading || isLoading,
+    error
   };
 }

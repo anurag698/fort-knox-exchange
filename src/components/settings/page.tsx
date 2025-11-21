@@ -2,8 +2,8 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useUser, useFirestore } from '@/firebase';
-import { doc, onSnapshot } from 'firebase/firestore';
+import { useUser } from '@/providers/azure-auth-provider';
+import useSWR from 'swr';
 import { useActionState } from 'react';
 import { useFormStatus } from 'react-dom';
 import { useForm } from 'react-hook-form';
@@ -41,10 +41,10 @@ function SubmitButton() {
   );
 }
 
-function KycSubmitButton({ kycStatus, userId } : { kycStatus?: UserProfile['kycStatus'], userId?: string }) {
+function KycSubmitButton({ kycStatus, userId }: { kycStatus?: UserProfile['kycStatus'], userId?: string }) {
   const { pending } = useFormStatus();
   const isDisabled = kycStatus === 'VERIFIED' || kycStatus === 'PENDING' || !userId;
-  
+
   const buttonText = {
     'VERIFIED': 'KYC Verified',
     'PENDING': 'Verification Pending',
@@ -74,13 +74,13 @@ export default function SettingsPage() {
 
   useEffect(() => {
     if (!firestore || !authUser?.uid) {
-      if(!isAuthLoading) setIsProfileLoading(false);
+      if (!isAuthLoading) setIsProfileLoading(false);
       return;
     }
-    
+
     setIsProfileLoading(true);
     const userDocRef = doc(firestore, 'users', authUser.uid);
-    
+
     const unsubscribe = onSnapshot(userDocRef, (docSnap) => {
       if (docSnap.exists()) {
         setUserProfile({ ...docSnap.data() as UserProfile, id: docSnap.id });
@@ -117,7 +117,7 @@ export default function SettingsPage() {
       form.reset({ username: userProfile.username, userId: userProfile.id });
     }
   }, [userProfile, form]);
-  
+
   useEffect(() => {
     if (profileFormState.status === 'success') {
       toast({ title: "Success", description: profileFormState.message });
@@ -193,7 +193,7 @@ export default function SettingsPage() {
 
     if (!userProfile) {
       return (
-         <div className="flex flex-col items-center justify-center rounded-lg border-2 border-dashed border-muted-foreground/30 p-12 text-center">
+        <div className="flex flex-col items-center justify-center rounded-lg border-2 border-dashed border-muted-foreground/30 p-12 text-center">
           <div className="flex h-20 w-20 items-center justify-center rounded-full bg-muted">
             <UserIcon className="h-10 w-10 text-muted-foreground" />
           </div>
@@ -205,7 +205,7 @@ export default function SettingsPage() {
       );
     }
 
-    const creationDate = userProfile.createdAt && userProfile.createdAt.toDate 
+    const creationDate = userProfile.createdAt && userProfile.createdAt.toDate
       ? userProfile.createdAt.toDate()
       : null;
 
@@ -217,9 +217,9 @@ export default function SettingsPage() {
             <div className="flex items-center space-x-6">
               <Avatar className="h-24 w-24">
                 {authUser?.photoURL ? (
-                    <AvatarImage src={authUser.photoURL} alt="User avatar" />
+                  <AvatarImage src={authUser.photoURL} alt="User avatar" />
                 ) : userAvatar ? (
-                    <AvatarImage src={userAvatar.imageUrl} alt="User avatar" data-ai-hint={userAvatar.imageHint} />
+                  <AvatarImage src={userAvatar.imageUrl} alt="User avatar" data-ai-hint={userAvatar.imageHint} />
                 ) : null}
                 <AvatarFallback>{getAvatarFallback()}</AvatarFallback>
               </Avatar>
@@ -227,10 +227,10 @@ export default function SettingsPage() {
                 <h2 className="text-2xl font-bold">{userProfile.username}</h2>
                 <p className="text-muted-foreground">{userProfile.email}</p>
                 <div className="flex items-center gap-2 pt-1">
-                    <span className="font-medium text-sm">Member since:</span>
-                    <p className="text-sm text-muted-foreground">
-                        {creationDate ? creationDate.toLocaleDateString() : 'N/A'}
-                    </p>
+                  <span className="font-medium text-sm">Member since:</span>
+                  <p className="text-sm text-muted-foreground">
+                    {creationDate ? creationDate.toLocaleDateString() : 'N/A'}
+                  </p>
                 </div>
               </div>
             </div>
@@ -250,11 +250,11 @@ export default function SettingsPage() {
             />
 
             <div className="space-y-2">
-                <FormLabel>Your Referral Code</FormLabel>
-                <Input readOnly value={userProfile.referralCode || 'N/A'} className="font-mono" />
-                 <p className="text-xs text-muted-foreground">Share this code to earn rewards.</p>
+              <FormLabel>Your Referral Code</FormLabel>
+              <Input readOnly value={userProfile.referralCode || 'N/A'} className="font-mono" />
+              <p className="text-xs text-muted-foreground">Share this code to earn rewards.</p>
             </div>
-            
+
           </CardContent>
           <CardFooter className="border-t px-6 py-4">
             <SubmitButton />
@@ -265,7 +265,7 @@ export default function SettingsPage() {
   };
 
   const renderKycContent = () => {
-    if(isLoading) {
+    if (isLoading) {
       return (
         <div className="flex flex-col items-center justify-center text-center pt-6">
           <Skeleton className="h-16 w-16 rounded-full mb-4" />
@@ -275,7 +275,7 @@ export default function SettingsPage() {
       );
     }
 
-    if(!userProfile) return null;
+    if (!userProfile) return null;
 
     const { kycStatus } = userProfile;
 
@@ -287,7 +287,7 @@ export default function SettingsPage() {
     }[kycStatus] || { icon: HelpCircle, title: "KYC Status Unknown", description: "Could not determine your KYC status.", variant: "outline" };
 
     return (
-       <CardContent className="flex flex-col items-center justify-center text-center pt-6">
+      <CardContent className="flex flex-col items-center justify-center text-center pt-6">
         <div className={`flex h-16 w-16 items-center justify-center rounded-full bg-${kycInfo.variant === 'destructive' ? 'destructive' : 'accent'}/10 mb-4`}>
           <kycInfo.icon className={`h-8 w-8 text-${kycInfo.variant === 'destructive' ? 'destructive' : 'accent-foreground'}`} />
         </div>
@@ -300,7 +300,7 @@ export default function SettingsPage() {
 
   return (
     <div className="flex flex-col gap-8">
-       <div className="flex flex-col gap-2">
+      <div className="flex flex-col gap-2">
         <h1 className="font-headline text-3xl font-bold tracking-tight">
           Settings
         </h1>
@@ -333,7 +333,7 @@ export default function SettingsPage() {
                 {renderKycContent()}
               </div>
               <CardFooter className="border-t pt-6">
-                  <KycSubmitButton kycStatus={userProfile?.kycStatus} userId={userProfile?.id} />
+                <KycSubmitButton kycStatus={userProfile?.kycStatus} userId={userProfile?.id} />
               </CardFooter>
             </Card>
           </form>

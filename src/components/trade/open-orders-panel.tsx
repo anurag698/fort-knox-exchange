@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useActionState } from 'react';
 import { useOrders } from '@/hooks/use-orders';
-import { useUser } from '@/firebase';
+import { useUser } from '@/providers/azure-auth-provider';
 import { useToast } from '@/hooks/use-toast';
 import { cancelOrder } from '@/app/trade/actions';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -14,45 +14,45 @@ import { AlertCircle, XCircle } from "lucide-react";
 import type { Order } from "@/lib/types";
 
 function CancelOrderButton({ orderId, userId }: { orderId: string, userId: string }) {
-    const { toast } = useToast();
-    const [state, formAction] = useActionState(cancelOrder, { status: "idle", message: "" });
+  const { toast } = useToast();
+  const [state, formAction] = useActionState(cancelOrder, { status: "idle", message: "" });
 
-    useEffect(() => {
-        if (state.status === 'success') {
-          toast({ title: "Success", description: state.message });
-        } else if (state.status === 'error') {
-          toast({ variant: "destructive", title: "Error", description: state.message });
-        }
-    }, [state, toast]);
+  useEffect(() => {
+    if (state.status === 'success') {
+      toast({ title: "Success", description: state.message });
+    } else if (state.status === 'error') {
+      toast({ variant: "destructive", title: "Error", description: state.message });
+    }
+  }, [state, toast]);
 
-    return (
-        <form action={formAction}>
-            <input type="hidden" name="orderId" value={orderId} />
-            <input type="hidden" name="userId" value={userId} />
-            <Button variant="ghost" size="icon" type="submit" aria-label="Cancel order">
-                <XCircle className="h-4 w-4 text-muted-foreground hover:text-destructive" />
-            </Button>
-        </form>
-    );
+  return (
+    <form action={formAction}>
+      <input type="hidden" name="orderId" value={orderId} />
+      <input type="hidden" name="userId" value={userId} />
+      <Button variant="ghost" size="icon" type="submit" aria-label="Cancel order">
+        <XCircle className="h-4 w-4 text-muted-foreground hover:text-destructive" />
+      </Button>
+    </form>
+  );
 }
 
 export function OpenOrdersPanel({ marketId }: { marketId: string }) {
   const { user } = useUser();
   const { data: allOrders, isLoading, error } = useOrders(user?.uid, marketId);
-  
+
   const openOrders = useMemo(() => {
     if (!allOrders) return [];
-    return allOrders.filter(o => o.status === 'OPEN' || o.status === 'PARTIAL').sort((a,b) => b.createdAt.toDate() - a.createdAt.toDate());
+    return allOrders.filter(o => o.status === 'OPEN' || o.status === 'PARTIAL').sort((a, b) => b.createdAt.toDate() - a.createdAt.toDate());
   }, [allOrders]);
-  
+
   const getStatusBadgeVariant = (status: Order['status']) => {
     return {
-        'OPEN': 'secondary',
-        'PARTIAL': 'secondary',
-        'EXECUTING': 'default',
-        'CANCELED': 'destructive',
-        'FAILED': 'destructive',
-        'FILLED': 'default'
+      'OPEN': 'secondary',
+      'PARTIAL': 'secondary',
+      'EXECUTING': 'default',
+      'CANCELED': 'destructive',
+      'FAILED': 'destructive',
+      'FILLED': 'default'
     }[status] || 'outline';
   };
 

@@ -1,0 +1,1 @@
+{"status":"success","count":1,"orders":[{"orderId":"ORD-1763788465205-e494920b","symbol":"BTC-USDT","side":"SELL","type":"LIMIT","price":100002,"quantity":0.01,"filled":0,"remaining":0.01,"status":"OPEN","createdAt":"2025-11-22T05:14:25.206Z","updatedAt":"2025-11-22T05:14:25.206Z"}]}

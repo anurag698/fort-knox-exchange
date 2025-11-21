@@ -1,26 +1,18 @@
-
 'use client';
 
-import { collection, query, orderBy } from 'firebase/firestore';
-import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
+import useSWR from 'swr';
 import type { UserProfile } from '@/lib/types';
 
+const fetcher = (url: string) => fetch(url).then((res) => res.json());
 
 export function useUsers() {
-  const firestore = useFirestore();
-
-  const usersQuery = useMemoFirebase(
-    () => {
-      if (!firestore) return null;
-      return query(collection(firestore, 'users'), orderBy('createdAt', 'desc'));
-    },
-    [firestore]
+  const { data, isLoading, error } = useSWR<UserProfile[]>(
+    '/api/users',
+    fetcher
   );
 
-  const { data, isLoading, error } = useCollection<UserProfile>(usersQuery);
-  
   return {
-    data,
+    data: data || [],
     isLoading,
     error
   };

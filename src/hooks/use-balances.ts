@@ -1,21 +1,48 @@
-
 'use client';
 
-import { collection, query, orderBy } from 'firebase/firestore';
-import { useCollection, useFirestore, useUser, useMemoFirebase } from '@/firebase';
+import useSWR from 'swr';
+import { useUser } from '@/providers/azure-auth-provider';
 import type { Balance } from '@/lib/types';
 
+const fetcher = (url: string) => fetch(url).then((res) => res.json());
+
 export function useBalances() {
-  const firestore = useFirestore();
   const { user } = useUser();
 
-  const balancesQuery = useMemoFirebase(
-    () => {
-      if (!firestore || !user) return null;
-      return query(collection(firestore, 'users', user.uid, 'balances'), orderBy('assetId'));
-    },
-    [firestore, user]
+  const { data, error, mutate } = useSWR(
+    user ? `/api/balances?userId=${user.uid}` : null,
+    fetcher,
+    {
+      refreshInterval: 2000, // Refresh every 2 seconds for faster updates
+      revalidateOnFocus: true,
+    }
   );
 
-  return useCollection<Balance>(balancesQuery);
+  // Aggregate duplicate balances by assetId
+  const rawBalances: Balance[] = data?.status === 'success' ? data.balances : [];
+  const balances: Balance[] = rawBalances.reduce((acc: Balance[], balance) => {
+    const assetId = balance.assetId;
+    if (!assetId) return acc;
+
+    const existing = acc.find(b => b.assetId === assetId);
+    if (existing) {
+      // Aggregate with existing balance
+      existing.available += balance.available;
+      existing.locked += balance.locked;
+    } else {
+      // Add new balance entry
+      acc.push({
+        ...balance,
+        assetId: assetId,
+      });
+    }
+    return acc;
+  }, []);
+
+  return {
+    data: balances,
+    isLoading: !error && !data,
+    isError: error,
+    mutate,
+  };
 }

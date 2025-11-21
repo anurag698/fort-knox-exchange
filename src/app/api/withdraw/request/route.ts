@@ -1,31 +1,34 @@
-
 import { NextResponse } from "next/server";
-import { getFirebaseAdmin } from "@/lib/firebase-admin";
+import { upsertItem } from '@/lib/azure/cosmos';
 
 export async function POST(req: Request) {
   try {
     const { userId, address, amount, token } = await req.json();
-    const { firestore } = getFirebaseAdmin()!;
 
     if (!userId || !address || !amount) {
       return NextResponse.json({ error: "Missing fields" }, { status: 400 });
     }
 
-    // Create request in queue
-    const ref = await firestore.collection("withdrawals").add({
+    const withdrawalId = `withdrawal-${userId}-${Date.now()}`;
+
+    // Create withdrawal request in Cosmos DB
+    const withdrawal = {
+      id: withdrawalId,
       userId,
       address,
       amount,
       token: token ?? "ETH",
       status: "pending",
-      createdAt: new Date(),
+      createdAt: new Date().toISOString(),
       approvedAt: null,
       txHash: null
-    });
+    };
+
+    await upsertItem('withdrawals', withdrawal, userId);
 
     return NextResponse.json({
       status: "success",
-      withdrawalId: ref.id
+      withdrawalId
     });
 
   } catch (e: any) {

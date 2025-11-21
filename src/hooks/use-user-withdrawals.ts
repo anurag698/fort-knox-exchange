@@ -1,23 +1,24 @@
-
 'use client';
 
-import { collection, query, orderBy } from 'firebase/firestore';
-import { useCollection, useFirestore, useUser, useMemoFirebase } from '@/firebase';
+import useSWR from 'swr';
+import { useUser } from '@/providers/azure-auth-provider'; // Keeping useUser for auth state if needed, or replace if moving away from firebase auth entirely. 
+// Assuming useUser provides the current userId.
 import type { Withdrawal } from '@/lib/types';
 
+const fetcher = (url: string) => fetch(url).then((res) => res.json());
+
 export function useUserWithdrawals(userId?: string) {
-  const firestore = useFirestore();
   const { user: authUser } = useUser();
   const targetUserId = userId || authUser?.uid;
 
-  const withdrawalsQuery = useMemoFirebase(
-    () => {
-      if (!firestore || !targetUserId) return null;
-      const withdrawalsCollectionRef = collection(firestore, 'users', targetUserId, 'withdrawals');
-      return query(withdrawalsCollectionRef, orderBy('createdAt', 'desc'));
-    },
-    [firestore, targetUserId]
+  const { data, error, isLoading } = useSWR<Withdrawal[]>(
+    targetUserId ? `/api/withdrawals?userId=${targetUserId}` : null,
+    fetcher
   );
 
-  return useCollection<Withdrawal>(withdrawalsQuery);
+  return {
+    data: data || [],
+    isLoading,
+    error
+  };
 }

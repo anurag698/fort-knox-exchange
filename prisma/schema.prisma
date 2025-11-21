@@ -1,0 +1,175 @@
+// This is your Prisma schema file, learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// User model - stores user account information
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  name          String?
+  photoURL      String?
+  emailVerified Boolean   @default(false)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  
+  // User preferences
+  phoneNumber   String?
+  country       String?
+  bio           String?
+  
+  // Notification settings
+  emailNotifications Boolean @default(true)
+  tradeAlerts        Boolean @default(true)
+  priceAlerts        Boolean @default(false)
+  
+  // API access
+  apiKey        String?   @unique
+  apiKeyCreated DateTime?
+  
+  // Security
+  twoFactorEnabled Boolean @default(false)
+  twoFactorSecret  String?
+  
+  // Relations
+  balances   Balance[]
+  trades     Trade[]
+  orders     Order[]
+  sessions   Session[]
+  
+  @@index([email])
+}
+
+// Session model - for managing active sessions
+model Session {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  deviceInfo String?
+  ipAddress  String?
+  userAgent  String?
+  
+  createdAt DateTime @default(now())
+  expiresAt DateTime
+  lastActive DateTime @default(now())
+  
+  @@index([userId])
+}
+
+// Balance model - stores user balances for each asset
+model Balance {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  assetId   String   // e.g., "BTC", "ETH", "USDT"
+  available Float    @default(0)
+  locked    Float    @default(0)
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  @@unique([userId, assetId])
+  @@index([userId])
+}
+
+// Trade model - stores completed trades
+model Trade {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  pair      String   // e.g., "BTC-USDT"
+  side      String   // "BUY" or "SELL"
+  type      String   // "LIMIT", "MARKET", "STOP_LIMIT"
+  
+  price     Float
+  quantity  Float
+  total     Float
+  
+  stopPrice Float?   // For stop limit orders
+  
+  fee       Float    @default(0)
+  status    String   @default("completed") // "completed", "partial", "canceled"
+  
+  timestamp DateTime @default(now())
+  
+  @@index([userId])
+  @@index([pair])
+  @@index([timestamp])
+}
+
+// Order model - stores active and historical orders
+model Order {
+  id            String   @id @default(cuid())
+  userId        String
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  marketId      String   // e.g., "BTC-USDT"
+  side          String   // "BUY" or "SELL"
+  type          String   // "LIMIT", "MARKET", "STOP_LIMIT"
+  
+  price         Float?
+  stopPrice     Float?
+  quantity      Float
+  filledAmount  Float    @default(0)
+  
+  status        String   @default("OPEN") // "OPEN", "PARTIAL", "FILLED", "CANCELED", "FAILED"
+  timeInForce   String?  // "GTC", "IOC", "FOK"
+  
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  
+  // For executed trades reference
+  executedAt    DateTime?
+  
+  @@index([userId])
+  @@index([marketId])
+  @@index([status])
+  @@index([createdAt])
+}
+
+// Market model - stores market metadata (optional, can be static)
+model Market {
+  id          String   @id // e.g., "BTC-USDT"
+  baseAsset   String   // e.g., "BTC"
+  quoteAsset  String   // e.g., "USDT"
+  
+  minQuantity Float
+  maxQuantity Float
+  minPrice    Float
+  maxPrice    Float
+  
+  status      String   @default("ACTIVE") // "ACTIVE", "INACTIVE"
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  @@index([status])
+}
+
+// PriceAlert model - for price notifications
+model PriceAlert {
+  id        String   @id @default(cuid())
+  userId    String
+  
+  marketId  String   // e.g., "BTC-USDT"
+  targetPrice Float
+  condition String   // "ABOVE" or "BELOW"
+  
+  triggered Boolean  @default(false)
+  active    Boolean  @default(true)
+  
+  createdAt DateTime @default(now())
+  triggeredAt DateTime?
+  
+  @@index([userId])
+  @@index([marketId, active])
+}

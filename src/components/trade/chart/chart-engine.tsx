@@ -22,6 +22,7 @@ interface ChartEngineProps {
   symbol: string;        // e.g. BTCUSDT
   interval: string;      // e.g. 1m, 5m, 15m
   height?: number;       // Chart height
+    chartType?: string;      // e.g., candlestick, line, area
   onEngineReady?: (api: {
     chart: IChartApi;
     engine: ChartEngine;
@@ -35,7 +36,7 @@ interface ChartEngineProps {
 export default function ChartEngineComponent({
   symbol,
   interval,
-  height = 600,
+    chartType = "candlestick,
   onEngineReady,
 }: ChartEngineProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);

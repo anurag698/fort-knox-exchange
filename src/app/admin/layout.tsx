@@ -31,6 +31,11 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             icon: Users,
         },
         {
+            name: "Token Listing",
+            href: "/admin/tokens",
+            icon: Settings,
+        },
+        {
             name: "System Health",
             href: "/admin/health",
             icon: Activity,

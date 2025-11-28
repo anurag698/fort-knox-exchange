@@ -36,6 +36,11 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             icon: Settings,
         },
         {
+            name: "Referrals",
+            href: "/admin/referrals",
+            icon: Users,
+        },
+        {
             name: "System Health",
             href: "/admin/health",
             icon: Activity,

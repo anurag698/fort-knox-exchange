@@ -46,6 +46,11 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             icon: Activity,
         },
         {
+            name: "News",
+            href: "/admin/news",
+            icon: ShieldAlert,
+        },
+        {
             name: "System Health",
             href: "/admin/health",
             icon: Activity,

@@ -6,6 +6,7 @@ import { AzureAuthProvider } from "@/providers/azure-auth-provider";
 import Script from "next/script";
 import { MobileNav } from "@/components/layout/mobile-nav";
 import { TwoFactorGuard } from "@/components/security/two-factor-guard";
+import { WebVitals } from "@/components/web-vitals";
 
 export const metadata = {
   title: {
@@ -111,6 +112,7 @@ export default function RootLayout({
 
             <TwoFactorGuard />
             <Toaster />
+            <WebVitals />
           </AzureAuthProvider>
         </ThemeProvider>
       </body>

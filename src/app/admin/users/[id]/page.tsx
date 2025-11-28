@@ -21,8 +21,8 @@ function KycButtons({ disabled, userId }: { disabled: boolean, userId?: string }
     <div className="flex gap-2 w-full">
       <form action={approveKyc} className="w-full">
         <input type="hidden" name="userId" value={userId} />
-        <Button 
-          className="w-full" 
+        <Button
+          className="w-full"
           disabled={disabled || pending}
           type="submit"
         >
@@ -32,9 +32,9 @@ function KycButtons({ disabled, userId }: { disabled: boolean, userId?: string }
       </form>
       <form action={rejectKyc} className="w-full">
         <input type="hidden" name="userId" value={userId} />
-        <Button 
-          variant="destructive" 
-          className="w-full" 
+        <Button
+          variant="destructive"
+          className="w-full"
           disabled={disabled || pending}
           type="submit"
         >
@@ -47,9 +47,9 @@ function KycButtons({ disabled, userId }: { disabled: boolean, userId?: string }
 }
 
 
-export default function ManageUserPage({ params }: { params: { id: string } }) {
-  const { data: user, isLoading, error } = useUserById(params.id);
-  
+function ManageUserClient({ userId }: { userId: string }) {
+  const { data: user, isLoading, error } = useUserById(userId);
+
   const getKYCBadgeVariant = (status?: string) => {
     switch (status) {
       case 'VERIFIED':
@@ -89,17 +89,17 @@ export default function ManageUserPage({ params }: { params: { id: string } }) {
         </Alert>
       );
     }
-    
+
     if (!user) {
-        return (
-            <Alert>
-                <AlertCircle className="h-4 w-4" />
-                <AlertTitle>User Not Found</AlertTitle>
-                <AlertDescription>
-                    The requested user could not be found.
-                </AlertDescription>
-            </Alert>
-        );
+      return (
+        <Alert>
+          <AlertCircle className="h-4 w-4" />
+          <AlertTitle>User Not Found</AlertTitle>
+          <AlertDescription>
+            The requested user could not be found.
+          </AlertDescription>
+        </Alert>
+      );
     }
 
     const registrationDate = user.createdAt?.toDate ? user.createdAt.toDate().toLocaleDateString() : 'N/A';
@@ -107,21 +107,21 @@ export default function ManageUserPage({ params }: { params: { id: string } }) {
     return (
       <div className="space-y-6">
         <div>
-            <h3 className="text-lg font-medium">Account Information</h3>
-            <p className="text-sm text-muted-foreground">Username: {user.username}</p>
-            <p className="text-sm text-muted-foreground">Email: {user.email}</p>
-            <p className="text-sm text-muted-foreground">Registered on: {registrationDate}</p>
+          <h3 className="text-lg font-medium">Account Information</h3>
+          <p className="text-sm text-muted-foreground">Username: {user.username}</p>
+          <p className="text-sm text-muted-foreground">Email: {user.email}</p>
+          <p className="text-sm text-muted-foreground">Registered on: {registrationDate}</p>
         </div>
         <div>
-            <h3 className="text-lg font-medium">KYC Status</h3>
-            <p className="text-sm text-muted-foreground flex items-center gap-2">
-                Current Status: 
-                <Badge variant={getKYCBadgeVariant(user.kycStatus)}>{user.kycStatus}</Badge>
-            </p>
+          <h3 className="text-lg font-medium">KYC Status</h3>
+          <p className="text-sm text-muted-foreground flex items-center gap-2">
+            Current Status:
+            <Badge variant={getKYCBadgeVariant(user.kycStatus)}>{user.kycStatus}</Badge>
+          </p>
         </div>
-         <div className="space-y-2">
-            <h3 className="text-lg font-medium">Referral Information</h3>
-            <p className="text-sm text-muted-foreground font-mono">Referral Code: {user.referralCode || 'N/A'}</p>
+        <div className="space-y-2">
+          <h3 className="text-lg font-medium">Referral Information</h3>
+          <p className="text-sm text-muted-foreground font-mono">Referral Code: {user.referralCode || 'N/A'}</p>
         </div>
       </div>
     );
@@ -131,43 +131,48 @@ export default function ManageUserPage({ params }: { params: { id: string } }) {
     <div className="flex flex-col gap-8 p-4 md:p-6 lg:p-8">
       <div className="flex items-center gap-4">
         <Button variant="outline" size="icon" asChild>
-            <Link href="/admin/users">
-                <ArrowLeft className="h-4 w-4" />
-                <span className="sr-only">Back to Users</span>
-            </Link>
+          <Link href="/admin/users">
+            <ArrowLeft className="h-4 w-4" />
+            <span className="sr-only">Back to Users</span>
+          </Link>
         </Button>
         <div className="flex flex-col gap-1">
-            <h1 className="font-headline text-3xl font-bold tracking-tight">
-             Manage User
-            </h1>
-            <p className="text-muted-foreground font-mono text-sm">
-            {params.id}
-            </p>
+          <h1 className="font-headline text-3xl font-bold tracking-tight">
+            Manage User
+          </h1>
+          <p className="text-muted-foreground font-mono text-sm">
+            {userId}
+          </p>
         </div>
       </div>
 
-        
-        <form>
-            <Card>
-                <CardHeader>
-                <CardTitle>User Details</CardTitle>
-                <CardDescription>
-                    Review user information and manage their KYC status.
-                </CardDescription>
-                </CardHeader>
-                <CardContent>
-                    {renderContent()}
-                </CardContent>
-                <CardFooter className="flex flex-col gap-2 border-t pt-6">
-                    <KycButtons disabled={!user || user.kycStatus !== 'PENDING'} userId={user?.id} />
-                </CardFooter>
-            </Card>
-        </form>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-            <UserDeposits userId={params.id} />
-            <UserWithdrawals userId={params.id} />
-        </div>
+      <form>
+        <Card>
+          <CardHeader>
+            <CardTitle>User Details</CardTitle>
+            <CardDescription>
+              Review user information and manage their KYC status.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {renderContent()}
+          </CardContent>
+          <CardFooter className="flex flex-col gap-2 border-t pt-6">
+            <KycButtons disabled={!user || user.kycStatus !== 'PENDING'} userId={user?.id} />
+          </CardFooter>
+        </Card>
+      </form>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        <UserDeposits userId={userId} />
+        <UserWithdrawals userId={userId} />
+      </div>
     </div>
   );
+}
+
+export default async function ManageUserPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
+  return <ManageUserClient userId={id} />;
 }

@@ -65,6 +65,9 @@ export default function ProHeader() {
           <Link href="/referrals" className="hover:text-primary transition">
             Referrals
           </Link>
+          <Link href="/vip" className="hover:text-primary transition">
+            VIP
+          </Link>
           <Link href="/leaderboard" className="hover:text-primary transition">
             Leaderboard
           </Link>

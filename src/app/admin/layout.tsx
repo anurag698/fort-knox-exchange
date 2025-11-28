@@ -41,6 +41,11 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             icon: Users,
         },
         {
+            name: "VIP Tiers",
+            href: "/admin/vip",
+            icon: Activity,
+        },
+        {
             name: "System Health",
             href: "/admin/health",
             icon: Activity,

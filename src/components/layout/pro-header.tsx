@@ -71,6 +71,9 @@ export default function ProHeader() {
           <Link href="/news" className="hover:text-primary transition">
             News
           </Link>
+          <Link href="/competitions" className="hover:text-primary transition">
+            Competitions
+          </Link>
           <Link href="/leaderboard" className="hover:text-primary transition">
             Leaderboard
           </Link>

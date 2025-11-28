@@ -10,7 +10,8 @@ import {
     Activity,
     ShieldAlert,
     LogOut,
-    Menu
+    Menu,
+    TrendingUp
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useState } from "react";
@@ -54,6 +55,11 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             name: "Competitions",
             href: "/admin/competitions",
             icon: Activity,
+        },
+        {
+            name: "Staking",
+            href: "/admin/staking",
+            icon: TrendingUp,
         },
         {
             name: "System Health",

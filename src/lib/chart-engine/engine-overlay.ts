@@ -7,7 +7,7 @@ import {
   DepthLevel,
   OrderbookSnapshot,
   DepthOverlaySnapshot,
-  ChartEngineCore,
+  ChartEngine,
 } from "./engine-core";
 
 /**
@@ -18,7 +18,7 @@ import {
  * - Walls heat intensity
  */
 export class ChartEngineOverlay {
-  core: ChartEngineCore;
+  core: ChartEngine;
 
   canvas: HTMLCanvasElement | null = null;
   ctx: CanvasRenderingContext2D | null = null;
@@ -28,7 +28,7 @@ export class ChartEngineOverlay {
   height = 0;
   dpi = window.devicePixelRatio || 1;
 
-  constructor(core: ChartEngineCore) {
+  constructor(core: ChartEngine) {
     this.core = core;
   }
 
@@ -110,6 +110,9 @@ export class ChartEngineOverlay {
   // -----------------------------------------------------
   // Draw mid-price line
   // -----------------------------------------------------
+  // -----------------------------------------------------
+  // Draw mid-price line
+  // -----------------------------------------------------
   drawMidPrice() {
     const ctx = this.ctx;
     if (!ctx) return;
@@ -120,10 +123,7 @@ export class ChartEngineOverlay {
     const last = c[c.length - 1];
     const mid = last.c;
 
-    const chart = this.core.chart;
-    if (!chart) return;
-
-    const y = chart.priceScale("right")?.priceToCoordinate(mid);
+    const y = this.core.candleSeries?.priceToCoordinate(mid);
     if (y == null) return;
 
     ctx.strokeStyle = CHART_COLORS.neonBlueDim;
@@ -138,9 +138,7 @@ export class ChartEngineOverlay {
   // Convert price to Y coordinate via LC API
   // -----------------------------------------------------
   priceToY(price: number) {
-    const scale = this.core.chart?.priceScale("right");
-    if (!scale) return null;
-    return scale.priceToCoordinate(price);
+    return this.core.candleSeries?.priceToCoordinate(price) ?? null;
   }
 
   // -----------------------------------------------------
@@ -217,7 +215,7 @@ export class ChartEngineOverlay {
   destroy() {
     try {
       this.canvas?.remove();
-    } catch {}
+    } catch { }
     this.canvas = null;
     this.ctx = null;
   }

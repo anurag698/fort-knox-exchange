@@ -61,12 +61,11 @@ class MarketDataAdapter {
     // stop any previous feed/listeners
     this.stop();
 
-    // ensure store symbol/interval set
+    // ensure store symbol set
     try {
       useMarketDataStore.getState().setSymbol(normalizedSymbol);
-      useMarketDataStore.getState().setInterval(interval);
     } catch (e) {
-      console.warn("MarketDataAdapter: unable to set store symbol/interval", e);
+      console.warn("MarketDataAdapter: unable to set store symbol", e);
     }
 
     // start the feed via the central marketDataService

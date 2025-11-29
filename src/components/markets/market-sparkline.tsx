@@ -4,7 +4,7 @@ import { useEffect, useRef } from "react";
 import { createChart } from "lightweight-charts";
 import { useSparkline } from "@/hooks/use-sparkline";
 
-export function MarketSparkline({ marketId }: { marketId: string}) {
+export function MarketSparkline({ marketId }: { marketId: string }) {
   const ref = useRef(null);
   const { data: points } = useSparkline(marketId);
 
@@ -25,12 +25,11 @@ export function MarketSparkline({ marketId }: { marketId: string}) {
       timeScale: { visible: false },
       rightPriceScale: { visible: false },
       leftPriceScale: { visible: false },
-      crosshair: { visible: false },
       handleScroll: false,
       handleScale: false,
     });
 
-    const isUp = (points[0]?.value ?? 0) < (points[points.length-1]?.value ?? 0);
+    const isUp = (points[0]?.value ?? 0) < (points[points.length - 1]?.value ?? 0);
 
     const series = chart.addAreaSeries({
       lineColor: isUp ? "#22c55e" : "#ef4444",

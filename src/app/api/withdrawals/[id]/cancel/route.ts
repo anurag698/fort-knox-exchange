@@ -1,14 +1,14 @@
-import { NextResponse } from 'next/server';
+import { NextResponse, NextRequest } from 'next/server';
 import { cancelWithdrawal } from '@/services/withdrawals/withdrawal-service';
 
 export async function POST(
-    req: Request,
-    { params }: { params: { id: string } }
+    req: NextRequest,
+    { params }: { params: Promise<{ id: string }> }
 ) {
     try {
         const body = await req.json();
         const { userId } = body;
-        const { id } = params;
+        const { id } = await params;
 
         if (!userId || !id) {
             return NextResponse.json(

@@ -42,13 +42,13 @@ async function updateWithdrawalStatus(
   }
 }
 
-export async function approveWithdrawal(prevState: any, formData: FormData) {
+export async function approveWithdrawal(formData: FormData) {
   await updateWithdrawalStatus(formData, 'APPROVED');
   revalidatePath('/admin');
   redirect('/admin');
 }
 
-export async function rejectWithdrawal(prevState: any, formData: FormData) {
+export async function rejectWithdrawal(formData: FormData) {
   await updateWithdrawalStatus(formData, 'REJECTED');
   revalidatePath('/admin');
   redirect('/admin');
@@ -84,14 +84,14 @@ async function updateUserKycStatus(formData: FormData, status: 'approved' | 'rej
   }
 }
 
-export async function approveKyc(prevState: any, formData: FormData) {
+export async function approveKyc(formData: FormData) {
   const userId = formData.get('userId') as string;
   await updateUserKycStatus(formData, 'approved');
   revalidatePath(`/admin/users/${userId}`);
   redirect(`/admin/users/${userId}`);
 }
 
-export async function rejectKyc(prevState: any, formData: FormData) {
+export async function rejectKyc(formData: FormData) {
   const userId = formData.get('userId') as string;
   await updateUserKycStatus(formData, 'rejected');
   revalidatePath(`/admin/users/${userId}`);

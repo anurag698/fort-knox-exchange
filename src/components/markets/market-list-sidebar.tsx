@@ -4,7 +4,7 @@ import { useState, useMemo, useEffect } from "react";
 import { MarketListItem } from "./market-list-item";
 import { useMarkets } from "@/hooks/use-markets";
 import { cn } from "@/lib/utils";
-import { useMarketDataStore } from "@/lib/market-data-service";
+import { useMarketDataStore } from "@/state/market-data-store";
 import type { MarketData } from "@/lib/types";
 
 export function MarketListSidebar() {
@@ -12,7 +12,7 @@ export function MarketListSidebar() {
   const [search, setSearch] = useState("");
   const [sortBy, setSortBy] = useState<"volume" | "change">("volume");
   const [liveData, setLiveData] = useState<Record<string, MarketData>>({});
-  
+
   // This is a simplified subscription for all market tickers for the sidebar
   useEffect(() => {
     if (!markets) return;
@@ -22,25 +22,25 @@ export function MarketListSidebar() {
     ws.onmessage = (event) => {
       const message = JSON.parse(event.data);
       if (message.s) {
-         const marketId = message.s.replace(/USDT$/, '-USDT'); // basic conversion
-         setLiveData(prev => ({
-            ...prev,
-            [marketId]: {
-                price: parseFloat(message.c),
-                priceChangePercent: parseFloat(message.P),
-                volume: parseFloat(message.v),
-                high: parseFloat(message.h),
-                low: parseFloat(message.l),
-                id: marketId,
-                lastUpdated: new Date(),
-                marketCap: 0,
-            }
-         }))
+        const marketId = message.s.replace(/USDT$/, '-USDT'); // basic conversion
+        setLiveData(prev => ({
+          ...prev,
+          [marketId]: {
+            price: parseFloat(message.c),
+            priceChangePercent: parseFloat(message.P),
+            volume: parseFloat(message.v),
+            high: parseFloat(message.h),
+            low: parseFloat(message.l),
+            id: marketId,
+            lastUpdated: new Date(),
+            marketCap: 0,
+          }
+        }))
       }
     };
-    
+
     ws.onerror = (error) => {
-        console.error("Sidebar WebSocket error:", error);
+      console.error("Sidebar WebSocket error:", error);
     };
 
     return () => {
@@ -78,7 +78,7 @@ export function MarketListSidebar() {
       "w-[280px] h-screen bg-[#0d0f12] border-r border-neutral-800",
       "flex flex-col"
     )}>
-      
+
       {/* Search bar */}
       <div className="p-3 border-b border-neutral-800">
         <input

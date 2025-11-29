@@ -1,6 +1,7 @@
 import { queryItems } from '@/lib/azure/cosmos';
 import { getUserTrades } from '@/lib/azure/cosmos-trading';
-import type { SpotPosition, Trade, Balance, Market, Ticker } from '@/lib/types';
+import type { SpotPosition, Balance, Market } from '@/lib/types';
+import type { Trade, Ticker } from '@/lib/market-types';
 
 export async function getUserTradesHistory(userId: string) {
   const query = 'SELECT * FROM c WHERE c.userId = @userId ORDER BY c.createdAt DESC';
@@ -29,7 +30,7 @@ export async function getUserPositions(userId: string): Promise<SpotPosition[]> 
   const tickers = await queryItems<Ticker>('market_data', 'SELECT * FROM c');
 
   const tickerMap = Object.fromEntries(
-    tickers.map(t => [t.id, t.price])
+    tickers.map(t => [t.symbol, t.lastPrice || t.price || 0])
   );
 
   const positions: SpotPosition[] = [];

@@ -30,7 +30,6 @@ export function useTriggerEngine() {
 export function TriggerEngineProvider({ children }: { children: ReactNode }) {
   const [orders, setOrders] = useState<TriggerOrder[]>([]);
   const ticker = useMarketDataStore((s) => s.ticker);
-  const lastPrice = ticker?.price ? ticker.price : null;
   const openOrdersStore = useOpenOrdersStore.getState();
 
   const checking = useRef(false);
@@ -77,20 +76,24 @@ export function TriggerEngineProvider({ children }: { children: ReactNode }) {
 
   // The real-time price watcher
   useEffect(() => {
-    if (!lastPrice) return;
     if (checking.current) return;
-
     checking.current = true;
 
     const toExecute: TriggerOrder[] = [];
 
     orders.forEach((o) => {
+      const symbol = o.marketId.replace('-', '').toUpperCase();
+      const marketTicker = ticker[symbol];
+      const currentPrice = marketTicker?.lastPrice || marketTicker?.price;
+
+      if (!currentPrice) return;
+
       const tp = o.triggerPrice ?? 0;
 
       // STOP ORDERS
       if (o.type === "STOP_MARKET" || o.type === "STOP_LIMIT") {
-        if (o.side === "BUY" && lastPrice >= tp) toExecute.push(o);
-        if (o.side === "SELL" && lastPrice <= tp) toExecute.push(o);
+        if (o.side === "BUY" && currentPrice >= tp) toExecute.push(o);
+        if (o.side === "SELL" && currentPrice <= tp) toExecute.push(o);
       }
 
       // TAKE PROFIT ORDERS
@@ -98,8 +101,8 @@ export function TriggerEngineProvider({ children }: { children: ReactNode }) {
         o.type === "TAKE_PROFIT_MARKET" ||
         o.type === "TAKE_PROFIT_LIMIT"
       ) {
-        if (o.side === "BUY" && lastPrice <= tp) toExecute.push(o);
-        if (o.side === "SELL" && lastPrice >= tp) toExecute.push(o);
+        if (o.side === "BUY" && currentPrice <= tp) toExecute.push(o);
+        if (o.side === "SELL" && currentPrice >= tp) toExecute.push(o);
       }
 
       // TRAILING STOP
@@ -107,9 +110,9 @@ export function TriggerEngineProvider({ children }: { children: ReactNode }) {
         // Trailing amount
         if (o.trailValue) {
           if (o.side === "BUY") {
-            if (lastPrice <= tp) toExecute.push(o);
+            if (currentPrice <= tp) toExecute.push(o);
           } else {
-            if (lastPrice >= tp) toExecute.push(o);
+            if (currentPrice >= tp) toExecute.push(o);
           }
         }
 
@@ -121,8 +124,8 @@ export function TriggerEngineProvider({ children }: { children: ReactNode }) {
     toExecute.forEach((o) => attemptExecute(o));
 
     checking.current = false;
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [lastPrice, orders]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ticker, orders]);
 
   return (
     <TriggerEngineContext.Provider

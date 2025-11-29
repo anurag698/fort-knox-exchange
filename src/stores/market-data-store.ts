@@ -3,22 +3,22 @@
 import { create } from "zustand";
 
 export const useMarketDataStore = create((set) => ({
-  marketList: [],
-  tickers: {},
-  trades: [],
+  marketList: [] as any[],
+  tickers: {} as Record<string, any>,
+  trades: [] as any[],
 
-  setMarketList: (list) => set({ marketList: list }),
+  setMarketList: (list: any[]) => set({ marketList: list }),
 
-  updateTicker: (symbol, data) =>
-    set((s) => ({
+  updateTicker: (symbol: string, data: any) =>
+    set((s: any) => ({
       tickers: {
         ...s.tickers,
         [symbol]: data,
       },
     })),
-  
-  pushTrade: (trade) =>
-    set((state) => ({
+
+  pushTrade: (trade: any) =>
+    set((state: any) => ({
       trades: [trade, ...state.trades].slice(0, 100),
     })),
 }));

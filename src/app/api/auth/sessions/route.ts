@@ -21,7 +21,7 @@ export async function GET(request: Request) {
 
             // If no sessions found (or DB empty), return current session as mock
             if (sessions.length === 0) {
-                const headersList = headers();
+                const headersList = await headers();
                 const userAgent = headersList.get('user-agent') || 'Unknown Device';
 
                 return NextResponse.json({
@@ -39,7 +39,7 @@ export async function GET(request: Request) {
         } catch (dbError) {
             console.warn('Database not available, returning mock session:', dbError);
 
-            const headersList = headers();
+            const headersList = await headers();
             const userAgent = headersList.get('user-agent') || 'Unknown Device';
 
             return NextResponse.json({

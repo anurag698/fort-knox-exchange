@@ -96,6 +96,7 @@ export type Withdrawal = {
   updatedAt: any;
   aiRiskLevel?: 'Low' | 'Medium' | 'High' | 'Critical';
   aiReason?: string;
+  approvedAt?: string;
 };
 
 export type UserProfile = {

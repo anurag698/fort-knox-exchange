@@ -15,9 +15,11 @@ export default function CanvasDepthChart({ marketId, height = 420 }: CanvasDepth
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const wrapperRef = useRef<HTMLDivElement | null>(null);
 
-  const bids = useMarketDataStore((s) => s.bids);
-  const asks = useMarketDataStore((s) => s.asks);
-  const ticker = useMarketDataStore((s) => s.ticker);
+  const symbol = marketId?.replace('-', '').toUpperCase() || 'BTCUSDT';
+  const depthData = useMarketDataStore((s) => s.depth[symbol]);
+  const bids = depthData?.bids || [];
+  const asks = depthData?.asks || [];
+  const ticker = useMarketDataStore((s) => s.ticker[symbol]);
   const { data: markets } = useMarkets();
   const market = useMemo(() => markets?.find((m: any) => m.id === marketId) ?? null, [markets, marketId]);
   const pricePrecision = market?.pricePrecision ?? 2;
@@ -107,12 +109,12 @@ export default function CanvasDepthChart({ marketId, height = 420 }: CanvasDepth
     let cumB = 0;
     const bidPoints = bids.map((l) => {
       cumB += l.size;
-      return { price: l.price, size: l.size, cum: cumB, isWall: !!l.isWall };
+      return { price: l.price, size: l.size, cum: cumB };
     });
     let cumA = 0;
     const askPoints = asks.map((l) => {
       cumA += l.size;
-      return { price: l.price, size: l.size, cum: cumA, isWall: !!l.isWall };
+      return { price: l.price, size: l.size, cum: cumA };
     });
     const maxCum = Math.max(cumB, cumA, 1);
 
@@ -204,7 +206,7 @@ export default function CanvasDepthChart({ marketId, height = 420 }: CanvasDepth
     ctx.fillStyle = '#ff6b6b';
     ctx.fillRect(6, priceToY(bestAsk) + 5, 56, 3);
 
-  // end draw
+    // end draw
   }, [cssSize.w, cssSize.h, bids, asks, pricePrecision, qtyPrecision, ticker]);
 
   // animation loop (throttled to 60fps by default)

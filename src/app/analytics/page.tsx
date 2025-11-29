@@ -26,9 +26,9 @@ export default function AnalyticsPage() {
         }
 
         let cumulativePnL = 0;
-        const chartData = [];
+        const chartData: { date: string; pnl: number; trade: string; tradePnL: number }[] = [];
         let wins = 0;
-        const tradeSizes = [];
+        const tradeSizes: number[] = [];
         let bestTrade = -Infinity;
         let worstTrade = Infinity;
 

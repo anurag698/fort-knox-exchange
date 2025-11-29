@@ -159,7 +159,7 @@ function ManageUserClient({ userId }: { userId: string }) {
             {renderContent()}
           </CardContent>
           <CardFooter className="flex flex-col gap-2 border-t pt-6">
-            <KycButtons disabled={!user || user.kycStatus !== 'PENDING'} userId={user?.id} />
+            <KycButtons disabled={!user || user.kycStatus !== 'pending'} userId={user?.id} />
           </CardFooter>
         </Card>
       </form>

@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { createChart, ColorType } from 'lightweight-charts';
+import { createChart, ColorType, Time } from 'lightweight-charts';
 import mexcWebSocket from '@/services/mexc-websocket';
 import useMarketDataStore from '@/state/market-data-store';
 
@@ -48,7 +48,7 @@ export default function MinimalChart() {
 
         // Convert and set data
         const chartData = klines.map(k => ({
-            time: Math.floor(k.t / 1000),
+            time: Math.floor(k.t / 1000) as Time,
             open: k.o,
             high: k.h,
             low: k.l,

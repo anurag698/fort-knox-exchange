@@ -26,7 +26,7 @@ export default function WalletPage() {
                     // Try to get live price from ticker, fallback to 0
                     const ticker = tickerMap[market.id];
                     if (ticker) {
-                        map[market.baseAssetId] = ticker.lastPrice;
+                        map[market.baseAssetId] = ticker.lastPrice || 0;
                     } else {
                         // Fallback to approximate prices if no live data yet
                         // This prevents zero balance flash

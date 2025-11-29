@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { updateItem } from '@/lib/azure/cosmos-updates';
+import { Withdrawal } from '@/lib/types';
 
 export async function POST(req: Request) {
   try {
@@ -10,8 +11,8 @@ export async function POST(req: Request) {
     }
 
     // Update withdrawal status in Cosmos DB
-    await updateItem('withdrawals', withdrawalId, userId, {
-      status: "approved",
+    await updateItem<Withdrawal>('withdrawals', withdrawalId, userId, {
+      status: "APPROVED",
       approvedAt: new Date().toISOString()
     });
 

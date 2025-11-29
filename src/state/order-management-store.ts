@@ -10,6 +10,7 @@ export interface Trade {
     total: number;
     timestamp: number;
     status: 'pending' | 'completed' | 'failed';
+    type?: 'LIMIT' | 'MARKET' | 'STOP_LIMIT';
 }
 
 interface OrderState {

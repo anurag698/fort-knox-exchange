@@ -25,21 +25,17 @@ export function RecentTrades({ marketId }: { marketId: string }) {
     const relevantLocalTrades = localTrades
       .filter(t => t.pair === marketId && t.status === 'completed')
       .map(t => ({
-        t: t.timestamp,
-        p: t.price.toString(),
-        q: t.quantity.toString(),
-        b: t.id, // Use ID as buyer order ID
-        a: t.id, // Use ID as seller order ID
-        T: t.timestamp,
-        m: t.side === 'sell', // isBuyerMaker true if sell? (simplification)
-        M: true,
-        S: t.side,
-        isUserTrade: true // Custom flag
+        id: t.id,
+        p: t.price,
+        q: t.quantity,
+        ts: t.timestamp,
+        side: t.side as "buy" | "sell",
+        isUserTrade: true
       } as Trade & { isUserTrade?: boolean }));
 
     // Combine and sort by time desc
     return [...relevantLocalTrades, ...marketTrades]
-      .sort((a, b) => b.t - a.t)
+      .sort((a, b) => b.ts - a.ts)
       .slice(0, 50);
   }, [marketTrades, localTrades, marketId]);
 
@@ -50,9 +46,9 @@ export function RecentTrades({ marketId }: { marketId: string }) {
   // Flash animation on new trades
   useEffect(() => {
     if (trades && prevTradesRef.current.length > 0) {
-      const newTrades = trades.filter(t => !prevTradesRef.current.some(pt => pt.t === t.t));
+      const newTrades = trades.filter(t => !prevTradesRef.current.some(pt => pt.ts === t.ts));
       if (newTrades.length > 0) {
-        const newFlashes = new Set(newTrades.map(t => t.t));
+        const newFlashes = new Set(newTrades.map(t => t.ts));
         setFlashingTrades(newFlashes);
         setTimeout(() => setFlashingTrades(new Set()), 400);
       }
@@ -61,10 +57,10 @@ export function RecentTrades({ marketId }: { marketId: string }) {
   }, [trades]);
 
   const Row = ({ trade }: { trade: Trade & { isUserTrade?: boolean } }) => {
-    const isBuy = trade.S === 'buy';
+    const isBuy = trade.side === 'buy';
     const priceColor = isBuy ? "text-green-500" : "text-red-500";
-    const time = new Date(trade.t).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
-    const isFlashing = flashingTrades.has(trade.t);
+    const time = new Date(trade.ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
+    const isFlashing = flashingTrades.has(trade.ts);
 
     return (
       <div className={cn(
@@ -105,7 +101,7 @@ export function RecentTrades({ marketId }: { marketId: string }) {
             No recent trades
           </div>
         ) : (
-          trades.map((trade, i) => <Row key={`${trade.t}-${i}`} trade={trade} />)
+          trades.map((trade, i) => <Row key={`${trade.ts}-${i}`} trade={trade} />)
         )}
       </div>
     </div>

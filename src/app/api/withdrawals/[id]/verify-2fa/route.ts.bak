@@ -1,15 +1,16 @@
 // API: Verify 2FA for Withdrawal
 // Verifies 2FA code and marks withdrawal ready for processing
 
-import { NextResponse } from 'next/server';
+import { NextResponse, NextRequest } from 'next/server';
 import { getAuth } from 'firebase-admin/auth';
 import { getWithdrawal, updateWithdrawal } from '@/lib/azure/cosmos-trading';
 
 export async function POST(
-    req: Request,
-    { params }: { params: { id: string } }
+    req: NextRequest,
+    { params }: { params: Promise<{ id: string }> }
 ) {
     try {
+        const { id } = await params;
         const idToken = req.headers.get('authorization')?.replace('Bearer ', '');
         if (!idToken) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -19,7 +20,7 @@ export async function POST(
         const decoded = await auth.verifyIdToken(idToken);
         const userId = decoded.uid;
 
-        const withdrawalId = params.id;
+        const withdrawalId = id;
         const { code } = await req.json();
 
         if (!code) {

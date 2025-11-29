@@ -11,7 +11,7 @@ import { useEffect, useMemo, useActionState } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { useOrders } from "@/hooks/use-orders";
 import type { Order } from "@/lib/types";
-import { cancelOrder } from '@/app/actions';
+import { cancelOrder } from '@/app/trade/actions';
 
 function CancelOrderButton({ orderId, userId }: { orderId: string, userId: string }) {
     const { toast } = useToast();
@@ -42,14 +42,14 @@ export function OrdersTable({ marketId, userId }: { marketId: string, userId: st
     const getStatusBadgeVariant = (status: Order['status']) => ({
         'OPEN': 'secondary', 'PARTIAL': 'secondary', 'EXECUTING': 'default',
         'CANCELED': 'destructive', 'FAILED': 'destructive', 'FILLED': 'default'
-    }[status] || 'outline');
+    }[status] || 'outline') as "default" | "secondary" | "destructive" | "outline";
 
     if (isLoading) return <div className="space-y-2 p-6"><Skeleton className="h-10 w-full" /><Skeleton className="h-10 w-full" /></div>;
     if (error) return <Alert variant="destructive" className="m-6"><AlertCircle className="h-4 w-4" /><AlertTitle>Error</AlertTitle><AlertDescription>{error.message}</AlertDescription></Alert>;
     if (!sortedOrders.length) return <div className="text-center py-12 text-muted-foreground"><p>You have no open orders for this market.</p></div>;
 
     return (
-         <Table>
+        <Table>
             <TableHeader><TableRow><TableHead>Date</TableHead><TableHead>Side</TableHead><TableHead>Price</TableHead><TableHead>Amount</TableHead><TableHead>Filled</TableHead><TableHead>Status</TableHead><TableHead className="text-right">Action</TableHead></TableRow></TableHeader>
             <TableBody>
                 {sortedOrders.map(order => (

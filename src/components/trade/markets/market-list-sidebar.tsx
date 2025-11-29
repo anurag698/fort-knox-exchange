@@ -3,7 +3,8 @@
 
 import { useEffect, useMemo, useState } from "react";
 import MarketListItem from "./market-list-item";
-import { useMarketDataStore } from "@/stores/market-data-store";
+import { useMarketDataStore } from "@/state/market-data-store";
+import { useMarkets } from "@/hooks/use-markets";
 import { Search, Star } from "lucide-react";
 
 const TABS = ["Favorites", "Spot", "Trending"];
@@ -12,25 +13,26 @@ export default function MarketListSidebar() {
   const [search, setSearch] = useState("");
   const [activeTab, setActiveTab] = useState("Spot");
 
-  const { marketList, tickers } = useMarketDataStore();
+  const { data: markets } = useMarkets();
+  const tickers = useMarketDataStore((s) => s.ticker);
 
   // Filter logic
   const filtered = useMemo(() => {
-    if (!marketList) return [];
-    let list = [...marketList];
+    if (!markets) return [];
+    let list = [...markets];
 
     if (activeTab === "Favorites") {
-      list = list.filter((m) => m.isFavorite);
+      list = list.filter((m) => (m as any).isFavorite);
     }
 
     if (search.length > 0) {
       list = list.filter((m) =>
-        m.symbol.toLowerCase().includes(search.toLowerCase())
+        m.id.toLowerCase().includes(search.toLowerCase())
       );
     }
 
     return list;
-  }, [marketList, activeTab, search]);
+  }, [markets, activeTab, search]);
 
   return (
     <div className="h-full flex flex-col bg-[var(--bg-card)] border-r border-[var(--border-color)]">
@@ -75,9 +77,8 @@ export default function MarketListSidebar() {
       <div className="flex-1 overflow-y-auto px-2 py-3 space-y-1 scrollbar-thin scrollbar-thumb-[#1f2937]">
         {filtered.map((market) => (
           <MarketListItem
-            key={market.symbol}
+            key={market.id}
             market={market}
-            ticker={tickers[market.symbol]}
           />
         ))}
       </div>

@@ -1,13 +1,11 @@
 import { NextResponse } from 'next/server';
-import { cosmosClient, databaseId } from '@/lib/azure/cosmos';
+import { getDatabase, databaseId } from '@/lib/azure/cosmos';
 
 export async function GET() {
     try {
         console.log('Setting up Deposit Addresses container...');
 
-        const { database } = await cosmosClient.databases.createIfNotExists({
-            id: databaseId,
-        });
+        const database = getDatabase();
 
         const { container } = await database.containers.createIfNotExists({
             id: 'deposit_addresses',

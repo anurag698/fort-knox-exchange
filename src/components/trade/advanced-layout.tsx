@@ -24,7 +24,7 @@ export function AdvancedLayout({ marketId }: { marketId: string }) {
         <LightweightChart marketId={marketId} />
       </div>
       <div className="col-span-12 row-span-6 lg:col-span-3 lg:row-span-12">
-        <OrderBook />
+        <OrderBook marketId={marketId} />
       </div>
       <div className="col-span-12 row-span-6 lg:col-span-3">
         {/* This div is now a placeholder as the order panel is rendered via Portal */}
@@ -41,22 +41,22 @@ export function AdvancedLayout({ marketId }: { marketId: string }) {
         </div>
       </div>
       <div className="col-span-12 row-span-6 lg:col-span-9">
-         <div className={cn("border-t border-zinc-800 bg-zinc-900", "sticky bottom-0 z-20 md:static")}>
-            <div className="flex items-center justify-start gap-2 px-4 pt-2">
-              <button onClick={() => setTab('open-orders')} className={cn('px-3 py-1.5 rounded-md text-sm font-medium transition', tab === 'open-orders' ? 'bg-zinc-800 text-white' : 'text-zinc-400 hover:text-white hover:bg-zinc-800/40')}>Open Orders</button>
-              <button onClick={() => setTab('order-history')} className={cn('px-3 py-1.5 rounded-md text-sm font-medium transition', tab === 'order-history' ? 'bg-zinc-800 text-white' : 'text-zinc-400 hover:text-white hover:bg-zinc-800/40')}>Order History</button>
-              <button onClick={() => setTab('trade-history')} className={cn('px-3 py-1.5 rounded-md text-sm font-medium transition', tab === 'trade-history' ? 'bg-zinc-800 text-white' : 'text-zinc-400 hover:text-white hover:bg-zinc-800/40')}>Trade History</button>
-              <button onClick={() => setTab('positions')} className={cn('px-3 py-1.5 rounded-md text-sm font-medium transition', tab === 'positions' ? 'bg-zinc-800 text-white' : 'text-zinc-400 hover:text-white hover:bg-zinc-800/40')}>Positions</button>
-              <button onClick={() => setCollapsed(!collapsed)} className="ml-auto text-zinc-500 hover:text-white text-xs md:hidden">
-                {collapsed ? "Expand ▲" : "Collapse ▼"}
-              </button>
-            </div>
-             <div className={cn("px-4 pb-4 pt-2 transition-all duration-300 overflow-hidden", collapsed ? "max-h-0 opacity-0 pointer-events-none" : "max-h-[450px] opacity-100")}>
-              {tab === 'open-orders' && <OpenOrdersPanel marketId={marketId} />}
-              {tab === 'order-history' && <OrderHistoryPanel />}
-              {tab === 'trade-history' && <TradeHistoryPanel />}
-              {tab === 'positions' && <PositionsPanel />}
-            </div>
+        <div className={cn("border-t border-zinc-800 bg-zinc-900", "sticky bottom-0 z-20 md:static")}>
+          <div className="flex items-center justify-start gap-2 px-4 pt-2">
+            <button onClick={() => setTab('open-orders')} className={cn('px-3 py-1.5 rounded-md text-sm font-medium transition', tab === 'open-orders' ? 'bg-zinc-800 text-white' : 'text-zinc-400 hover:text-white hover:bg-zinc-800/40')}>Open Orders</button>
+            <button onClick={() => setTab('order-history')} className={cn('px-3 py-1.5 rounded-md text-sm font-medium transition', tab === 'order-history' ? 'bg-zinc-800 text-white' : 'text-zinc-400 hover:text-white hover:bg-zinc-800/40')}>Order History</button>
+            <button onClick={() => setTab('trade-history')} className={cn('px-3 py-1.5 rounded-md text-sm font-medium transition', tab === 'trade-history' ? 'bg-zinc-800 text-white' : 'text-zinc-400 hover:text-white hover:bg-zinc-800/40')}>Trade History</button>
+            <button onClick={() => setTab('positions')} className={cn('px-3 py-1.5 rounded-md text-sm font-medium transition', tab === 'positions' ? 'bg-zinc-800 text-white' : 'text-zinc-400 hover:text-white hover:bg-zinc-800/40')}>Positions</button>
+            <button onClick={() => setCollapsed(!collapsed)} className="ml-auto text-zinc-500 hover:text-white text-xs md:hidden">
+              {collapsed ? "Expand ▲" : "Collapse ▼"}
+            </button>
+          </div>
+          <div className={cn("px-4 pb-4 pt-2 transition-all duration-300 overflow-hidden", collapsed ? "max-h-0 opacity-0 pointer-events-none" : "max-h-[450px] opacity-100")}>
+            {tab === 'open-orders' && <OpenOrdersPanel marketId={marketId} />}
+            {tab === 'order-history' && <OrderHistoryPanel />}
+            {tab === 'trade-history' && <TradeHistoryPanel />}
+            {tab === 'positions' && <PositionsPanel />}
+          </div>
         </div>
       </div>
     </div>

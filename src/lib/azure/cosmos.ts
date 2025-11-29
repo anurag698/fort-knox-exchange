@@ -1,5 +1,5 @@
 // Azure Cosmos DB Client
-import { CosmosClient, Database, Container } from '@azure/cosmos';
+import { CosmosClient, Database, Container, ItemDefinition } from '@azure/cosmos';
 
 // Cosmos DB Configuration
 const endpoint = process.env.AZURE_COSMOS_ENDPOINT || process.env.COSMOS_ENDPOINT || '';
@@ -41,7 +41,7 @@ export async function queryItems<T>(
 }
 
 // Utility: Get item by ID
-export async function getItemById<T>(
+export async function getItemById<T extends ItemDefinition>(
     containerId: string,
     id: string,
     partitionKey: string
@@ -57,7 +57,7 @@ export async function getItemById<T>(
 }
 
 // Utility: Create or update item
-export async function upsertItem<T>(
+export async function upsertItem<T extends ItemDefinition>(
     containerId: string,
     item: T
 ): Promise<T> {
@@ -78,6 +78,10 @@ export async function deleteItem(
 
 // Initialize database and containers (run once on setup)
 export async function initializeDatabase() {
+    if (!cosmosClient) {
+        console.warn('Cosmos DB client not initialized. Skipping database setup.');
+        return;
+    }
     const { database } = await cosmosClient.databases.createIfNotExists({
         id: databaseId,
     });

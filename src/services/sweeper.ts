@@ -31,7 +31,7 @@ export const startSweeper = async () => {
 
   while (true) {
     for (const symbol of Object.keys(TOKENS)) {
-      const token = TOKENS[symbol];
+      const token = TOKENS[symbol as keyof typeof TOKENS];
       const contract = new ethers.Contract(token.address, erc20abi, provider);
 
       const decimals = await contract.decimals();
@@ -46,7 +46,7 @@ export const startSweeper = async () => {
         const amountToSend = balance - ethers.parseUnits("1", decimals); // keep 1 token buffer
         const tokenSigned = contract.connect(signer);
 
-        const tx = await tokenSigned.transfer(SAFE_ADDRESS, amountToSend);
+        const tx = await (tokenSigned as any).transfer(SAFE_ADDRESS, amountToSend);
 
         console.log(`[Sweeper] Sweep tx sent (${symbol}): ${tx.hash}`);
         await tx.wait();

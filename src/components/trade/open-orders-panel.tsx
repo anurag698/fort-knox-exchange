@@ -46,14 +46,14 @@ export function OpenOrdersPanel({ marketId }: { marketId: string }) {
   }, [allOrders]);
 
   const getStatusBadgeVariant = (status: Order['status']) => {
-    return {
+    return ({
       'OPEN': 'secondary',
       'PARTIAL': 'secondary',
       'EXECUTING': 'default',
       'CANCELED': 'destructive',
       'FAILED': 'destructive',
       'FILLED': 'default'
-    }[status] || 'outline';
+    }[status] || 'outline') as "default" | "secondary" | "destructive" | "outline";
   };
 
   if (isLoading) {

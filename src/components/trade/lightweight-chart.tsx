@@ -7,12 +7,13 @@ import {
   ISeriesApi,
   CrosshairMode,
   LineStyle,
+  Time,
 } from 'lightweight-charts';
 import { TimeframeToolbar } from './timeframe-toolbar';
 import Portal from '../ui/portal';
 
 interface Candle {
-  time: number;
+  time: Time;
   open: number;
   high: number;
   low: number;
@@ -38,9 +39,9 @@ export default function LightweightChart({ marketId }: { marketId: string }) {
         const res = await fetch(url);
         if (!res.ok) throw new Error(`Failed to fetch klines for ${symbol}`);
         const json = await res.json();
-        
+
         const data = json.map((c: any) => ({
-          time: c[0] / 1000,
+          time: (c[0] / 1000) as Time,
           open: parseFloat(c[1]),
           high: parseFloat(c[2]),
           low: parseFloat(c[3]),
@@ -107,8 +108,8 @@ export default function LightweightChart({ marketId }: { marketId: string }) {
       // Extract price safely from any format
       let priceData = null;
 
-      if (param.seriesPrices && typeof param.seriesPrices === 'object') {
-        const values = Object.values(param.seriesPrices);
+      if ((param as any).seriesPrices && typeof (param as any).seriesPrices === 'object') {
+        const values = Object.values((param as any).seriesPrices);
         priceData = values && values.length > 0 ? values[0] : null;
       }
 
@@ -123,9 +124,9 @@ export default function LightweightChart({ marketId }: { marketId: string }) {
         typeof priceData === 'object' && 'value' in priceData
           ? priceData.value
           : priceData;
-      
+
       const { open, high, low, close } = priceData as any;
-      const date = new Date(param.time * 1000).toLocaleString();
+      const date = new Date((param.time as number) * 1000).toLocaleString();
       const tooltipText = `
           <div style="font-size: 14px; margin-bottom: 4px;">${date}</div>
           <div><strong>O:</strong> ${open.toFixed(2)}</div>
@@ -138,7 +139,7 @@ export default function LightweightChart({ marketId }: { marketId: string }) {
       if (tooltip) {
         tooltip.style.display = 'block';
         tooltip.innerHTML = tooltipText;
-        
+
         const chartWidth = containerRef.current!.clientWidth;
         const chartHeight = containerRef.current!.clientHeight;
         const tooltipWidth = tooltip.offsetWidth;
@@ -146,14 +147,14 @@ export default function LightweightChart({ marketId }: { marketId: string }) {
 
         let left = param.point.x + 15;
         if (left + tooltipWidth > chartWidth) {
-            left = param.point.x - tooltipWidth - 15;
+          left = param.point.x - tooltipWidth - 15;
         }
 
         let top = param.point.y + 15;
         if (top + tooltipHeight > chartHeight) {
-            top = param.point.y - tooltipHeight - 15;
+          top = param.point.y - tooltipHeight - 15;
         }
-        
+
         tooltip.style.left = `${left}px`;
         tooltip.style.top = `${top}px`;
       }
@@ -179,19 +180,19 @@ export default function LightweightChart({ marketId }: { marketId: string }) {
     <div className="h-full w-full flex flex-col">
       <Portal>
         <div className="absolute top-0 left-0 z-10 pointer-events-auto">
-            <TimeframeToolbar selected={interval} onChange={setInterval} />
+          <TimeframeToolbar selected={interval} onChange={setInterval} />
         </div>
       </Portal>
-        <div className="relative h-full w-full flex-grow">
-            <div ref={containerRef} className="absolute inset-0" />
-            <Portal>
-              <div
-                  ref={tooltipRef}
-                  className="absolute pointer-events-none text-xs text-white bg-black/70 px-2 py-1 rounded shadow-lg"
-                  style={{ display: "none", zIndex: 40 }}
-              />
-            </Portal>
-        </div>
+      <div className="relative h-full w-full flex-grow">
+        <div ref={containerRef} className="absolute inset-0" />
+        <Portal>
+          <div
+            ref={tooltipRef}
+            className="absolute pointer-events-none text-xs text-white bg-black/70 px-2 py-1 rounded shadow-lg"
+            style={{ display: "none", zIndex: 40 }}
+          />
+        </Portal>
+      </div>
     </div>
   );
 }

@@ -14,8 +14,7 @@ import { useUser } from '@/providers/azure-auth-provider';
 import Link from "next/link";
 import { Button } from "../ui/button";
 import { LogIn } from "lucide-react";
-import ChartToolbar from "./chart/chart-toolbar";
-import PositionsPanel from "./positions/positions-panel";
+import { ChartToolbar } from "./chart/chart-toolbar";
 import PositionsPanel from "./positions/positions-panel";
 import TradingChartContainer from "./trading-chart-container";
 

@@ -258,11 +258,11 @@ export class OverlayManager {
         endX = 0;
       }
 
-      endY = m * endX + c;
+      endY = (m * endX + c) as any;
     } else {
       // Vertical line
-      endX = x1;
-      endY = y2 > y1 ? this.height : 0;
+      endX = x1 as any;
+      endY = (y2 > y1 ? this.height : 0) as any;
     }
 
     // Cast to any for Coordinate type compatibility

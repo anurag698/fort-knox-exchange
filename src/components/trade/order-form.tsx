@@ -46,6 +46,7 @@ export function OrderForm({ selectedPrice, marketId }: { selectedPrice?: number;
   const { user } = useUser();
   const { toast } = useToast();
   const [baseAsset, quoteAsset] = marketId.split('-');
+  const symbol = marketId.replace('-', '').toUpperCase();
   const [orderType, setOrderType] = useState<'LIMIT' | 'MARKET' | 'STOP_LIMIT'>('LIMIT');
   const [side, setSide] = useState<'BUY' | 'SELL'>('BUY');
   const [timeInForce, setTimeInForce] = useState<'GTC' | 'IOC' | 'FOK'>('GTC');
@@ -58,8 +59,8 @@ export function OrderForm({ selectedPrice, marketId }: { selectedPrice?: number;
 
   const baseBalance = balances?.find(b => b.assetId === baseAsset)?.available ?? 0;
   const quoteBalance = balances?.find(b => b.assetId === quoteAsset)?.available ?? 0;
-  const ticker = useMarketDataStore((s) => s.ticker);
-  const marketPrice = ticker?.price ? ticker.price : 0;
+  const ticker = useMarketDataStore((s) => s.ticker[symbol]);
+  const marketPrice = ticker?.lastPrice || ticker?.price || 0;
   const addTrade = useOrderStore((s) => s.addTrade);
 
   const defaultValues: Partial<OrderFormValues> = {

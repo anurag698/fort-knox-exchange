@@ -1,13 +1,15 @@
+
 import { NextResponse } from 'next/server';
 import { getItemById } from '@/lib/azure/cosmos';
 import { Withdrawal } from '@/lib/types';
+import { NextRequest } from 'next/server';
 
 export async function GET(
-    req: Request,
-    { params }: { params: { id: string } }
+    req: NextRequest,
+    { params }: { params: Promise<{ id: string }> }
 ) {
     try {
-        const { id } = params;
+        const { id } = await params;
 
         if (!id) {
             return NextResponse.json(

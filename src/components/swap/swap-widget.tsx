@@ -13,8 +13,15 @@ import { TokenSelector } from './token-selector';
 import { useUser } from '@/providers/azure-auth-provider';
 import axios from 'axios';
 
+// Declare window.ethereum for TypeScript
+declare global {
+  interface Window {
+    ethereum?: any;
+  }
+}
+
 // Helper to check if window.ethereum is available
-const isMetamaskAvailable = () => typeof window.ethereum !== 'undefined';
+const isMetamaskAvailable = () => typeof window?.ethereum !== 'undefined';
 
 // 1inch Fusion Order Domain
 const FUSION_DOMAIN = {

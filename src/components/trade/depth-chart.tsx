@@ -2,7 +2,8 @@
 
 import { createChart, ColorType, IChartApi, ISeriesApi, CrosshairMode } from 'lightweight-charts';
 import { useEffect, useRef, useState, useCallback } from 'react';
-import { useMarketDataStore, ProcessedOrder, RawOrder } from '@/lib/market-data-service';
+import { useMarketDataStore } from '@/state/market-data-store';
+import type { ProcessedOrder, RawOrder } from '@/lib/types';
 import { useMarkets } from '@/hooks/use-markets';
 
 // -----------------------------
@@ -125,10 +126,12 @@ export default function DepthChart({ marketId }: { marketId: string }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const { data: markets } = useMarkets();
   const market = markets?.find(m => m.id === marketId);
-  const bids = useMarketDataStore((s) => s.bids);
-  const asks = useMarketDataStore((s) => s.asks);
-  const ticker = useMarketDataStore((s) => s.ticker);
-  
+  const symbol = marketId?.replace('-', '').toUpperCase() || 'BTCUSDT';
+  const depthData = useMarketDataStore((s) => s.depth[symbol]);
+  const bids = (depthData?.bids || []).map(b => [b.price.toString(), b.size.toString()] as RawOrder);
+  const asks = (depthData?.asks || []).map(a => [a.price.toString(), a.size.toString()] as RawOrder);
+  const ticker = useMarketDataStore((s) => s.ticker[symbol]);
+
   const [midPrice, setMidPrice] = useState<number | null>(null);
   const [animatedRange, setAnimatedRange] = useState<{ min: number; max: number }>({ min: 0, max: 0 });
 
@@ -150,9 +153,9 @@ export default function DepthChart({ marketId }: { marketId: string }) {
   // Mid Price Calculation
   useEffect(() => {
     if (!bids.length || !asks.length) return;
-    const bestBid = bids[0].price;
-    const bestAsk = asks[0].price;
-    const derived = ticker?.c ? parseFloat(ticker.c) : (bestBid + bestAsk) / 2;
+    const bestBid = parseFloat(bids[0][0]);
+    const bestAsk = parseFloat(asks[0][0]);
+    const derived = ticker?.lastPrice || (bestBid + bestAsk) / 2;
     setMidPrice(derived || null);
   }, [bids, asks, ticker]);
 
@@ -171,7 +174,7 @@ export default function DepthChart({ marketId }: { marketId: string }) {
     canvas.width = rect.width * dpr;
     canvas.height = rect.height * dpr;
     ctx.scale(dpr, dpr);
-    
+
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
     const { bidPoints, askPoints } = buildCumulative(bids as RawOrder[], asks as RawOrder[], market.pricePrecision, market.quantityPrecision);
@@ -179,56 +182,56 @@ export default function DepthChart({ marketId }: { marketId: string }) {
     const maxCumBid = bidPoints.length > 0 ? bidPoints[bidPoints.length - 1].cumulative : 0;
     const maxCumAsk = askPoints.length > 0 ? askPoints[askPoints.length - 1].cumulative : 0;
     const maxCumulative = Math.max(maxCumBid, maxCumAsk);
-    
+
     const priceToX = (price: number) => {
-        return (price - animatedRange.min) / (animatedRange.max - animatedRange.min) * rect.width;
+      return (price - animatedRange.min) / (animatedRange.max - animatedRange.min) * rect.width;
     }
     const cumToY = (cum: number) => {
-        return rect.height - (cum / maxCumulative) * rect.height * 0.9; // Use 90% of height
+      return rect.height - (cum / maxCumulative) * rect.height * 0.9; // Use 90% of height
     }
 
-    const drawArea = (points: {price: number, cumulative: number}[], side: 'bid' | 'ask') => {
-        if(points.length === 0) return;
+    const drawArea = (points: { price: number, cumulative: number }[], side: 'bid' | 'ask') => {
+      if (points.length === 0) return;
+      ctx.beginPath();
+      const startX = priceToX(points[0].price);
+      ctx.moveTo(startX, rect.height);
+
+      for (const point of points) {
+        const x = priceToX(point.price);
+        const y = cumToY(point.cumulative);
+        ctx.lineTo(x, y);
+      }
+
+      const endX = priceToX(points[points.length - 1].price);
+      ctx.lineTo(endX, rect.height);
+      ctx.closePath();
+
+      const grad = ctx.createLinearGradient(0, 0, 0, rect.height);
+      if (side === 'bid') {
+        grad.addColorStop(0, depthColor('bid', 0.8));
+        grad.addColorStop(1, depthColor('bid', 0));
+      } else {
+        grad.addColorStop(0, depthColor('ask', 0.8));
+        grad.addColorStop(1, depthColor('ask', 0));
+      }
+      ctx.fillStyle = grad;
+      ctx.fill();
+
+      // Draw bubbles / heat
+      for (const point of points) {
+        const intensity = computeWallIntensity(point.cumulative, maxCumulative);
+        const fillColor = depthColor(side, intensity);
+        const radius = 2 + intensity * 5;
+        const x = priceToX(point.price);
+        const y = cumToY(point.cumulative);
+
+        ctx.fillStyle = fillColor;
         ctx.beginPath();
-        const startX = priceToX(points[0].price);
-        ctx.moveTo(startX, rect.height);
-        
-        for(const point of points) {
-            const x = priceToX(point.price);
-            const y = cumToY(point.cumulative);
-            ctx.lineTo(x,y);
-        }
-        
-        const endX = priceToX(points[points.length - 1].price);
-        ctx.lineTo(endX, rect.height);
-        ctx.closePath();
-        
-        const grad = ctx.createLinearGradient(0,0,0, rect.height);
-        if (side === 'bid') {
-            grad.addColorStop(0, depthColor('bid', 0.8));
-            grad.addColorStop(1, depthColor('bid', 0));
-        } else {
-            grad.addColorStop(0, depthColor('ask', 0.8));
-            grad.addColorStop(1, depthColor('ask', 0));
-        }
-        ctx.fillStyle = grad;
+        ctx.arc(x, y, radius, 0, Math.PI * 2);
         ctx.fill();
-
-        // Draw bubbles / heat
-        for (const point of points) {
-            const intensity = computeWallIntensity(point.cumulative, maxCumulative);
-            const fillColor = depthColor(side, intensity);
-            const radius = 2 + intensity * 5;
-            const x = priceToX(point.price);
-            const y = cumToY(point.cumulative);
-
-            ctx.fillStyle = fillColor;
-            ctx.beginPath();
-            ctx.arc(x, y, radius, 0, Math.PI * 2);
-            ctx.fill();
-        }
+      }
     }
-    
+
     drawArea(bidPoints, 'bid');
     drawArea(askPoints, 'ask');
 
@@ -280,28 +283,29 @@ export default function DepthChart({ marketId }: { marketId: string }) {
   // AUTO-ZOOM LISTENER
   useEffect(() => {
     const handler = () => {
-        if (!market) return;
-        const store = useMarketDataStore.getState();
-        const currentBids = store.bids;
-        const currentAsks = store.asks;
-        if (!currentBids.length || !currentAsks.length) return;
+      if (!market) return;
+      const store = useMarketDataStore.getState();
+      const depthData = store.depth[symbol];
+      const currentBids = (depthData?.bids || []).map(b => ({ price: b.price, size: b.size }));
+      const currentAsks = (depthData?.asks || []).map(a => ({ price: a.price, size: a.size }));
+      if (!currentBids.length || !currentAsks.length) return;
 
-        const bestBid = currentBids[0].price;
-        const bestAsk = currentAsks[0].price;
-        
-        const { min: targetMin, max: targetMax } = computeVisibleRange(bestBid, bestAsk, market.pricePrecision);
-        
-        setAnimatedRange(prev => {
-            if (prev.min === 0 && prev.max === 0) return { min: targetMin, max: targetMax };
-            const nextMin = ease(prev.min, targetMin, 0.20);
-            const nextMax = ease(prev.max, targetMax, 0.20);
-            return { min: nextMin, max: nextMax };
-        });
+      const bestBid = currentBids[0].price;
+      const bestAsk = currentAsks[0].price;
+
+      const { min: targetMin, max: targetMax } = computeVisibleRange(bestBid, bestAsk, market.pricePrecision);
+
+      setAnimatedRange(prev => {
+        if (prev.min === 0 && prev.max === 0) return { min: targetMin, max: targetMax };
+        const nextMin = ease(prev.min, targetMin, 0.20);
+        const nextMax = ease(prev.max, targetMax, 0.20);
+        return { min: nextMin, max: nextMax };
+      });
     };
-    
+
     // Initial zoom
     if (bids.length && asks.length) handler();
-    
+
     window.addEventListener('depth:autoZoom', handler);
     return () => window.removeEventListener('depth:autoZoom', handler);
   }, [market, bids, asks, computeVisibleRange]);

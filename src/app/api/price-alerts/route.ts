@@ -60,7 +60,7 @@ export async function POST(req: Request) {
             lastTriggeredAt: null,
         };
 
-        await upsertItem('price_alerts', alert, userId);
+        await upsertItem('price_alerts', alert);
 
         return NextResponse.json(alert);
     } catch (error: any) {
@@ -84,8 +84,20 @@ export async function PATCH(req: Request) {
             );
         }
 
-        const alert = await upsertItem<PriceAlert>('price_alerts', { id, enabled }, userId);
-
+        // Fetch existing alert
+        const existingAlerts = await queryItems<PriceAlert>('price_alerts',
+            'SELECT * FROM c WHERE c.id = @id AND c.userId = @userId',
+            [{ name: '@id', value: id }, { name: '@userId', value: userId }]
+        );
+        if (existingAlerts.length === 0) {
+            return NextResponse.json(
+                { error: 'Alert not found' },
+                { status: 404 }
+            );
+        }
+        const existing = existingAlerts[0];
+        const updatedAlert: PriceAlert = { ...existing, enabled };
+        const alert = await upsertItem<PriceAlert>('price_alerts', updatedAlert);
         return NextResponse.json(alert);
     } catch (error: any) {
         console.error('Error updating price alert:', error);

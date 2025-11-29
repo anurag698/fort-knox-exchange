@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { upsertItem } from '@/lib/azure/cosmos';
+import { Withdrawal } from '@/lib/types';
 
 export async function POST(req: Request) {
   try {
@@ -12,19 +13,21 @@ export async function POST(req: Request) {
     const withdrawalId = `withdrawal-${userId}-${Date.now()}`;
 
     // Create withdrawal request in Cosmos DB
-    const withdrawal = {
+    // Create withdrawal request in Cosmos DB
+    const withdrawal: Withdrawal = {
       id: withdrawalId,
       userId,
-      address,
+      withdrawalAddress: address,
       amount,
-      token: token ?? "ETH",
-      status: "pending",
+      assetId: token ?? "ETH",
+      status: "PENDING",
       createdAt: new Date().toISOString(),
-      approvedAt: null,
-      txHash: null
+      updatedAt: new Date().toISOString(),
+      approvedAt: undefined,
+      transactionHash: undefined
     };
 
-    await upsertItem('withdrawals', withdrawal, userId);
+    await upsertItem<Withdrawal>('withdrawals', withdrawal);
 
     return NextResponse.json({
       status: "success",

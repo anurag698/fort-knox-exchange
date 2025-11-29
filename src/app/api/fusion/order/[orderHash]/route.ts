@@ -7,10 +7,10 @@ import { fusionPlusService } from '@/lib/1inch/fusion-plus.service';
  */
 export async function GET(
     request: Request,
-    { params }: { params: { orderHash: string } }
+    { params }: { params: Promise<{ orderHash: string }> }
 ) {
     try {
-        const orderHash = params.orderHash;
+        const { orderHash } = await params;
 
         if (!orderHash) {
             return NextResponse.json(

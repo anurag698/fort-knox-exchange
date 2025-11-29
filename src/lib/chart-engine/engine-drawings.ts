@@ -141,7 +141,7 @@ export class DrawingManager {
                         // Point to segment distance
                         const cursorX = this.chart.timeScale().timeToCoordinate(time as any);
                         if (cursorX !== null) {
-                            const dist = this.pointToSegmentDistance(cursorX, y, x1, y1, x2, y2);
+                            const dist = this.pointToSegmentDistance(cursorX as number, y, x1 as number, y1 as number, x2 as number, y2 as number);
                             if (dist < PIXEL_THRESHOLD) return { drawingIndex: i, pointIndex: -1 };
                         }
                     }

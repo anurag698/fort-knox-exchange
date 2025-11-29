@@ -33,7 +33,11 @@ export type Ticker = {
   high?: number;
   low?: number;
   vol?: number;
+  volume?: number;
   ts?: number;
+  price?: number;
+  change?: number;
+  changePercent?: number;
 };
 
 // helpers

@@ -9,12 +9,13 @@ import {
   DeepPartial,
   ChartOptions,
   CrosshairMode,
+  Time,
 } from "lightweight-charts";
 
 import {
   CHART_COLORS,
   Candle,
-  ChartEngineCore,
+  ChartEngine,
   applyAdaptiveScaling,
 } from "./engine-core";
 
@@ -70,10 +71,6 @@ export function createVolumeSeries(chart: IChartApi) {
   return chart.addHistogramSeries({
     color: CHART_COLORS.neonBlueDim,
     priceFormat: { type: "volume" },
-    scaleMargins: {
-      top: 0.8,
-      bottom: 0,
-    },
   });
 }
 
@@ -82,7 +79,7 @@ export function createVolumeSeries(chart: IChartApi) {
 // -------------------------------------------------
 function toLWCandle(c: Candle) {
   return {
-    time: Math.floor(c.t / 1000),
+    time: Math.floor(c.t / 1000) as Time,
     open: c.o,
     high: c.h,
     low: c.l,
@@ -92,7 +89,7 @@ function toLWCandle(c: Candle) {
 
 function toLWVolume(c: Candle) {
   return {
-    time: Math.floor(c.t / 1000),
+    time: Math.floor(c.t / 1000) as Time,
     value: c.v,
     color: c.c >= c.o ? CHART_COLORS.upCandle : CHART_COLORS.downCandle,
   };
@@ -102,13 +99,13 @@ function toLWVolume(c: Candle) {
 // Renderer Layer — Attaches Chart to Engine
 // -------------------------------------------------
 export class ChartEngineRenderer {
-  core: ChartEngineCore;
+  core: ChartEngine;
   chart: IChartApi | null = null;
 
   candleSeries: ISeriesApi<"Candlestick"> | null = null;
   volumeSeries: ISeriesApi<"Histogram"> | null = null;
 
-  constructor(core: ChartEngineCore) {
+  constructor(core: ChartEngine) {
     this.core = core;
   }
 
@@ -172,11 +169,11 @@ export class ChartEngineRenderer {
   // Programmatic Zoom Helpers
   // ---------------------------------------------
   zoomIn() {
-    this.chart?.timeScale().zoomIn();
+    // this.chart?.timeScale().zoomIn(); // Not available in lightweight-charts v4
   }
 
   zoomOut() {
-    this.chart?.timeScale().zoomOut();
+    // this.chart?.timeScale().zoomOut(); // Not available in lightweight-charts v4
   }
 
   resetZoom() {
@@ -189,7 +186,7 @@ export class ChartEngineRenderer {
   destroy() {
     try {
       this.chart?.remove();
-    } catch {}
+    } catch { }
     this.chart = null;
   }
 }

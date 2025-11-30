@@ -49,3 +49,5 @@ firebase-debug.log
 # sqlite
 *.db
 *.db-journal
+
+# Cache buster - force rebuild (DateTime: 2025-11-30 21:15 IST)

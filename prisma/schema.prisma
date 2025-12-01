@@ -11,7 +11,7 @@ datasource db {
 
 // User model - stores user account information
 model User {
-  id            String    @id @default(cuid())
+  id            String    @id @default(auto()) @map("_id") @db.ObjectId
   email         String    @unique
   name          String?
   photoURL      String?
@@ -42,13 +42,11 @@ model User {
   trades     Trade[]
   orders     Order[]
   sessions   Session[]
-  
-  @@index([email])
 }
 
 // Session model - for managing active sessions
 model Session {
-  id        String   @id @default(cuid())
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
   userId    String
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   
@@ -65,7 +63,7 @@ model Session {
 
 // Balance model - stores user balances for each asset
 model Balance {
-  id        String   @id @default(cuid())
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
   userId    String
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   
@@ -82,7 +80,7 @@ model Balance {
 
 // Trade model - stores completed trades
 model Trade {
-  id        String   @id @default(cuid())
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
   userId    String
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   
@@ -108,7 +106,7 @@ model Trade {
 
 // Order model - stores active and historical orders
 model Order {
-  id            String   @id @default(cuid())
+  id            String   @id @default(auto()) @map("_id") @db.ObjectId
   userId        String
   user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   
@@ -138,7 +136,7 @@ model Order {
 
 // Market model - stores market metadata (optional, can be static)
 model Market {
-  id          String   @id // e.g., "BTC-USDT"
+  id          String   @id @map("_id") // e.g., "BTC-USDT"
   baseAsset   String   // e.g., "BTC"
   quoteAsset  String   // e.g., "USDT"
   
@@ -157,7 +155,7 @@ model Market {
 
 // PriceAlert model - for price notifications
 model PriceAlert {
-  id        String   @id @default(cuid())
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
   userId    String
   
   marketId  String   // e.g., "BTC-USDT"

@@ -1,6 +1,10 @@
 import NextAuth, { NextAuthOptions } from "next-auth";
 import GoogleProvider from "next-auth/providers/google";
-import AzureADProvider from "next-auth/providers/azure-ad";
+import CredentialsProvider from "next-auth/providers/credentials";
+import { PrismaClient } from "@prisma/client";
+import bcrypt from "bcryptjs";
+
+const prisma = new PrismaClient();
 
 const authOptions: NextAuthOptions = {
     providers: [
@@ -8,15 +12,50 @@ const authOptions: NextAuthOptions = {
             clientId: process.env.GOOGLE_CLIENT_ID || "",
             clientSecret: process.env.GOOGLE_CLIENT_SECRET || "",
         }),
-        AzureADProvider({
-            clientId: process.env.NEXT_PUBLIC_AZURE_AD_CLIENT_ID || "",
-            clientSecret: process.env.AZURE_AD_CLIENT_SECRET || "",
-            tenantId: process.env.AZURE_AD_TENANT_ID || "common",
+        CredentialsProvider({
+            name: "Email",
+            credentials: {
+                email: { label: "Email", type: "email" },
+                password: { label: "Password", type: "password" }
+            },
+            async authorize(credentials) {
+                if (!credentials?.email || !credentials?.password) {
+                    throw new Error("Email and password required");
+                }
+
+                try {
+                    // Find user by email
+                    const user = await prisma.user.findUnique({
+                        where: { email: credentials.email }
+                    });
+
+                    if (!user) {
+                        throw new Error("No user found with this email");
+                    }
+
+                    // Verify password (assuming password is stored in a custom field)
+                    // Note: You'll need to add a password field to User model
+                    const isValid = await bcrypt.compare(credentials.password, user.password || "");
+
+                    if (!isValid) {
+                        throw new Error("Invalid password");
+                    }
+
+                    return {
+                        id: user.id,
+                        email: user.email,
+                        name: user.name,
+                        image: user.photoURL,
+                    };
+                } catch (error: any) {
+                    throw new Error(error.message || "Authentication failed");
+                }
+            }
         }),
     ],
     pages: {
         signIn: '/auth',
-        error: '/auth', // Error code passed in query string as ?error=
+        error: '/auth',
     },
     callbacks: {
         async session({ session, token }) {
@@ -25,13 +64,38 @@ const authOptions: NextAuthOptions = {
             }
             return session;
         },
-        async jwt({ token, account, profile }) {
-            // Persist the OAuth access_token and provider to the token right after signin
+        async jwt({ token, account, user }) {
             if (account) {
                 token.accessToken = account.access_token;
                 token.provider = account.provider;
             }
+            if (user) {
+                token.sub = user.id;
+            }
             return token;
+        },
+        async signIn({ user, account, profile }) {
+            // For Google OAuth, create user in database if doesn't exist
+            if (account?.provider === "google" && user.email) {
+                try {
+                    await prisma.user.upsert({
+                        where: { email: user.email },
+                        create: {
+                            email: user.email,
+                            name: user.name || null,
+                            photoURL: user.image || null,
+                            emailVerified: true,
+                        },
+                        update: {
+                            name: user.name || undefined,
+                            photoURL: user.image || undefined,
+                        },
+                    });
+                } catch (error) {
+                    console.error("Error creating/updating user:", error);
+                }
+            }
+            return true;
         },
     },
     session: {
@@ -45,4 +109,5 @@ const authOptions: NextAuthOptions = {
 const handler = NextAuth(authOptions);
 
 export { handler as GET, handler as POST };
+
 

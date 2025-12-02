@@ -47,6 +47,7 @@
     "@safe-global/protocol-kit": "^3.0.1",
     "@safe-global/safe-core-sdk-types": "^4.0.0",
     "axios": "^1.7.2",
+    "bcryptjs": "^3.0.3",
     "bip32": "^4.0.0",
     "bip39": "^3.1.0",
     "bitcoin-address-validation": "^3.0.0",
@@ -97,6 +98,7 @@
   },
   "devDependencies": {
     "@prisma/client": "^5.22.0",
+    "@types/bcryptjs": "^2.4.6",
     "@types/express": "^4.17.21",
     "@types/node": "^20",
     "@types/qrcode": "^1.5.6",

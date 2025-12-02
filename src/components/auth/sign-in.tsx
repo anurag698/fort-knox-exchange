@@ -98,20 +98,28 @@ export function SignIn() {
     setLoading(true);
 
     try {
-      // Simulate email/password authentication
-      await new Promise(resolve => setTimeout(resolve, 1000));
-
-      // For demo, accept any email/password
-      toast({
-        title: 'Welcome back!',
-        description: 'Successfully signed in.',
+      const result = await nextAuthSignIn('credentials', {
+        email,
+        password,
+        redirect: false
       });
-      router.push('/trade/BTC-USDT');
+
+      if (result?.error) {
+        throw new Error(result.error);
+      }
+
+      if (result?.ok) {
+        toast({
+          title: 'Welcome back!',
+          description: 'Successfully signed in.',
+        });
+        router.push('/trade/BTC-USDT');
+      }
     } catch (error: any) {
       toast({
         variant: 'destructive',
         title: 'Authentication Error',
-        description: 'Invalid credentials. Please try again.',
+        description: error.message || 'Invalid credentials. Please try again.',
       });
     } finally {
       setLoading(false);
@@ -134,19 +142,38 @@ export function SignIn() {
     setLoading(true);
 
     try {
-      // Simulate account creation
-      await new Promise(resolve => setTimeout(resolve, 1500));
-
-      toast({
-        title: 'Account Created!',
-        description: 'Welcome to Fort Knox Exchange.',
+      // Call signup API
+      const res = await fetch('/api/auth/signup', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, email, password }),
       });
-      router.push('/trade/BTC-USDT');
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.error || 'Failed to create account');
+      }
+
+      // Auto sign in after signup
+      const signInResult = await nextAuthSignIn('credentials', {
+        email,
+        password,
+        redirect: false
+      });
+
+      if (signInResult?.ok) {
+        toast({
+          title: 'Account Created!',
+          description: 'Welcome to Fort Knox Exchange.',
+        });
+        router.push('/trade/BTC-USDT');
+      }
     } catch (error: any) {
       toast({
         variant: 'destructive',
         title: 'Registration Error',
-        description: 'Failed to create account. Please try again.',
+        description: error.message || 'Failed to create account. Please try again.',
       });
     } finally {
       setLoading(false);
@@ -178,22 +205,6 @@ export function SignIn() {
                 <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" />
               </svg>
               Continue with Google
-            </Button>
-
-            {/* Microsoft */}
-            <Button
-              onClick={() => handleOAuthSignIn('Microsoft')}
-              variant="outline"
-              className="w-full h-12 gap-3 border-2 hover:bg-accent transition-all"
-              disabled={loading}
-            >
-              <svg className="w-5 h-5" viewBox="0 0 21 21">
-                <rect x="1" y="1" width="9" height="9" fill="#f25022" />
-                <rect x="1" y="11" width="9" height="9" fill="#00a4ef" />
-                <rect x="11" y="1" width="9" height="9" fill="#7fba00" />
-                <rect x="11" y="11" width="9" height="9" fill="#ffb900" />
-              </svg>
-              Continue with Microsoft
             </Button>
           </div>
 
